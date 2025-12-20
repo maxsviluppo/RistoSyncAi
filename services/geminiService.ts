@@ -30,9 +30,28 @@ export const askChefAI = async (query: string, currentItem: MenuItem | null): Pr
         const response = result.response;
 
         return response.text() || "Non riesco a rispondere al momento.";
-    } catch (error) {
+    } catch (error: any) {
         console.error("Gemini Error:", error);
-        return "Errore AI. Verifica la chiave API.";
+
+        // Gestione dettagliata degli errori
+        if (error?.message?.includes('API_KEY_INVALID') || error?.message?.includes('invalid')) {
+            return "❌ API Key non valida. Verifica di aver inserito la chiave corretta nelle Impostazioni > AI Intelligence.";
+        }
+
+        if (error?.message?.includes('RESOURCE_EXHAUSTED') || error?.message?.includes('quota')) {
+            return "⏳ Quota giornaliera esaurita. Le API gratuite hanno limiti di utilizzo. Riprova domani o passa a un piano a pagamento.";
+        }
+
+        if (error?.message?.includes('PERMISSION_DENIED')) {
+            return "🔒 Permesso negato. Assicurati che l'API key abbia i permessi corretti per Gemini AI.";
+        }
+
+        if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+            return "🌐 Errore di connessione. Controlla la tua connessione internet e riprova.";
+        }
+
+        // Errore generico con dettagli
+        return `❌ Errore AI: ${error?.message || 'Sconosciuto'}. Verifica la chiave API nelle impostazioni.`;
     }
 };
 

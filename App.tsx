@@ -2687,12 +2687,36 @@ export function App() {
                                         <input type="password" value={apiKeyInput} onChange={(e) => setApiKeyInput(e.target.value)} placeholder="Incolla la tua API Key qui..." className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-yellow-500" />
                                         <button onClick={handleSaveApiKey} className="bg-yellow-600 hover:bg-yellow-500 text-white font-bold px-6 py-3 rounded-xl transition-colors">Salva</button>
                                         {hasApiKey && (
-                                            <button onClick={handleRemoveApiKey} className="bg-slate-800 hover:bg-red-600/20 hover:text-red-500 text-slate-400 p-3 rounded-xl transition-colors border border-slate-700 hover:border-red-500/50" title="Rimuovi API Key">
-                                                <Trash2 size={20} />
-                                            </button>
+                                            <>
+                                                <button
+                                                    onClick={async () => {
+                                                        setIsChatting(true);
+                                                        const testResult = await askChefAI("Test connessione", null);
+                                                        showToast(testResult.includes('❌') || testResult.includes('⏳') || testResult.includes('🔒') || testResult.includes('🌐') ? testResult : '✅ API Key funzionante!', testResult.includes('❌') || testResult.includes('⏳') || testResult.includes('🔒') || testResult.includes('🌐') ? 'error' : 'success');
+                                                        setIsChatting(false);
+                                                    }}
+                                                    disabled={isChatting}
+                                                    className="bg-green-600 hover:bg-green-500 text-white font-bold px-4 py-3 rounded-xl transition-colors disabled:opacity-50 flex items-center gap-2"
+                                                    title="Testa la connessione API"
+                                                >
+                                                    {isChatting ? <Loader className="animate-spin" size={16} /> : <CheckCircle size={16} />}
+                                                    Test
+                                                </button>
+                                                <button onClick={handleRemoveApiKey} className="bg-slate-800 hover:bg-red-600/20 hover:text-red-500 text-slate-400 p-3 rounded-xl transition-colors border border-slate-700 hover:border-red-500/50" title="Rimuovi API Key">
+                                                    <Trash2 size={20} />
+                                                </button>
+                                            </>
                                         )}
                                     </div>
                                     <p className="text-xs text-slate-500 mt-2">Non hai una chiave? <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-blue-400 hover:underline">Richiedila qui</a>.</p>
+                                    {hasApiKey && (
+                                        <div className="mt-4 p-3 bg-blue-900/20 border border-blue-500/30 rounded-xl">
+                                            <p className="text-xs text-blue-300 flex items-center gap-2">
+                                                <Info size={14} />
+                                                <span>💡 <strong>Suggerimento:</strong> Le API gratuite hanno limiti giornalieri. Se ricevi errori di quota, riprova domani o passa a un piano a pagamento su Google AI Studio.</span>
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 flex flex-col h-[500px]">
