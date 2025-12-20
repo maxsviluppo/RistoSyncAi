@@ -11,7 +11,7 @@ export const askChefAI = async (query: string, currentItem: MenuItem | null): Pr
         }
 
         const ai = new GoogleGenerativeAI(apiKey);
-        const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = ai.getGenerativeModel({ model: 'gemini-pro' });
 
         const context = currentItem
             ? `Il cliente sta chiedendo informazioni sul piatto: "${currentItem.name}". Ingredienti: ${currentItem.ingredients || 'Non specificati'}. Descrizione: ${currentItem.description || 'Nessuna'}. Allergeni: ${currentItem.allergens?.join(', ') || 'Nessuno'}.`
@@ -65,7 +65,7 @@ export const generateRestaurantAnalysis = async (stats: any, date: string): Prom
         if (!apiKey) return "⚠️ Chiave API mancante.";
 
         const ai = new GoogleGenerativeAI(apiKey);
-        const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = ai.getGenerativeModel({ model: 'gemini-pro' });
 
         const prompt = `
             Sei un Consulente Ristorazione esperto. Analizza i dati del ${date}:
@@ -109,7 +109,7 @@ export const generateDishIngredients = async (dishName: string): Promise<string>
         if (!apiKey) return "";
 
         const ai = new GoogleGenerativeAI(apiKey);
-        const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = ai.getGenerativeModel({ model: 'gemini-pro' });
 
         const prompt = `
             Sei uno Chef. 
@@ -134,7 +134,7 @@ export const generateDishDescription = async (dishName: string, ingredients: str
         if (!apiKey) return "";
 
         const ai = new GoogleGenerativeAI(apiKey);
-        const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = ai.getGenerativeModel({ model: 'gemini-pro' });
 
         const prompt = `
             Sei uno Chef stellato che scrive il menu.
@@ -160,7 +160,7 @@ export const generateRestaurantDescription = async (restaurantName: string): Pro
         if (!apiKey) return "";
 
         const ai = new GoogleGenerativeAI(apiKey);
-        const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = ai.getGenerativeModel({ model: 'gemini-pro' });
 
         const prompt = `
             Sei un esperto copywriter per la ristorazione.
@@ -198,7 +198,7 @@ export const extractMenuFromImage = async (imageBase64: string): Promise<Extract
         }
 
         const ai = new GoogleGenerativeAI(apiKey);
-        const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = ai.getGenerativeModel({ model: 'gemini-pro' });
 
         const prompt = `
             Sei un esperto di OCR e menu di ristoranti.
@@ -271,7 +271,7 @@ export const generateSocialPost = async (topic: string, imageContext?: string): 
         if (!apiKey) return "";
 
         const ai = new GoogleGenerativeAI(apiKey);
-        const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = ai.getGenerativeModel({ model: 'gemini-pro' });
 
         const prompt = `
             Sei un Social Media Manager esperto per ristoranti.
@@ -316,7 +316,7 @@ export const detectAllergensFromIngredients = async (ingredients: string): Promi
         }
 
         const ai = new GoogleGenerativeAI(apiKey);
-        const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' });
+        const model = ai.getGenerativeModel({ model: 'gemini-pro' });
 
         const prompt = `
             Sei un esperto nutrizionista e allergologo.
