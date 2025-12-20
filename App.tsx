@@ -1567,9 +1567,35 @@ export function App() {
                                                             </div>
                                                             <div className="flex-1">
                                                                 <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Categoria</label>
-                                                                <select value={editingItem.category || Category.ANTIPASTI} onChange={e => setEditingItem({ ...editingItem, category: e.target.value as Category })} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-bold text-sm focus:border-blue-500 outline-none appearance-none transition-colors cursor-pointer">
-                                                                    {Object.values(Category).map(c => <option key={c} value={c}>{c}</option>)}
-                                                                </select>
+                                                                <div className="relative">
+                                                                    <select
+                                                                        value={editingItem.category || Category.ANTIPASTI}
+                                                                        onChange={e => setEditingItem({ ...editingItem, category: e.target.value as Category })}
+                                                                        className="w-full bg-slate-950 border border-slate-700 rounded-xl pl-10 pr-10 py-2.5 text-white font-bold text-sm focus:border-blue-500 outline-none appearance-none transition-colors cursor-pointer hover:border-slate-600"
+                                                                    >
+                                                                        <option value={Category.MENU_COMPLETO}>{Category.MENU_COMPLETO}</option>
+                                                                        <option value={Category.ANTIPASTI}>{Category.ANTIPASTI}</option>
+                                                                        <option value={Category.PANINI}>{Category.PANINI}</option>
+                                                                        <option value={Category.PIZZE}>{Category.PIZZE}</option>
+                                                                        <option value={Category.PRIMI}>{Category.PRIMI}</option>
+                                                                        <option value={Category.SECONDI}>{Category.SECONDI}</option>
+                                                                        <option value={Category.DOLCI}>{Category.DOLCI}</option>
+                                                                        <option value={Category.BEVANDE}>{Category.BEVANDE}</option>
+                                                                    </select>
+                                                                    {/* Icon on the left based on selected category */}
+                                                                    <div className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                                                                        {editingItem.category === Category.MENU_COMPLETO && <UtensilsCrossed size={16} />}
+                                                                        {editingItem.category === Category.ANTIPASTI && <Utensils size={16} />}
+                                                                        {editingItem.category === Category.PANINI && <Sandwich size={16} />}
+                                                                        {editingItem.category === Category.PIZZE && <Pizza size={16} />}
+                                                                        {editingItem.category === Category.PRIMI && <Utensils size={16} />}
+                                                                        {editingItem.category === Category.SECONDI && <Flame size={16} />}
+                                                                        {editingItem.category === Category.DOLCI && <CakeSlice size={16} />}
+                                                                        {editingItem.category === Category.BEVANDE && <Wine size={16} />}
+                                                                    </div>
+                                                                    {/* Chevron down icon */}
+                                                                    <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500" />
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
