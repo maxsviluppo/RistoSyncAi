@@ -682,8 +682,47 @@
 
     <audio id="cash-sound" src="cash-register-kaching-376867.mp3" preload="auto"></audio>
 
-    <!-- Initialize Supabase client -->
-    <script src="supabase-init.js"></script>
+    <!-- Initialize Supabase client inline to ensure it's available before other scripts -->
+    <script>
+        // Supabase Configuration
+        const SUPABASE_URL = 'https://zhgpccmzgyertwnvyiaz.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoZ3BjY216Z3llcnR3bnZ5aWF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5OTU4NDQsImV4cCI6MjA3OTU3MTg0NH0.A0WxSn-8JKpd4tXTxSxLQIoq3M-654vGpw_guAHpQQc';
+
+        // Wait for Supabase library to load
+        function initSupabaseClient() {
+            if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+                // Save library reference
+                const supabaseLib = window.supabase;
+                // Create and assign client
+                window.supabase = supabaseLib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                console.log('✅ Supabase client initialized successfully');
+                return true;
+            }
+            return false;
+        }
+
+        // Try immediate initialization
+        if (!initSupabaseClient()) {
+            // Retry after a short delay
+            setTimeout(() => {
+                if (!initSupabaseClient()) {
+                    console.error('❌ Failed to initialize Supabase client');
+                }
+            }, 100);
+        }
+
+        // Email check interval (2 hours)
+        const EMAIL_CHECK_INTERVAL = 2 * 60 * 60 * 1000;
+
+        // Configuration
+        const CONFIG = {
+            supabaseUrl: SUPABASE_URL,
+            supabaseKey: SUPABASE_ANON_KEY,
+            emailCheckInterval: EMAIL_CHECK_INTERVAL,
+            notificationSound: true,
+            enablePushNotifications: true
+        };
+    </script>
 
     <script src="backup-restore.js" defer></script>
     <script src="script.js" defer></script>

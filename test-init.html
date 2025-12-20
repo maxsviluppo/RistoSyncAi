@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Test Supabase Init</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        // Initialize immediately after library loads
+        const SUPABASE_URL = 'https://zhgpccmzgyertwnvyiaz.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpoZ3BjY216Z3llcnR3bnZ5aWF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM5OTU4NDQsImV4cCI6MjA3OTU3MTg0NH0.A0WxSn-8JKpd4tXTxSxLQIoq3M-654vGpw_guAHpQQc';
+
+        if (window.supabase && window.supabase.createClient) {
+            const lib = window.supabase;
+            window.supabase = lib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            console.log('Supabase client initialized');
+        } else {
+            console.error('Supabase library not found');
+        }
+    </script>
+</head>
+
+<body>
+    <h1>Test Supabase Initialization</h1>
+    <button onclick="testQuery()">Test Query</button>
+    <pre id="result"></pre>
+
+    <script>
+        async function testQuery() {
+            const result = document.getElementById('result');
+            try {
+                const { data, error } = await supabase.from('sales').select('*').limit(5);
+                if (error) throw error;
+                result.textContent = JSON.stringify(data, null, 2);
+            } catch (e) {
+                result.textContent = 'Error: ' + e.message;
+            }
+        }
+    </script>
+</body>
+
+</html>
