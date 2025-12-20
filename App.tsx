@@ -382,7 +382,7 @@ export function App() {
         });
 
         const handleStorageQuota = () => {
-            alert("⚠️ MEMORIA DISPOSITIVO PIENA!\nLe immagini occupano troppo spazio. Alcuni dati potrebbero non venire salvati in locale.\nConsiglio: Elimina piatti vecchi o usa immagini più leggere.");
+            showToast("⚠️ Memoria dispositivo piena! Le immagini occupano troppo spazio.", 'error');
         };
         window.addEventListener('storage-quota-exceeded', handleStorageQuota);
 
@@ -632,7 +632,7 @@ export function App() {
                 });
             }
         }
-        if (hasUpdates) { setMenuItems(getMenuItems()); alert(`✅ Completato! Associate ${updatedCount} immagini ai piatti.`); } else { alert("⚠️ Nessuna immagine corrispondeva ai nomi dei piatti nel menu."); }
+        if (hasUpdates) { setMenuItems(getMenuItems()); showToast(`✅ Associate ${updatedCount} immagini ai piatti!`, 'success'); } else { showToast("⚠️ Nessuna immagine corrispondeva ai nomi dei piatti.", 'error'); }
     };
 
     // AI Smart Import State
@@ -802,9 +802,9 @@ export function App() {
                             }
                         });
                         setMenuItems(getMenuItems());
-                        alert(`Importati ${data.length} piatti!`);
+                        showToast(`Importati ${data.length} piatti!`);
                     }
-                } catch (err) { alert("Errore nel file JSON"); }
+                } catch (err) { showToast("Errore nel file JSON"); }
             };
             reader.readAsText(file);
         }
@@ -883,7 +883,7 @@ export function App() {
     // --- PROFILE AI & MIC HANDLERS ---
     const handleGenerateBio = async () => {
         if (!profileForm.name) {
-            alert("Inserisci prima il nome del ristorante.");
+            showToast("Inserisci prima il nome del ristorante.");
             return;
         }
         setIsGeneratingBio(true);
@@ -894,7 +894,7 @@ export function App() {
 
     const handleMicBio = () => {
         if (!('webkitSpeechRecognition' in window)) {
-            alert("Il tuo browser non supporta il riconoscimento vocale. Usa Chrome.");
+            showToast("Il tuo browser non supporta il riconoscimento vocale. Usa Chrome.");
             return;
         }
         const recognition = new window.webkitSpeechRecognition();
@@ -1011,7 +1011,7 @@ export function App() {
     }, [ordersForAnalytics, selectedDate]);
 
     // --- SETTINGS & SHARE ---
-    const saveDestinations = async () => { const newSettings: AppSettings = { ...appSettings, categoryDestinations: tempDestinations, printEnabled: tempPrintSettings }; await saveAppSettings(newSettings); setAppSettingsState(newSettings); setHasUnsavedDestinations(false); alert("Impostazioni salvate con successo!"); };
+    const saveDestinations = async () => { const newSettings: AppSettings = { ...appSettings, categoryDestinations: tempDestinations, printEnabled: tempPrintSettings }; await saveAppSettings(newSettings); setAppSettingsState(newSettings); setHasUnsavedDestinations(false); showToast("✅ Impostazioni salvate con successo!", 'success'); };
     const handleSaveAppSettings = async () => { const newSettings: AppSettings = { categoryDestinations: tempDestinations, printEnabled: tempPrintSettings, restaurantProfile: { ...appSettings.restaurantProfile, ...profileForm } }; await saveAppSettings(newSettings); setAppSettingsState(newSettings); setHasUnsavedDestinations(false); await showSuccess("✅ Profilo Salvato", "La configurazione è stata salvata con successo!"); };
     const handleSaveApiKey = async () => { await saveGoogleApiKey(apiKeyInput); setHasApiKey(true); showToast("API Key salvata con successo!", 'success'); };
     const handleRemoveApiKey = async () => {
@@ -1029,7 +1029,7 @@ export function App() {
     };
     const digitalMenuLink = session?.user?.id ? `${window.location.origin}?menu=${session.user.id}` : '';
     const qrCodeUrl = digitalMenuLink ? `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(digitalMenuLink)}` : '';
-    const copyToClipboard = () => { navigator.clipboard.writeText(digitalMenuLink); alert("Link copiato!"); };
+    const copyToClipboard = () => { navigator.clipboard.writeText(digitalMenuLink); showToast("📋 Link copiato negli appunti!", 'success'); };
     const shareLink = () => { if (navigator.share) { navigator.share({ title: restaurantName, text: 'Guarda il nostro menu!', url: digitalMenuLink }).catch(console.error); } else { copyToClipboard(); } };
 
     const handleAskChef = async () => {
