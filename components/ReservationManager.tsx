@@ -91,6 +91,8 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
     });
 
     const [foundCustomer, setFoundCustomer] = useState<Customer | null>(null);
+    const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
 
     // Load data
     useEffect(() => {
@@ -200,6 +202,44 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
         return null;
     };
 
+    // Ricerca intelligente in tempo reale
+    const handleSearchInput = (query: string) => {
+        setSearchQuery(query);
+
+        if (query.trim().length < 2) {
+            setCustomerSuggestions([]);
+            setShowSuggestions(false);
+            return;
+        }
+
+        // Cerca clienti che matchano telefono, nome o cognome
+        const matches = customers.filter(c =>
+            c.phone.includes(query) ||
+            c.firstName.toLowerCase().includes(query.toLowerCase()) ||
+            c.lastName.toLowerCase().includes(query.toLowerCase()) ||
+            `${c.firstName} ${c.lastName}`.toLowerCase().includes(query.toLowerCase())
+        ).slice(0, 5); // Max 5 suggerimenti
+
+        setCustomerSuggestions(matches);
+        setShowSuggestions(matches.length > 0);
+    };
+
+    // Seleziona cliente da suggerimenti
+    const selectCustomer = (customer: Customer) => {
+        setFoundCustomer(customer);
+        setFormData({
+            ...formData,
+            customerPhone: customer.phone,
+            customerFirstName: customer.firstName,
+            customerLastName: customer.lastName,
+            customerEmail: customer.email || '',
+            customerCity: customer.city || '',
+        });
+        setSearchQuery(`${customer.firstName} ${customer.lastName}`);
+        setShowSuggestions(false);
+        showToast(`✅ Cliente selezionato: ${customer.firstName} ${customer.lastName}`, 'success');
+    };
+
     const searchCustomer = (query: string) => {
         const found = customers.find(c =>
             c.phone.includes(query) ||
@@ -207,16 +247,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
         );
 
         if (found) {
-            setFoundCustomer(found);
-            setFormData({
-                ...formData,
-                customerPhone: found.phone,
-                customerFirstName: found.firstName,
-                customerLastName: found.lastName,
-                customerEmail: found.email || '',
-                customerCity: found.city || '',
-            });
-            showToast(`✅ Cliente trovato: ${found.firstName} ${found.lastName}`, 'success');
+            selectCustomer(found);
         } else {
             setFoundCustomer(null);
         }
@@ -872,17 +903,51 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
                                     </div>
 
                                     {/* Customer Search */}
-                                    <div>
+                                    <div className="relative">
                                         <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Cerca Cliente (Telefono o Nome)</label>
                                         <div className="flex gap-2">
-                                            <input
-                                                type="text"
-                                                value={searchQuery}
-                                                onChange={(e) => setSearchQuery(e.target.value)}
-                                                placeholder="Inserisci telefono o nome..."
-                                                className="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500"
-                                            />
+                                            <div className="flex-1 relative">
+                                                <input
+                                                    type="text"
+                                                    value={searchQuery}
+                                                    onChange={(e) => handleSearchInput(e.target.value)}
+                                                    onFocus={() => {
+                                                        if (customerSuggestions.length > 0) setShowSuggestions(true);
+                                                    }}
+                                                    placeholder="Inserisci telefono o nome..."
+                                                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500"
+                                                />
+
+                                                {/* Dropdown Suggerimenti */}
+                                                {showSuggestions && customerSuggestions.length > 0 && (
+                                                    <div className="absolute top-full mt-2 w-full bg-slate-900 border border-purple-500 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto">
+                                                        {customerSuggestions.map((customer) => (
+                                                            <button
+                                                                key={customer.id}
+                                                                type="button"
+                                                                onClick={() => selectCustomer(customer)}
+                                                                className="w-full text-left px-4 py-3 hover:bg-purple-900/30 transition-colors border-b border-slate-800 last:border-0"
+                                                            >
+                                                                <div className="flex items-center justify-between">
+                                                                    <div>
+                                                                        <div className="text-white font-bold text-sm">
+                                                                            {customer.firstName} {customer.lastName}
+                                                                        </div>
+                                                                        <div className="text-slate-400 text-xs">
+                                                                            📞 {customer.phone} {customer.city && `• 📍 ${customer.city}`}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="text-xs text-purple-400 font-bold">
+                                                                        {customer.totalVisits || 0} visite
+                                                                    </div>
+                                                                </div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
                                             <button
+                                                type="button"
                                                 onClick={() => searchCustomer(searchQuery)}
                                                 className="bg-purple-600 hover:bg-purple-500 px-6 py-3 rounded-xl font-bold text-white transition-colors flex items-center gap-2"
                                             >
