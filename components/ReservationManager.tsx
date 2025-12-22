@@ -721,6 +721,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
                                     </div>
 
                                     {/* Date & Table Selection Row */}
+                                    {/* Date & Table Selection Row */}
                                     <div className="grid grid-cols-2 gap-4 mb-2">
                                         {/* Styled Date Picker using Overlay Trick */}
                                         <div className="relative group">
@@ -728,10 +729,10 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
                                                 <Calendar size={12} className="text-purple-400" />
                                                 Data Prenotazione
                                             </label>
-                                            <div className="bg-slate-900 border border-slate-700 group-hover:border-purple-500 rounded-xl px-4 py-3 flex items-center justify-between transition-all cursor-pointer">
+                                            <div className="bg-slate-900 border border-slate-700 group-hover:border-purple-500 rounded-xl px-4 py-3 flex items-center justify-between transition-all cursor-pointer h-[72px]">
                                                 <div className="flex items-center gap-3">
                                                     <div className="bg-purple-500/20 p-2 rounded-lg text-purple-400">
-                                                        <Calendar size={18} />
+                                                        <Calendar size={20} />
                                                     </div>
                                                     <div>
                                                         <div className="text-white font-bold text-sm">
@@ -742,58 +743,67 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <ChevronDown size={16} className="text-slate-500" />
+                                                <ChevronDown size={16} className="text-slate-500 group-hover:text-purple-500 transition-colors" />
                                             </div>
                                             <input
                                                 type="date"
                                                 value={formData.reservationDate}
+                                                onClick={(e) => {
+                                                    try { (e.target as HTMLInputElement).showPicker(); } catch (err) { }
+                                                }}
                                                 onChange={(e) => setFormData({ ...formData, reservationDate: e.target.value })}
-                                                className="absolute inset-0 top-6 w-full h-full opacity-0 cursor-pointer z-10"
+                                                className="absolute inset-0 top-6 w-full h-full opacity-0 cursor-pointer z-20"
                                             />
                                         </div>
 
-                                        {/* Dynamic Table Selector */}
-                                        <div>
+                                        {/* Styled Dynamic Table Selector */}
+                                        <div className="relative group">
                                             <label className="text-xs font-bold text-slate-400 uppercase mb-1 flex items-center gap-2">
                                                 <LayoutGrid size={12} className="text-blue-400" />
                                                 Tavolo
                                             </label>
-                                            <div className="relative">
-                                                <select
-                                                    value={selectedTable || ''}
-                                                    onChange={(e) => setSelectedTable(e.target.value)}
-                                                    className="w-full bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-xl px-4 py-3 pl-12 text-white font-bold outline-none appearance-none transition-all cursor-pointer"
-                                                >
-                                                    <option value="" disabled>Seleziona un tavolo</option>
-                                                    {selectedTable && !Array.from({ length: tableCount }, (_, i) => String(i + 1)).includes(selectedTable) && (
-                                                        <option value={selectedTable}>Tavolo {selectedTable} (Corrente)</option>
-                                                    )}
-                                                    {Array.from({ length: tableCount }, (_, i) => String(i + 1))
-                                                        .filter(tNum => {
-                                                            // Keep current selected table always visible
-                                                            if (tNum === selectedTable) return true;
-                                                            // Check conflicts
-                                                            const conflict = reservations.some(r =>
-                                                                r.tableNumber === tNum &&
-                                                                r.reservationDate === formData.reservationDate &&
-                                                                r.status !== 'Cancellato' &&
-                                                                r.status !== 'Non Presentato' &&
-                                                                r.id !== editingReservation?.id
-                                                            );
-                                                            return !conflict;
-                                                        })
-                                                        .map(tNum => (
-                                                            <option key={tNum} value={tNum}>Tavolo {tNum}</option>
-                                                        ))
-                                                    }
-                                                </select>
-                                                <div className="absolute left-3 top-1/2 -translate-y-1/2 bg-blue-500/20 p-1.5 rounded-lg text-blue-400 pointer-events-none">
-                                                    <div className="w-5 h-5 flex items-center justify-center font-bold text-xs cursor-pointer">
-                                                        {selectedTable || '-'}
+                                            <div className="bg-slate-900 border border-slate-700 group-hover:border-blue-500 rounded-xl px-4 py-3 flex items-center justify-between transition-all cursor-pointer h-[72px]">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="bg-blue-500/20 p-2 rounded-lg text-blue-400">
+                                                        <LayoutGrid size={20} />
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-white font-bold text-sm">
+                                                            {selectedTable ? `Tavolo ${selectedTable}` : 'Seleziona...'}
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                                                            {selectedTable ? 'Disponibile' : 'Nessun tavolo'}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+                                                <ChevronDown size={16} className="text-slate-500 group-hover:text-blue-500 transition-colors" />
                                             </div>
+                                            <select
+                                                value={selectedTable || ''}
+                                                onChange={(e) => setSelectedTable(e.target.value)}
+                                                className="absolute inset-0 top-6 w-full h-full opacity-0 cursor-pointer z-20 appearance-none bg-transparent"
+                                            >
+                                                <option value="" disabled>Seleziona un tavolo</option>
+                                                {selectedTable && !Array.from({ length: tableCount }, (_, i) => String(i + 1)).includes(selectedTable) && (
+                                                    <option value={selectedTable}>Tavolo {selectedTable} (Corrente)</option>
+                                                )}
+                                                {Array.from({ length: tableCount }, (_, i) => String(i + 1))
+                                                    .filter(tNum => {
+                                                        if (tNum === selectedTable) return true;
+                                                        const conflict = reservations.some(r =>
+                                                            r.tableNumber === tNum &&
+                                                            r.reservationDate === formData.reservationDate &&
+                                                            r.status !== 'Cancellato' &&
+                                                            r.status !== 'Non Presentato' &&
+                                                            r.id !== editingReservation?.id
+                                                        );
+                                                        return !conflict;
+                                                    })
+                                                    .map(tNum => (
+                                                        <option key={tNum} value={tNum}>Tavolo {tNum}</option>
+                                                    ))
+                                                }
+                                            </select>
                                         </div>
                                     </div>
 
