@@ -1,0 +1,35 @@
+
+Name                    Length LastWriteTime
+----                    ------ -------------
+App.tsx                 267241 20/12/2025 10:31:40
+CHANGELOG.md              4389 20/12/2025 10:35:50
+FILE_LIST.txt                0 20/12/2025 10:36:40
+index.html                3594 11/12/2025 17:34:56
+package.json               764 20/12/2025 02:09:05
+README.md                 2256 20/12/2025 10:34:41
+types.ts                  6527 19/12/2025 21:48:09
+vite.config.ts             774 11/12/2025 22:51:51
+AdminMessagesPanel.tsx   31569 15/12/2025 15:36:17
+AuthScreen.tsx           19510 17/12/2025 18:51:16
+CustomDialog.tsx          3751 13/12/2025 08:58:37
+DeliveryFlyer.tsx         7936 18/12/2025 13:29:30
+DeliveryManager.tsx      61602 17/12/2025 10:15:32
+DigitalMenu.tsx          32822 15/12/2025 17:27:19
+KitchenDisplay.tsx       62386 19/12/2025 19:45:29
+LandingPage.tsx          72878 18/12/2025 11:55:54
+MarketingPanel.tsx       67372 19/12/2025 15:14:43
+MessagesPanel.tsx        24889 19/12/2025 07:50:02
+PlatformEditModal.tsx    11031 17/12/2025 09:10:37
+PrintableMenu.tsx        16184 18/12/2025 13:24:41
+SuperAdminDashboard.tsx  98387 18/12/2025 12:26:54
+TableMonitor.tsx         24814 20/12/2025 02:31:54
+Toast.tsx                 2282 12/12/2025 18:17:12
+ToastProvider.tsx         2639 15/12/2025 18:19:03
+WaiterPad.tsx            54591 20/12/2025 02:29:06
+WelcomeModal.tsx         13147 14/12/2025 22:28:10
+geminiService.ts         16482 20/12/2025 10:14:24
+socialService.ts          3800 15/12/2025 18:40:04
+storageService.ts        42296 20/12/2025 01:53:39
+supabase.ts               2290 11/12/2025 22:51:44
+
+
