@@ -14,6 +14,8 @@ import PrintableMenu from './components/PrintableMenu';
 import DeliveryFlyer from './components/DeliveryFlyer';
 import PlatformEditModal from './components/PlatformEditModal';
 import TableMonitor from './components/TableMonitor';
+import ReservationManager from './components/ReservationManager';
+import CustomerManager from './components/CustomerManager';
 import { LandingPage } from './components/LandingPage';
 import { ChefHat, Smartphone, User, Settings, Bell, Utensils, X, Save, Plus, Trash2, Edit2, Wheat, Milk, Egg, Nut, Fish, Bean, Flame, Leaf, Info, LogOut, Bot, Key, Database, ShieldCheck, Lock, AlertTriangle, Mail, RefreshCw, Send, Printer, Mic, MicOff, TrendingUp, BarChart3, Calendar, ChevronLeft, ChevronRight, DollarSign, History, Receipt, UtensilsCrossed, Eye, ArrowRight, QrCode, Share2, Copy, MapPin, Store, Phone, Globe, Star, Pizza, CakeSlice, Wine, Sandwich, MessageCircle, FileText, PhoneCall, Sparkles, Loader, Facebook, Instagram, Youtube, Linkedin, Music, Compass, FileSpreadsheet, Image as ImageIcon, Upload, FileImage, ExternalLink, CreditCard, Banknote, Briefcase, Clock, Check, ListPlus, ArrowRightLeft, Code2, Cookie, Shield, Wrench, Download, CloudUpload, BookOpen, EyeOff, LayoutGrid, ArrowLeft, PlayCircle, ChevronDown, FileJson, Wallet, Crown, Zap, ShieldCheck as ShieldIcon, Trophy, Timer, LifeBuoy, Minus, Hash, Euro, TrendingDown, Package, Factory, Users, Lightbulb, Headphones, Cloud, BarChart, Camera, CheckCircle, Scan, Megaphone, Bike } from 'lucide-react';
 import { getWaiterName, saveWaiterName, getMenuItems, addMenuItem, updateMenuItem, deleteMenuItem, getNotificationSettings, saveNotificationSettings, initSupabaseSync, getGoogleApiKey, saveGoogleApiKey, removeGoogleApiKey, getAppSettings, saveAppSettings, getOrders, deleteHistoryByDate, performFactoryReset, deleteAllMenuItems, importDemoMenu } from './services/storageService';
@@ -116,6 +118,7 @@ export function App() {
     const [role, setRole] = useState<'kitchen' | 'pizzeria' | 'pub' | 'waiter' | 'delivery' | null>(null);
     const [showLogin, setShowLogin] = useState(false);
     const [showMonitor, setShowMonitor] = useState(showMonitorParam === 'true');
+    const [showReservations, setShowReservations] = useState(false);
     const [waiterNameInput, setWaiterNameInput] = useState('');
 
     // Restaurant Info
@@ -125,7 +128,7 @@ export function App() {
 
     // Admin State
     const [showAdmin, setShowAdmin] = useState(false);
-    const [adminTab, setAdminTab] = useState<'profile' | 'subscription' | 'menu' | 'notif' | 'info' | 'ai' | 'analytics' | 'share' | 'receipts' | 'messages' | 'marketing' | 'delivery'>('menu');
+    const [adminTab, setAdminTab] = useState<'profile' | 'subscription' | 'menu' | 'notif' | 'info' | 'ai' | 'analytics' | 'share' | 'receipts' | 'messages' | 'marketing' | 'delivery' | 'customers'>('menu');
     const [adminViewMode, setAdminViewMode] = useState<'dashboard' | 'app'>('dashboard');
 
     const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -1203,6 +1206,9 @@ export function App() {
         window.history.pushState({}, '', window.location.pathname);
     }} />;
 
+    if (showReservations) return <ReservationManager onClose={() => setShowReservations(false)} showToast={showToast} showConfirm={showConfirm} />;
+
+
     if (!role && !showAdmin) {
         const planLabel = appSettings.restaurantProfile?.planType || 'Trial';
         const isFreePlan = planLabel === 'Free' || planLabel === 'Demo';
@@ -1277,6 +1283,19 @@ export function App() {
                         <button onClick={() => checkRoleAccess('delivery')} className="group relative h-48 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-green-500/10 hover:border-green-500/50 overflow-hidden"><div className="absolute inset-0 bg-gradient-to-b from-green-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div><div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center border-2 border-slate-700 group-hover:border-green-500 group-hover:scale-105 transition-all shadow-inner"><Bike size={28} className="text-slate-400 group-hover:text-green-500 transition-colors" /></div><div className="text-center relative z-10"><h2 className="text-lg font-black text-white mb-0.5 group-hover:text-green-400 transition-colors">DELIVERY</h2><p className="text-slate-500 text-xs font-medium">Asporto</p></div></button>
                     </div>
 
+                    {/* PULSANTE PRENOTAZIONI - Rettangolare Allungato */}
+                    <div className="relative z-10 w-full max-w-7xl mx-auto px-4 mt-5">
+                        <button
+                            onClick={() => setShowReservations(true)}
+                            className="group w-full bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 hover:from-purple-500 hover:via-pink-500 hover:to-purple-500 text-white font-black py-6 rounded-2xl flex items-center justify-center gap-4 transition-all duration-300 shadow-2xl hover:shadow-purple-500/50 transform hover:scale-[1.02] active:scale-[0.98] border-2 border-purple-400/30 hover:border-purple-300 overflow-hidden relative"
+                        >
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 group-hover:animate-shimmer"></div>
+                            <Calendar size={32} className="group-hover:rotate-12 transition-transform duration-300 drop-shadow-lg" />
+                            <span className="text-2xl tracking-wide drop-shadow-lg relative z-10">GESTIONE PRENOTAZIONI</span>
+                            <Users size={32} className="group-hover:-rotate-12 transition-transform duration-300 drop-shadow-lg" />
+                        </button>
+                    </div>
+
 
                     {showLogin && (<div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"><div className="bg-slate-900 border border-slate-700 p-8 rounded-[2rem] shadow-2xl w-full max-w-sm relative animate-slide-up"><button onClick={() => setShowLogin(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"><X size={24} /></button><div className="text-center mb-6"><div className="w-16 h-16 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-4"><User size={32} className="text-blue-500" /></div><h2 className="text-2xl font-bold text-white">Chi sei?</h2><p className="text-slate-400 text-sm mt-1">Inserisci il tuo nome per iniziare</p></div><input type="text" value={waiterNameInput} onChange={(e) => setWaiterNameInput(e.target.value)} placeholder="Es. Marco" className="w-full bg-slate-950 border border-slate-700 text-white px-4 py-4 rounded-xl mb-4 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all font-bold text-center text-lg" autoFocus /><button onClick={handleLoginWaiter} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20">Inizia Turno <ArrowRight size={20} /></button></div></div>)}
                 </div>
@@ -1327,6 +1346,7 @@ export function App() {
                             <button onClick={() => setAdminTab('ai')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'ai' ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Bot size={18} /> AI Intelligence</button>
                             <button onClick={() => setAdminTab('marketing')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'marketing' ? 'bg-pink-500 text-white shadow-lg shadow-pink-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Megaphone size={18} /> Marketing <span className="ml-auto bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Beta</span></button>
                             <button onClick={() => setAdminTab('delivery')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'delivery' ? 'bg-green-600 text-white shadow-lg shadow-green-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Bike size={18} /> Piattaforme Delivery</button>
+                            <button onClick={() => setAdminTab('customers')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'customers' ? 'bg-teal-600 text-white shadow-lg shadow-teal-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Users size={18} /> Gestione Clienti</button>
                             <button onClick={() => setAdminTab('info')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'info' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Info size={18} /> Info & Supporto</button>
                         </nav>
                         <div className="p-4 border-t border-slate-800"><button onClick={() => setShowAdmin(false)} className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 py-3 rounded-xl font-bold transition-colors"><ArrowLeft size={18} /> Torna alla Home</button></div>
@@ -3097,6 +3117,18 @@ export function App() {
                                 )}
                             </div>
                         )}
+
+                        {adminTab === 'customers' && (
+                            <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-20">
+                                <h2 className="text-3xl font-black text-white mb-4 flex items-center gap-3"><Users size={32} className="text-teal-500" /> Gestione Clienti</h2>
+                                <p className="text-slate-400 mb-8">Gestisci i tuoi clienti prenotati. Visualizza, modifica ed elimina i dati dei clienti che hanno effettuato prenotazioni.</p>
+
+                                <CustomerManager
+                                    showToast={showToast}
+                                    showConfirm={showConfirm}
+                                />
+                            </div>
+                        )}
                     </div >
                 </div >
 
@@ -3191,6 +3223,13 @@ export function App() {
                     menuItems={menuItems}
                     restaurantProfile={profileForm}
                     onClose={() => setShowPrintableMenu(false)}
+                />
+            )}
+            {showReservations && (
+                <ReservationManager
+                    onClose={() => setShowReservations(false)}
+                    showToast={showToast}
+                    showConfirm={showConfirm}
                 />
             )}
         </>
