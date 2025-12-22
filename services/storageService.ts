@@ -1167,7 +1167,17 @@ export const getReservationsFromCloud = async (): Promise<Reservation[]> => {
 };
 
 export const saveReservationToCloud = async (reservation: Reservation) => {
-    if (!supabase || !currentUserId) return;
+    if (!supabase) return;
+
+    // Ensure User ID is present
+    if (!currentUserId) {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) currentUserId = data.session.user.id;
+        else {
+            console.error("Cloud Save Failed (Reservation): Not Authenticated");
+            return;
+        }
+    }
 
     const payload = {
         id: reservation.id,
@@ -1236,7 +1246,16 @@ export const getCustomersFromCloud = async (): Promise<Customer[]> => {
 };
 
 export const saveCustomerToCloud = async (customer: Customer) => {
-    if (!supabase || !currentUserId) return;
+    if (!supabase) return;
+
+    if (!currentUserId) {
+        const { data } = await supabase.auth.getSession();
+        if (data.session) currentUserId = data.session.user.id;
+        else {
+            console.error("Cloud Save Failed (Customer): Not Authenticated");
+            return;
+        }
+    }
 
     const payload = {
         id: customer.id,

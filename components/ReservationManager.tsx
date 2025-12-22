@@ -81,6 +81,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
         customerCity: '',
         numberOfGuests: 2,
         numberOfChildren: 0,
+        reservationDate: new Date().toISOString().split('T')[0],
         reservationTime: '20:00',
         specialRequests: '',
         occasion: '',
@@ -209,7 +210,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
         const status = getTableStatus(tableNum);
         if (status === 'free') {
             setSelectedTable(tableNum);
-            setFormData(prev => ({ ...prev, numberOfGuests: 2 }));
+            setFormData(prev => ({ ...prev, numberOfGuests: 2, reservationDate: selectedDate }));
             setEditingReservation(null);
             setView('form');
         } else {
@@ -225,6 +226,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
                     customerCity: '',
                     numberOfGuests: res.numberOfGuests,
                     numberOfChildren: res.numberOfChildren || 0,
+                    reservationDate: res.reservationDate,
                     reservationTime: res.reservationTime,
                     specialRequests: res.specialRequests || '',
                     occasion: res.occasion || '',
@@ -246,6 +248,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
             customerCity: '',
             numberOfGuests: 2,
             numberOfChildren: 0,
+            reservationDate: selectedDate,
             reservationTime: '20:00',
             specialRequests: '',
             occasion: '',
@@ -336,7 +339,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
             customerEmail: formData.customerEmail,
             numberOfGuests: formData.numberOfGuests,
             numberOfChildren: formData.numberOfChildren,
-            reservationDate: selectedDate,
+            reservationDate: formData.reservationDate, // Usa la data del form
             reservationTime: formData.reservationTime,
             status: editingReservation ? editingReservation.status : ReservationStatus.PENDING,
             createdAt: editingReservation?.createdAt || Date.now(),
@@ -641,6 +644,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
                                                         customerCity: '',
                                                         numberOfGuests: res.numberOfGuests,
                                                         numberOfChildren: res.numberOfChildren || 0,
+                                                        reservationDate: res.reservationDate,
                                                         reservationTime: res.reservationTime,
                                                         specialRequests: res.specialRequests || '',
                                                         occasion: res.occasion || '',
@@ -714,6 +718,26 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
                                                 <span className="text-white font-black">Tavolo {selectedTable}</span>
                                             </div>
                                         )}
+                                    </div>
+
+                                    {/* Date Selection */}
+                                    <div className="bg-slate-950/50 p-4 rounded-xl border border-slate-700/50 flex items-center gap-4 mb-2">
+                                        <div className="flex-1">
+                                            <label className="text-xs font-bold text-slate-400 uppercase mb-1 block flex items-center gap-2"><Calendar size={12} /> Data Prenotazione</label>
+                                            <input
+                                                type="date"
+                                                value={formData.reservationDate}
+                                                onChange={(e) => setFormData({ ...formData, reservationDate: e.target.value })}
+                                                className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-white font-bold outline-none focus:border-purple-500"
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <label className="text-xs font-bold text-slate-400 uppercase mb-1 block flex items-center gap-2">Tavolo</label>
+                                            <div className="text-white font-black text-lg flex items-center gap-2">
+                                                <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center text-sm">{selectedTable || '-'}</div>
+                                                <span className="text-sm opacity-60 font-normal">Selezionato</span>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Customer Search */}
