@@ -149,43 +149,40 @@ export const initSupabaseSync = async () => {
     await syncReservationsDown();
     await syncCustomersDown();
 
-    if (session?.user) {
-        currentUserId = session.user.id;
-        // 2. Sync Profile Settings (API KEY)
-        const { data: profile } = await supabase.from('profiles').select('google_api_key').eq('id', currentUserId).single();
-        if (profile?.google_api_key) {
-            safeLocalStorageSave(GOOGLE_API_KEY_STORAGE, profile.google_api_key);
-        }
-
-        // 3. Realtime Subscription (Robust Mode)
-        const channel = supabase.channel(`room:${currentUserId}`);
-
-        channel
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `user_id=eq.${currentUserId}` }, () => { fetchFromCloud(); })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items', filter: `user_id=eq.${currentUserId}` }, () => { fetchFromCloudMenu(); })
-            .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${currentUserId}` }, (payload) => {
-                if (payload.new.settings) {
-                    safeLocalStorageSave(APP_SETTINGS_KEY, JSON.stringify(payload.new.settings));
-                    window.dispatchEvent(new Event('local-settings-update'));
-                }
-            })
-            // MARKETING LISTENERS
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'marketing_promotions', filter: `user_id=eq.${currentUserId}` }, () => { fetchPromotionsFromCloud(); })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'marketing_automations', filter: `user_id=eq.${currentUserId}` }, () => { fetchAutomationsFromCloud(); })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'social_posts', filter: `user_id=eq.${currentUserId}` }, () => { fetchSocialFromCloud(); })
-            // RESERVATIONS & CUSTOMERS REALTIME
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations', filter: `user_id=eq.${currentUserId}` }, () => { syncReservationsDown(); })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'customers', filter: `user_id=eq.${currentUserId}` }, () => { syncCustomersDown(); })
-            .subscribe();
-
-        // 4. Fallback Polling (Heartbeat) - Settings polled every 5s for collaboration notifications
-        if (pollingInterval) clearInterval(pollingInterval);
-        pollingInterval = setInterval(() => {
-            fetchFromCloud();
-            fetchSettingsFromCloud(); // More frequent for collaboration
-            fetchPromotionsFromCloud();
-        }, 5000); // Reduced from 15s to 5s for faster collaboration sync
+    // 2. Sync Profile Settings (API KEY)
+    const { data: profile } = await supabase.from('profiles').select('google_api_key').eq('id', currentUserId).single();
+    if (profile?.google_api_key) {
+        safeLocalStorageSave(GOOGLE_API_KEY_STORAGE, profile.google_api_key);
     }
+
+    // 3. Realtime Subscription (Robust Mode)
+    const channel = supabase.channel(`room:${currentUserId}`);
+
+    channel
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders', filter: `user_id=eq.${currentUserId}` }, () => { fetchFromCloud(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items', filter: `user_id=eq.${currentUserId}` }, () => { fetchFromCloudMenu(); })
+        .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${currentUserId}` }, (payload) => {
+            if (payload.new.settings) {
+                safeLocalStorageSave(APP_SETTINGS_KEY, JSON.stringify(payload.new.settings));
+                window.dispatchEvent(new Event('local-settings-update'));
+            }
+        })
+        // MARKETING LISTENERS
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'marketing_promotions', filter: `user_id=eq.${currentUserId}` }, () => { fetchPromotionsFromCloud(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'marketing_automations', filter: `user_id=eq.${currentUserId}` }, () => { fetchAutomationsFromCloud(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'social_posts', filter: `user_id=eq.${currentUserId}` }, () => { fetchSocialFromCloud(); })
+        // RESERVATIONS & CUSTOMERS REALTIME
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations', filter: `user_id=eq.${currentUserId}` }, () => { syncReservationsDown(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'customers', filter: `user_id=eq.${currentUserId}` }, () => { syncCustomersDown(); })
+        .subscribe();
+
+    // 4. Fallback Polling (Heartbeat) - Settings polled every 5s for collaboration notifications
+    if (pollingInterval) clearInterval(pollingInterval);
+    pollingInterval = setInterval(() => {
+        fetchFromCloud();
+        fetchSettingsFromCloud(); // More frequent for collaboration
+        fetchPromotionsFromCloud();
+    }, 5000);
 };
 
 const handleSupabaseError = (error: any) => {
