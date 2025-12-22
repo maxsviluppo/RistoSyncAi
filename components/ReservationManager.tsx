@@ -1099,7 +1099,12 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
                                             </button>
                                         )}
                                         <button
-                                            onClick={handleSubmitReservation}
+                                            type="button"
+                                            onClick={(e) => {
+                                                e.preventDefault();
+                                                console.log("CLICK CONFIRM BUTTON");
+                                                handleSubmitReservation();
+                                            }}
                                             className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
                                         >
                                             <Check size={20} />
