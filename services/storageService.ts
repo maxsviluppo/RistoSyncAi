@@ -1166,8 +1166,8 @@ export const getReservationsFromCloud = async (): Promise<Reservation[]> => {
     }));
 };
 
-export const saveReservationToCloud = async (reservation: Reservation) => {
-    if (!supabase) return;
+export const saveReservationToCloud = async (reservation: Reservation): Promise<{ success: boolean, error?: any }> => {
+    if (!supabase) return { success: false, error: 'Supabase not initialized' };
 
     // Ensure User ID is present
     if (!currentUserId) {
@@ -1175,7 +1175,7 @@ export const saveReservationToCloud = async (reservation: Reservation) => {
         if (data.session) currentUserId = data.session.user.id;
         else {
             console.error("Cloud Save Failed (Reservation): Not Authenticated");
-            return;
+            return { success: false, error: 'Not authenticated' };
         }
     }
 
@@ -1204,7 +1204,11 @@ export const saveReservationToCloud = async (reservation: Reservation) => {
     };
 
     const { error } = await supabase.from('reservations').upsert(payload);
-    if (error) console.error("Cloud Save Error (Reservation):", error);
+    if (error) {
+        console.error("Cloud Save Error (Reservation):", error);
+        return { success: false, error };
+    }
+    return { success: true };
 };
 
 export const deleteReservationFromCloud = async (id: string) => {
@@ -1245,15 +1249,15 @@ export const getCustomersFromCloud = async (): Promise<Customer[]> => {
     }));
 };
 
-export const saveCustomerToCloud = async (customer: Customer) => {
-    if (!supabase) return;
+export const saveCustomerToCloud = async (customer: Customer): Promise<{ success: boolean, error?: any }> => {
+    if (!supabase) return { success: false, error: 'Supabase not initialized' };
 
     if (!currentUserId) {
         const { data } = await supabase.auth.getSession();
         if (data.session) currentUserId = data.session.user.id;
         else {
             console.error("Cloud Save Failed (Customer): Not Authenticated");
-            return;
+            return { success: false, error: 'Not authenticated' };
         }
     }
 
@@ -1274,7 +1278,11 @@ export const saveCustomerToCloud = async (customer: Customer) => {
     };
 
     const { error } = await supabase.from('customers').upsert(payload);
-    if (error) console.error("Cloud Save Error (Customer):", error);
+    if (error) {
+        console.error("Cloud Save Error (Customer):", error);
+        return { success: false, error };
+    }
+    return { success: true };
 };
 
 // --- SYNC HELPERS (Downstream + Notify) ---

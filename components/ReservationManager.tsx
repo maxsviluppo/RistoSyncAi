@@ -146,7 +146,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
         }
     };
 
-    const saveReservation = (reservation: Reservation) => {
+    const saveReservation = async (reservation: Reservation): Promise<boolean> => {
         const stored = localStorage.getItem('reservations');
         const all: Reservation[] = stored ? JSON.parse(stored) : [];
         const index = all.findIndex(r => r.id === reservation.id);
@@ -158,10 +158,16 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
         localStorage.setItem('reservations', JSON.stringify(all));
         loadReservations();
         updateOccupancy();
-        saveReservationToCloud(reservation);
+
+        const cloudResult = await saveReservationToCloud(reservation);
+        if (!cloudResult.success) {
+            showToast('⚠️ Salvato solo locale. Errore Cloud: ' + (cloudResult.error?.message || 'Errore Sync'), 'error');
+            return false;
+        }
+        return true;
     };
 
-    const saveCustomer = (customer: Customer) => {
+    const saveCustomer = async (customer: Customer): Promise<boolean> => {
         const stored = localStorage.getItem('customers');
         const all: Customer[] = stored ? JSON.parse(stored) : [];
         const index = all.findIndex(c => c.id === customer.id);
@@ -172,7 +178,13 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
         }
         localStorage.setItem('customers', JSON.stringify(all));
         loadCustomers();
-        saveCustomerToCloud(customer);
+
+        const cloudResult = await saveCustomerToCloud(customer);
+        if (!cloudResult.success) {
+            showToast('⚠️ Errore salvataggio Cliente su Cloud', 'warning');
+            return false;
+        }
+        return true;
     };
 
     const searchCustomer = (query: string) => {
@@ -284,7 +296,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
         }
     };
 
-    const handleSubmitReservation = () => {
+    const handleSubmitReservation = async () => {
         if (!selectedTable) {
             showToast('⚠️ Seleziona un tavolo', 'error');
             return;
@@ -294,6 +306,8 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
             showToast('⚠️ Compila almeno Nome e Telefono', 'error');
             return;
         }
+
+        showToast('Salvataggio in corso...', 'info');
 
         // Create or update customer
         let customer = foundCustomer;
@@ -316,7 +330,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
                 totalSpent: 0,
                 vip: false
             };
-            saveCustomer(customer);
+            await saveCustomer(customer);
         } else {
             // Update existing customer data if changed
             const updatedCustomer = {
@@ -326,7 +340,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
                 email: formData.customerEmail || customer.email,
                 city: formData.customerCity || customer.city
             };
-            saveCustomer(updatedCustomer);
+            await saveCustomer(updatedCustomer);
         }
 
         // Create reservation
@@ -368,10 +382,12 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
             reservation.depositId = deposit.id;
         }
 
-        saveReservation(reservation);
-        showToast('✅ Prenotazione salvata con successo!', 'success');
-        resetForm();
-        setView('grid');
+        const success = await saveReservation(reservation);
+        if (success) {
+            showToast('✅ Prenotazione salvata e sincronizzata!', 'success');
+            resetForm();
+            setView('grid');
+        }
     };
 
     return (
