@@ -221,3 +221,138 @@ export interface SocialPost {
   date: number; // created timestamp
   platform?: 'facebook' | 'instagram' | 'all';
 }
+
+// ============================================
+// 🆕 RESERVATION SYSTEM TYPES
+// ============================================
+
+export enum ReservationStatus {
+  PENDING = 'In Attesa',        // Prenotazione confermata, cliente non ancora arrivato
+  SEATED = 'A Tavola',          // Cliente arrivato e seduto, ma non ha ancora ordinato
+  ORDERING = 'Ordinazione',     // Cliente sta ordinando
+  ACTIVE = 'In Corso',          // Ordine attivo (usa il sistema esistente)
+  COMPLETED = 'Completato',     // Servizio completato
+  CANCELLED = 'Cancellato',     // Prenotazione cancellata
+  NO_SHOW = 'Non Presentato'    // Cliente non si è presentato
+}
+
+export type PaymentMethod = 'cash' | 'card' | 'bank_transfer' | 'paypal' | 'stripe' | 'satispay' | 'other';
+
+export interface Customer {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email?: string;
+  city?: string;
+  address?: string;
+  notes?: string;
+  createdAt: number;
+  lastVisit?: number;
+  totalVisits: number;
+  totalSpent: number;
+  preferredTable?: string;
+  allergies?: string[];
+  vip?: boolean; // Cliente VIP
+}
+
+export interface Deposit {
+  id: string;
+  reservationId: string;
+  amount: number;
+  paymentMethod: PaymentMethod;
+  paidAt: number;
+  notes?: string;
+  refunded?: boolean;
+  refundedAt?: number;
+  refundReason?: string;
+}
+
+export interface Reservation {
+  id: string;
+  tableNumber: string;
+  customerId: string; // Reference to Customer
+  customerName: string; // Denormalized for quick access
+  customerPhone: string; // Denormalized for quick access
+  numberOfGuests: number;
+  numberOfChildren?: number; // Number of children (included in total or additional)
+  reservationDate: string; // ISO date (YYYY-MM-DD)
+  reservationTime: string; // HH:mm format (es. "20:30")
+  status: ReservationStatus;
+  createdAt: number;
+  updatedAt: number;
+
+  // Optional fields
+  specialRequests?: string;
+  occasion?: string; // es. "Compleanno", "Anniversario", "Business"
+  highChair?: boolean; // Seggiolone per bambini
+
+  // Deposit info
+  depositAmount?: number;
+  depositPaid?: boolean;
+  depositMethod?: PaymentMethod;
+  depositId?: string; // Reference to Deposit
+
+  // Tracking
+  arrivedAt?: number; // Timestamp quando il cliente è arrivato
+  seatedAt?: number; // Timestamp quando è stato fatto sedere
+  orderId?: string; // Reference to Order when they start ordering
+  completedAt?: number;
+  cancelledAt?: number;
+  cancelReason?: string;
+  noShowMarkedAt?: number;
+
+  // Staff
+  createdBy?: string; // Nome utente che ha creato la prenotazione
+  waiterAssigned?: string; // Cameriere assegnato al tavolo
+}
+
+// Report Types
+export interface DailyReport {
+  date: string; // YYYY-MM-DD
+  totalRevenue: number;
+  totalOrders: number;
+  totalReservations: number;
+  totalDeposits: number;
+  totalExpenses: number;
+  netProfit: number;
+}
+
+export interface DepositReport {
+  date: string;
+  deposits: Deposit[];
+  totalAmount: number;
+  byPaymentMethod: Record<PaymentMethod, number>;
+}
+
+export interface ExpenseCategory {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface Expense {
+  id: string;
+  category: string;
+  description: string;
+  amount: number;
+  date: string; // YYYY-MM-DD
+  paymentMethod: PaymentMethod;
+  receipt?: string; // Base64 image or URL
+  notes?: string;
+  createdAt: number;
+  createdBy?: string;
+}
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  category: 'food' | 'beverage' | 'supplies' | 'other';
+  quantity: number;
+  unit: string; // kg, l, pz, ecc.
+  costPerUnit: number;
+  supplier?: string;
+  lastRestocked: number;
+  minQuantity?: number; // Soglia minima per alert
+  expiryDate?: string; // YYYY-MM-DD
+}
