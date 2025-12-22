@@ -77,31 +77,80 @@ export const getConnectionStatus = (): boolean => {
     return navigator.onLine;
 };
 
+// Create Anonymous User for RLS compatibility
+const createAnonymousUser = async () => {
+    if (!supabase) return;
+
+    const anonymousEmail = `anon_${generateUUID()}@ristosync.local`;
+    const anonymousPassword = generateUUID() + generateUUID();
+
+    const { data, error } = await supabase.auth.signUp({
+        email: anonymousEmail,
+        password: anonymousPassword,
+    });
+
+    if (data?.user) {
+        currentUserId = data.user.id;
+        localStorage.setItem('ristosync_anonymous_user', JSON.stringify({
+            email: anonymousEmail,
+            password: anonymousPassword
+        }));
+        console.log('✅ Utente anonimo creato');
+    } else {
+        console.error('❌ Errore creazione utente anonimo:', error);
+    }
+};
+
 // Initialize Realtime Subscription
 export const initSupabaseSync = async () => {
     if (!supabase) return;
 
     // Get Current User
     const { data: { session } } = await supabase.auth.getSession();
+
     if (session?.user) {
         currentUserId = session.user.id;
+    } else {
+        // Nessuna sessione - crea o recupera utente anonimo
+        const storedAnonymousUser = localStorage.getItem('ristosync_anonymous_user');
 
-        // 1. Initial Sync
-        await fetchFromCloud();
-        await fetchFromCloudMenu();
-        await fetchSettingsFromCloud();
+        if (storedAnonymousUser) {
+            try {
+                const { email, password } = JSON.parse(storedAnonymousUser);
+                const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-        // MARKETING SYNC
-        await fetchPromotionsFromCloud();
-        await fetchAutomationsFromCloud();
-        await fetchPromotionsFromCloud();
-        await fetchAutomationsFromCloud();
-        await fetchSocialFromCloud();
+                if (data?.user) {
+                    currentUserId = data.user.id;
+                    console.log('✅ Utente anonimo riconnesso');
+                } else {
+                    console.error('Errore login anonimo:', error);
+                    await createAnonymousUser();
+                }
+            } catch (e) {
+                await createAnonymousUser();
+            }
+        } else {
+            await createAnonymousUser();
+        }
+    }
 
-        // SYNC PRENOTAZIONI & CLIENTI
-        await syncReservationsDown();
-        await syncCustomersDown();
+    if (!currentUserId) {
+        console.error('❌ Impossibile inizializzare utente');
+        return;
+    }
 
+    // Initial Sync
+    await fetchFromCloud();
+    await fetchFromCloudMenu();
+    await fetchSettingsFromCloud();
+    await fetchPromotionsFromCloud();
+    await fetchAutomationsFromCloud();
+    await fetchSocialFromCloud();
+    await syncReservationsDown();
+    await syncCustomersDown();
+
+    if (session?.user) {
+        currentUserId = session.user.id;
         // 2. Sync Profile Settings (API KEY)
         const { data: profile } = await supabase.from('profiles').select('google_api_key').eq('id', currentUserId).single();
         if (profile?.google_api_key) {

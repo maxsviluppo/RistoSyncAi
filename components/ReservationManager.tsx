@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Calendar, Clock, Users, Phone, Mail, MapPin, Euro, CreditCard, X, Check, Edit2, Trash2, AlertCircle, User, History, Plus, Search, Filter, ChevronDown, Baby, Gift, Briefcase, Heart, XCircle, ChevronLeft, ChevronRight, LayoutGrid } from 'lucide-react';
 import { Reservation, Customer, ReservationStatus, PaymentMethod, Deposit } from '../types';
-import { getReservationsFromCloud, getCustomersFromCloud, saveReservationToCloud, saveCustomerToCloud } from '../services/storageService';
+import { getReservationsFromCloud, getCustomersFromCloud, saveReservationToCloud, saveCustomerToCloud, generateUUID } from '../services/storageService';
 
 interface ReservationManagerProps {
     onClose: () => void;
@@ -114,6 +114,17 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
         };
     }, [selectedDate]);
 
+    // Sync form date with selected calendar date when opening new reservation
+    useEffect(() => {
+        // Solo se sto creando una NUOVA prenotazione (non editing)
+        if (view === 'form' && !editingReservation && selectedTable) {
+            setFormData(prev => ({
+                ...prev,
+                reservationDate: selectedDate
+            }));
+        }
+    }, [view, selectedDate, editingReservation, selectedTable]);
+
     const updateOccupancy = () => {
         const stored = localStorage.getItem('reservations');
         if (stored) {
@@ -224,8 +235,25 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
         const status = getTableStatus(tableNum);
         if (status === 'free') {
             setSelectedTable(tableNum);
-            setFormData(prev => ({ ...prev, numberOfGuests: 2, reservationDate: selectedDate }));
+            // Reset completo del form con data corretta dal calendario
+            setFormData({
+                customerPhone: '',
+                customerFirstName: '',
+                customerLastName: '',
+                customerEmail: '',
+                customerCity: '',
+                numberOfGuests: 2,
+                numberOfChildren: 0,
+                reservationDate: selectedDate,
+                reservationTime: '20:00',
+                specialRequests: '',
+                occasion: '',
+                highChair: false,
+                depositAmount: 0,
+                depositMethod: 'cash' as PaymentMethod,
+            });
             setEditingReservation(null);
+            setFoundCustomer(null);
             setView('form');
         } else {
             const res = reservations.find(r => r.tableNumber === tableNum && r.status !== ReservationStatus.CANCELLED && r.status !== ReservationStatus.COMPLETED);
@@ -323,7 +351,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
 
             if (!customer) {
                 customer = {
-                    id: `customer_${Date.now()}`,
+                    id: generateUUID(),
                     firstName: formData.customerFirstName,
                     lastName: formData.customerLastName,
                     phone: formData.customerPhone,
@@ -351,7 +379,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
 
             // Create reservation
             const reservation: Reservation = {
-                id: editingReservation?.id || `res_${Date.now()}`,
+                id: editingReservation?.id || generateUUID(),
                 tableNumber: selectedTable,
                 customerId: customer.id,
                 customerName: `${formData.customerFirstName} ${formData.customerLastName}`.trim(),
@@ -375,7 +403,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
             // Handle Deposit (simple implementation)
             if (formData.depositAmount > 0 && !editingReservation) {
                 const deposit: Deposit = {
-                    id: `dep_${Date.now()}`,
+                    id: generateUUID(),
                     reservationId: reservation.id,
                     amount: formData.depositAmount,
                     paymentMethod: formData.depositMethod,
@@ -520,10 +548,15 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
                                                                     : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700'
                                                             }`}
                                                     >
-                                                        {day}
-                                                        {isFull && !isSelected && !isPast && (
-                                                            <div className="absolute bottom-1 right-1/2 translate-x-1/2 w-1.5 h-1.5 rounded-full bg-red-500 shadow-sm ring-1 ring-slate-900" title={`Tutto Esaurito (${dailyCount}/${tableCount})`}></div>
+                                                        {/* Indicatore prenotazioni - alto sinistra */}
+                                                        {dailyCount > 0 && !isSelected && !isPast && (
+                                                            <div
+                                                                className={`absolute top-1 left-1 w-2 h-2 rounded-full shadow-sm ring-1 ring-slate-900 ${isFull ? 'bg-red-500' : 'bg-orange-500'
+                                                                    }`}
+                                                                title={isFull ? `Tutto Esaurito (${dailyCount}/${tableCount})` : `${dailyCount} prenotazioni`}
+                                                            />
                                                         )}
+                                                        {day}
                                                     </button>
                                                 );
                                             }
