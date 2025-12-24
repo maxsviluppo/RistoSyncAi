@@ -387,3 +387,41 @@ export const detectAllergensFromIngredients = async (ingredients: string): Promi
         return [];
     }
 };
+
+/**
+ * Genera un messaggio WhatsApp personalizzato basato su un argomento
+ * @param topic - Argomento o contesto del messaggio
+ * @returns Messaggio WhatsApp generato
+ */
+export const generateWhatsAppMessage = async (topic: string): Promise<string> => {
+    try {
+        const apiKey = getGoogleApiKey() || process.env.API_KEY;
+        if (!apiKey) return "";
+
+        const ai = new GoogleGenerativeAI(apiKey);
+        const model = ai.getGenerativeModel({ model: 'gemini-2.5-flash' });
+
+        const prompt = `
+            Sei un esperto di marketing per ristoranti.
+            Scrivi un messaggio WhatsApp breve e accattivante basato su questo argomento: "${topic}".
+            
+            Il messaggio DEVE:
+            1. Essere BREVE (massimo 3-4 righe)
+            2. Essere DIRETTO e PERSONALE
+            3. Includere 1-2 emoji appropriate
+            4. Avere un tono AMICHEVOLE e INVITANTE
+            5. Terminare con una CALL TO ACTION chiara
+            
+            Non usare virgolette.
+            Tono: Caldo, Amichevole, Persuasivo.
+        `;
+
+        const result = await model.generateContent(prompt);
+        const response = result.response;
+
+        return response.text() || "";
+    } catch (error) {
+        console.error("WhatsApp Message Gen Error:", error);
+        return "Errore nella generazione del messaggio.";
+    }
+};
