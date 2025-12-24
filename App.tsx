@@ -10,6 +10,8 @@ import CustomDialog from './components/CustomDialog';
 import Toast from './components/Toast';
 import WelcomeModal from './components/WelcomeModal';
 import MarketingPanel from './components/MarketingPanel';
+import WhatsAppManager from './components/WhatsAppManager';
+import WhatsAppSettings from './components/WhatsAppSettings';
 import PrintableMenu from './components/PrintableMenu';
 import DeliveryFlyer from './components/DeliveryFlyer';
 import PlatformEditModal from './components/PlatformEditModal';
@@ -128,7 +130,8 @@ export function App() {
 
     // Admin State
     const [showAdmin, setShowAdmin] = useState(false);
-    const [adminTab, setAdminTab] = useState<'profile' | 'subscription' | 'menu' | 'notif' | 'info' | 'ai' | 'analytics' | 'share' | 'receipts' | 'messages' | 'marketing' | 'delivery' | 'customers'>('menu');
+    const [adminTab, setAdminTab] = useState<'profile' | 'subscription' | 'menu' | 'notif' | 'info' | 'ai' | 'analytics' | 'share' | 'receipts' | 'messages' | 'marketing' | 'delivery' | 'customers' | 'whatsapp'>('menu');
+    const [showWhatsAppManager, setShowWhatsAppManager] = useState(false);
     const [adminViewMode, setAdminViewMode] = useState<'dashboard' | 'app'>('dashboard');
 
     const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -1346,6 +1349,7 @@ export function App() {
                             <button onClick={() => setAdminTab('receipts')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'receipts' ? 'bg-yellow-600 text-white shadow-lg shadow-yellow-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Receipt size={18} /> Scontrini Cassa</button>
                             <button onClick={() => setAdminTab('ai')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'ai' ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Bot size={18} /> AI Intelligence</button>
                             <button onClick={() => setAdminTab('marketing')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'marketing' ? 'bg-pink-500 text-white shadow-lg shadow-pink-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Megaphone size={18} /> Marketing <span className="ml-auto bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Beta</span></button>
+                            <button onClick={() => setAdminTab('whatsapp')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'whatsapp' ? 'bg-green-600 text-white shadow-lg shadow-green-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><MessageCircle size={18} /> WhatsApp Marketing</button>
                             <button onClick={() => setAdminTab('delivery')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'delivery' ? 'bg-green-600 text-white shadow-lg shadow-green-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Bike size={18} /> Piattaforme Delivery</button>
                             <button onClick={() => setAdminTab('info')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'info' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Info size={18} /> Info & Supporto</button>
                         </nav>
@@ -1726,6 +1730,7 @@ export function App() {
                             </div>
                         )}
                         {adminTab === 'marketing' && <MarketingPanel />}
+
                         {adminTab === 'subscription' && (
                             <div className="max-w-6xl mx-auto animate-fade-in pb-20 space-y-8">
                                 {/* STATO ATTUALE */}
@@ -3117,10 +3122,82 @@ export function App() {
                                 )}
                             </div>
                         )}
+                        {adminTab === 'marketing' && (
+                            <div className="max-w-6xl mx-auto animate-fade-in pb-20">
+                                <MarketingPanel />
+                            </div>
+                        )}
+                        {adminTab === 'whatsapp' && (
+                            <div className="max-w-4xl mx-auto animate-fade-in pb-20 space-y-8">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div>
+                                        <h2 className="text-3xl font-black text-white mb-2 flex items-center gap-3">
+                                            <MessageCircle size={32} className="text-green-500" /> WhatsApp Marketing
+                                        </h2>
+                                        <p className="text-slate-400">Invia messaggi promozionali ai tuoi clienti via WhatsApp Business API</p>
+                                    </div>
+                                </div>
+
+                                {/* Campaign Manager Section */}
+                                <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl border border-slate-700 p-8 shadow-xl relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity">
+                                        <MessageCircle size={150} className="text-green-500" />
+                                    </div>
+                                    <div className="relative z-10">
+                                        <h3 className="text-2xl font-black text-white mb-2 flex items-center gap-3">
+                                            📱 Campagna Messaggi
+                                        </h3>
+                                        <p className="text-slate-400 mb-6 max-w-xl">
+                                            Invia messaggi personalizzati ai tuoi clienti. Seleziona destinatari, scrivi il messaggio e gestisci la coda di invio.
+                                        </p>
+                                        <button
+                                            onClick={() => setShowWhatsAppManager(true)}
+                                            className="bg-green-600 hover:bg-green-500 text-white font-black py-4 px-8 rounded-2xl flex items-center gap-3 transition-all shadow-lg hover:shadow-green-500/20 hover:scale-[1.02] active:scale-[0.98]"
+                                        >
+                                            <Send size={20} />
+                                            Apri WhatsApp Manager
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* WhatsApp Settings */}
+                                <div className="bg-slate-900 rounded-2xl border border-slate-800 p-6 shadow-xl">
+                                    <WhatsAppSettings showToast={showToast} />
+                                </div>
+
+                                {/* How it works */}
+                                <div className="pt-4">
+                                    <h3 className="text-xl font-bold text-white mb-6">Come funziona</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 relative group hover:border-slate-700 transition-colors">
+                                            <div className="absolute -top-3 -left-3 w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center font-black text-white shadow-lg text-lg rotate-3 group-hover:rotate-6 transition-transform">1</div>
+                                            <h4 className="font-bold text-white mb-2 mt-2">Configura le Credenziali</h4>
+                                            <p className="text-sm text-slate-400">Inserisci il Phone Number ID e l'Access Token dalla piattaforma Meta for Developers.</p>
+                                        </div>
+                                        <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 relative group hover:border-slate-700 transition-colors">
+                                            <div className="absolute -top-3 -left-3 w-10 h-10 bg-purple-600 rounded-xl flex items-center justify-center font-black text-white shadow-lg text-lg -rotate-2 group-hover:-rotate-5 transition-transform">2</div>
+                                            <h4 className="font-bold text-white mb-2 mt-2">Seleziona i Clienti</h4>
+                                            <p className="text-sm text-slate-400">Usa i filtri per scegliere a chi inviare: VIP, per città, o tutti i clienti.</p>
+                                        </div>
+                                        <div className="bg-slate-900/50 p-6 rounded-2xl border border-slate-800 relative group hover:border-slate-700 transition-colors">
+                                            <div className="absolute -top-3 -left-3 w-10 h-10 bg-green-600 rounded-xl flex items-center justify-center font-black text-white shadow-lg text-lg rotate-1 group-hover:rotate-4 transition-transform">3</div>
+                                            <h4 className="font-bold text-white mb-2 mt-2">Invia i Messaggi</h4>
+                                            <p className="text-sm text-slate-400">L'AI schedula l'invio automatico rispettando i limiti per non essere bloccato.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         {adminTab === 'customers' && (
                             <CustomerManager
                                 showToast={showToast}
                                 showConfirm={showConfirm}
+                                onOpenWhatsApp={() => setShowWhatsAppManager(true)}
+                                onSendWhatsApp={(customerId) => {
+                                    // Pre-select the customer and open WhatsApp Manager
+                                    localStorage.setItem('whatsapp_preselected_customer', customerId);
+                                    setShowWhatsAppManager(true);
+                                }}
                             />
                         )}
                     </div >
@@ -3184,6 +3261,14 @@ export function App() {
                         }}
                     />
                 )}
+
+                {showWhatsAppManager && (
+                    <WhatsAppManager
+                        onClose={() => setShowWhatsAppManager(false)}
+                        showToast={showToast}
+                        showConfirm={showConfirm}
+                    />
+                )}
             </>
         );
     }
@@ -3222,6 +3307,13 @@ export function App() {
             {showReservations && (
                 <ReservationManager
                     onClose={() => setShowReservations(false)}
+                    showToast={showToast}
+                    showConfirm={showConfirm}
+                />
+            )}
+            {showWhatsAppManager && (
+                <WhatsAppManager
+                    onClose={() => setShowWhatsAppManager(false)}
                     showToast={showToast}
                     showConfirm={showConfirm}
                 />

@@ -1,13 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Phone, Mail, MapPin, Edit2, Trash2, Plus, Search, X, Check, Calendar, Euro, TrendingUp, Download, Upload, LayoutGrid, List } from 'lucide-react';
+import { User, Phone, Mail, MapPin, Edit2, Trash2, Plus, Search, X, Check, Calendar, Euro, TrendingUp, Download, Upload, LayoutGrid, List, MessageCircle, Send } from 'lucide-react';
 import { Customer } from '../types';
 
 interface CustomerManagerProps {
     showToast: (message: string, type: 'success' | 'error' | 'info') => void;
     showConfirm: (title: string, message: string) => Promise<boolean>;
+    onOpenWhatsApp?: () => void;
+    onSendWhatsApp?: (customerId: string) => void;
 }
 
-const CustomerManager: React.FC<CustomerManagerProps> = ({ showToast, showConfirm }) => {
+const CustomerManager: React.FC<CustomerManagerProps> = ({ showToast, showConfirm, onOpenWhatsApp, onSendWhatsApp }) => {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [isEditing, setIsEditing] = useState(false);
@@ -218,6 +220,17 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ showToast, showConfir
                         className="hidden"
                     />
 
+                    {onOpenWhatsApp && (
+                        <button
+                            onClick={onOpenWhatsApp}
+                            className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition-all shadow-lg"
+                            title="Apri Campagna WhatsApp"
+                        >
+                            <MessageCircle size={20} />
+                            Campagna WhatsApp
+                        </button>
+                    )}
+
                     <button
                         onClick={() => setIsEditing(true)}
                         className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold px-6 py-3 rounded-xl flex items-center gap-2 transition-all shadow-lg"
@@ -291,6 +304,15 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ showToast, showConfir
                             </div>
 
                             <div className="flex gap-2 mt-4">
+                                {onSendWhatsApp && customer.phone && (
+                                    <button
+                                        onClick={() => onSendWhatsApp(customer.id)}
+                                        className="w-10 h-10 bg-green-600 hover:bg-green-500 rounded-lg flex items-center justify-center transition-colors"
+                                        title="Invia WhatsApp"
+                                    >
+                                        <MessageCircle size={16} className="text-white" />
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => editCustomer(customer)}
                                     className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 transition-colors"
@@ -338,6 +360,16 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ showToast, showConfir
                                 </div>
                             </div>
                             <div className="flex gap-2 ml-4">
+                                {onSendWhatsApp && customer.phone && (
+                                    <button
+                                        onClick={() => onSendWhatsApp(customer.id)}
+                                        className="bg-green-600 hover:bg-green-500 text-white font-bold px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                                        title="Invia WhatsApp"
+                                    >
+                                        <MessageCircle size={16} />
+                                        WhatsApp
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => editCustomer(customer)}
                                     className="bg-slate-700 hover:bg-slate-600 text-white font-bold px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"

@@ -9,6 +9,11 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    server: {
+      watch: {
+        ignored: ['**/backups/**', '**/node_modules/**']
+      }
+    },
     build: {
       chunkSizeWarningLimit: 1000, // Aumenta il limite a 1MB per evitare l'avviso
       rollupOptions: {
