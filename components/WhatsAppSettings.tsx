@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MessageCircle, Save, AlertCircle, CheckCircle, Eye, EyeOff, ExternalLink } from 'lucide-react';
 import { getAppSettings, saveAppSettings } from '../services/storageService';
+// Ensure correct casing for Vercel build
 import { sendTemplateMessage } from '../services/whatsappService';
 
 interface WhatsAppSettingsProps {
