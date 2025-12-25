@@ -1579,11 +1579,7 @@ export function App() {
                                                     <div className="flex-1 space-y-3">
                                                         <div>
                                                             <label className="text-xs font-bold text-slate-500 uppercase mb-1 block">Nome Piatto</label>
-                                                            <input type="text" placeholder="Es. Spaghetti alla Carbonara" value={editingItem.name || ''} onChange={e => {
-                                                                const val = e.target.value;
-                                                                const capitalized = val.charAt(0).toUpperCase() + val.slice(1);
-                                                                setEditingItem({ ...editingItem, name: capitalized });
-                                                            }} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-bold text-sm focus:border-blue-500 outline-none transition-colors" />
+                                                            <input type="text" placeholder="Es. Spaghetti alla Carbonara" value={editingItem.name || ''} onChange={e => setEditingItem({ ...editingItem, name: e.target.value })} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white font-bold text-sm focus:border-blue-500 outline-none transition-colors" />
                                                         </div>
                                                         <div className="flex gap-3">
                                                             <div className="w-24">
@@ -1639,17 +1635,9 @@ export function App() {
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <div className="flex justify-between items-center mb-2">
+                                                    <div className="flex justify-between items-center mb-1">
                                                         <label className="text-xs font-bold text-slate-500 uppercase">Ingredienti</label>
-                                                    </div>
-                                                    <div className="mb-2">
-                                                        <button onClick={generateIngr} disabled={!editingItem.name} className="w-full bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 hover:text-white border border-purple-500/30 px-4 py-3 rounded-xl font-bold flex gap-2 items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed group">
-                                                            <Sparkles size={18} className="text-purple-400 group-hover:text-white" />
-                                                            Genera Ingredienti con AI
-                                                        </button>
-                                                        <p className="text-[10px] text-slate-500 mt-1.5 text-center px-2">
-                                                            L'intelligenza artificiale scriverà per te la lista degli ingredienti basandosi sul nome del piatto.
-                                                        </p>
+                                                        <button onClick={generateIngr} disabled={!editingItem.name} className="text-xs bg-purple-600/10 text-purple-400 hover:bg-purple-600/20 px-2 py-0.5 rounded-lg font-bold flex gap-1 items-center transition-colors disabled:opacity-50"><Sparkles size={12} /> AI</button>
                                                     </div>
                                                     <textarea placeholder="Elenco ingredienti separati da virgola..." value={editingItem.ingredients || ''} onChange={e => setEditingItem({ ...editingItem, ingredients: e.target.value })} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-purple-500 transition-colors resize-none h-24" />
                                                 </div>
@@ -1657,17 +1645,9 @@ export function App() {
 
                                             <div className="space-y-5">
                                                 <div>
-                                                    <div className="flex justify-between items-center mb-2">
+                                                    <div className="flex justify-between items-center mb-1">
                                                         <label className="text-xs font-bold text-slate-500 uppercase">Descrizione Menu</label>
-                                                    </div>
-                                                    <div className="mb-2">
-                                                        <button onClick={generateDesc} disabled={!editingItem.name} className="w-full bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 hover:text-white border border-blue-500/30 px-4 py-3 rounded-xl font-bold flex gap-2 items-center justify-center transition-all disabled:opacity-50 disabled:cursor-not-allowed group">
-                                                            <Sparkles size={18} className="text-blue-400 group-hover:text-white" />
-                                                            Genera Descrizione con AI
-                                                        </button>
-                                                        <p className="text-[10px] text-slate-500 mt-1.5 text-center px-2">
-                                                            Crea istantaneamente una descrizione accattivante e professionale per il tuo menu digitale.
-                                                        </p>
+                                                        <button onClick={generateDesc} disabled={!editingItem.name} className="text-xs bg-purple-600/10 text-purple-400 hover:bg-purple-600/20 px-2 py-0.5 rounded-lg font-bold flex gap-1 items-center transition-colors disabled:opacity-50"><Sparkles size={12} /> AI</button>
                                                     </div>
                                                     <textarea placeholder="Descrizione accattivante per il menu digitale..." value={editingItem.description || ''} onChange={e => setEditingItem({ ...editingItem, description: e.target.value })} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-purple-500 transition-colors resize-none h-24" />
                                                 </div>

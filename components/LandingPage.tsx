@@ -26,7 +26,7 @@ import {
   Camera,
   ChefHat,
   Calendar,
-  MessageCircle
+  Heart
 } from 'lucide-react';
 
 // Promo Timer Component
@@ -280,16 +280,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToApp }) => 
 
   return (
     <div className="landing-page">
-      {/* Announcement Strip */}
-      <div 
-        className="w-full bg-gradient-to-r from-blue-600 via-purple-600 to-green-600 text-white font-bold py-2.5 px-4 text-center cursor-pointer relative z-50 flex items-center justify-center gap-2 shadow-lg"
-        onClick={() => document.getElementById('new-features')?.scrollIntoView({ behavior: 'smooth' })}
-      >
-        <span className="animate-pulse">✨</span>
-        <span className="uppercase tracking-wide text-xs md:text-sm">Novità: Prenotazione Tavoli e Marketing WhatsApp Disponibili!</span>
-        <ArrowRight size={16} className="ml-1" />
-      </div>
-
       {/* Header */}
       <header className={`landing-header ${scrolled ? 'scrolled' : ''}`}>
         <div className="landing-container">
@@ -430,151 +420,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToApp }) => 
         </div>
       </div>
 
-      {/* NEW FEATURES HIGHLIGHT BANNER */}
-      <section id="new-features" className="landing-section relative overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900/20 to-slate-900">
-        <div className="absolute inset-0 opacity-10">
-          <div className="absolute top-0 left-0 w-96 h-96 bg-blue-500 rounded-full filter blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-green-500 rounded-full filter blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-        </div>
-
-        <div className="landing-container relative z-10">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-gradient-to-r from-blue-600 to-green-600 text-white font-black text-sm mb-6 shadow-2xl animate-bounce">
-              <Sparkles size={20} className="animate-spin" />
-              NUOVE FUNZIONALITÀ DISPONIBILI ORA!
-              <Sparkles size={20} className="animate-spin" />
-            </div>
-            <h2 className="text-4xl md:text-6xl font-black text-white mb-4">
-              Prenotazioni & Marketing
-              <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-purple-400 to-green-400">
-                Portati al Livello Successivo
-              </span>
-            </h2>
-            <p className="text-slate-300 max-w-3xl mx-auto text-lg md:text-xl">
-              Gestisci le prenotazioni dei tavoli e lancia campagne marketing WhatsApp professionali.
-              Tutto integrato nella tua piattaforma RistoSync.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
-            {/* Table Reservations Feature */}
-            <div className="group relative bg-gradient-to-br from-blue-900/40 to-blue-600/20 border-2 border-blue-500/50 rounded-3xl p-8 hover:scale-105 transition-all duration-300 shadow-2xl hover:shadow-blue-500/50">
-              <div className="absolute -top-4 -right-4 bg-blue-500 text-white px-4 py-2 rounded-full text-xs font-black uppercase shadow-lg animate-pulse">
-                Nuovo!
-              </div>
-
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 bg-blue-500/30 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <Calendar className="w-8 h-8 text-blue-400" />
-                </div>
-                <h3 className="text-3xl font-black text-white">
-                  Prenotazione Tavoli
-                </h3>
-              </div>
-
-              <p className="text-slate-300 text-lg mb-6">
-                Sistema completo di gestione prenotazioni con conferme automatiche,
-                promemoria SMS, gestione liste d'attesa e ottimizzazione intelligente dei posti.
-              </p>
-
-              <div className="space-y-3 mb-6">
-                <div className="flex items-center gap-3 text-blue-300">
-                  <CheckCircle2 className="w-5 h-5 text-blue-400 shrink-0" />
-                  <span className="font-semibold">Conferme automatiche via SMS/Email</span>
-                </div>
-                <div className="flex items-center gap-3 text-blue-300">
-                  <CheckCircle2 className="w-5 h-5 text-blue-400 shrink-0" />
-                  <span className="font-semibold">Gestione liste d'attesa intelligente</span>
-                </div>
-                <div className="flex items-center gap-3 text-blue-300">
-                  <CheckCircle2 className="w-5 h-5 text-blue-400 shrink-0" />
-                  <span className="font-semibold">Riduzione no-show fino al 70%</span>
-                </div>
-                <div className="flex items-center gap-3 text-blue-300">
-                  <CheckCircle2 className="w-5 h-5 text-blue-400 shrink-0" />
-                  <span className="font-semibold">Dashboard real-time occupazione tavoli</span>
-                </div>
-              </div>
-
-              <div className="bg-blue-500/20 border border-blue-400/30 rounded-xl p-4 backdrop-blur-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-blue-300 text-sm font-bold">Risparmio Medio</div>
-                    <div className="text-white text-2xl font-black">15 ore/settimana</div>
-                  </div>
-                  <TrendingUp className="w-12 h-12 text-blue-400 opacity-50" />
-                </div>
-              </div>
-            </div>
-
-            {/* WhatsApp Marketing Feature */}
-            <div className="group relative bg-gradient-to-br from-green-900/40 to-green-600/20 border-2 border-green-500/50 rounded-3xl p-8 hover:scale-105 transition-all duration-300 shadow-2xl hover:shadow-green-500/50">
-              <div className="absolute -top-4 -right-4 bg-green-500 text-white px-4 py-2 rounded-full text-xs font-black uppercase shadow-lg animate-pulse">
-                Nuovo!
-              </div>
-
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-16 h-16 bg-green-500/30 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <MessageCircle className="w-8 h-8 text-green-400" />
-                </div>
-                <h3 className="text-3xl font-black text-white">
-                  Marketing WhatsApp
-                </h3>
-              </div>
-
-              <p className="text-slate-300 text-lg mb-6">
-                Campagne marketing professionali via WhatsApp Business API con Meta.
-                Messaggi personalizzati, automazioni avanzate e analytics dettagliati.
-              </p>
-
-              <div className="space-y-3 mb-6">
-                <div className="flex items-center gap-3 text-green-300">
-                  <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
-                  <span className="font-semibold">Integrazione Meta WhatsApp Business API</span>
-                </div>
-                <div className="flex items-center gap-3 text-green-300">
-                  <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
-                  <span className="font-semibold">Messaggi personalizzati automatici</span>
-                </div>
-                <div className="flex items-center gap-3 text-green-300">
-                  <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
-                  <span className="font-semibold">Tasso di apertura del 98%</span>
-                </div>
-                <div className="flex items-center gap-3 text-green-300">
-                  <CheckCircle2 className="w-5 h-5 text-green-400 shrink-0" />
-                  <span className="font-semibold">Segmentazione clienti avanzata</span>
-                </div>
-              </div>
-
-              <div className="bg-green-500/20 border border-green-400/30 rounded-xl p-4 backdrop-blur-sm">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-green-300 text-sm font-bold">Tasso Conversione</div>
-                    <div className="text-white text-2xl font-black">+45% vendite</div>
-                  </div>
-                  <TrendingUp className="w-12 h-12 text-green-400 opacity-50" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* CTA Button */}
-          <div className="text-center mt-12">
-            <button
-              className="group relative inline-flex items-center gap-3 px-8 py-5 bg-gradient-to-r from-blue-600 via-purple-600 to-green-600 text-white font-black text-xl rounded-2xl shadow-2xl hover:shadow-purple-500/50 transition-all duration-300 hover:scale-110"
-              onClick={onNavigateToApp}
-            >
-              <Zap className="w-6 h-6 animate-pulse" />
-              <span>Prova Subito le Nuove Funzionalità</span>
-              <ArrowRight className="w-6 h-6 group-hover:translate-x-2 transition-transform" />
-            </button>
-            <p className="text-slate-400 text-sm mt-4">
-              15 giorni di prova gratuita • Nessuna carta di credito richiesta
-            </p>
-          </div>
-        </div>
-      </section>
-
       {/* AI Powerhouse Section */}
       <section className="landing-section relative">
         <div className="landing-container">
@@ -661,6 +506,745 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToApp }) => 
               </div>
               <h3 className="text-xl font-bold text-white mb-2">Locandine Delivery</h3>
               <p className="text-slate-400 text-sm">Crea automaticamente flyer accattivanti per promuovere il tuo delivery.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Table Reservations Section */}
+      <section className="landing-section bg-gradient-to-b from-slate-950 to-slate-900 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(139,92,246,0.1),transparent_50%)]"></div>
+        <div className="landing-container relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Text Content */}
+            <div className="order-2 lg:order-1">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 font-bold text-sm mb-6">
+                <LayoutGrid size={16} /> GESTIONE TAVOLI
+              </div>
+              <h2 className="text-4xl md:text-5xl font-black text-white mb-6">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">Prenotazioni Tavoli</span><br />
+                Semplificate
+              </h2>
+              <p className="text-slate-400 text-lg mb-8">
+                Gestisci le prenotazioni del tuo ristorante con un sistema intuitivo e potente.
+                Visualizza la mappa dei tavoli in tempo reale, gestisci gli acconti e tieni traccia
+                di ogni dettaglio dei tuoi clienti.
+              </p>
+              <div className="space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <Calendar className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">Calendario Intelligente</h4>
+                    <p className="text-slate-400 text-sm">Visualizza le prenotazioni per data con indicatori di occupazione in tempo reale</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-pink-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <Users className="w-5 h-5 text-pink-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">Database Clienti</h4>
+                    <p className="text-slate-400 text-sm">Storico completo con preferenze, allergie e statistiche di visita</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <DollarSign className="w-5 h-5 text-green-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">Gestione Acconti</h4>
+                    <p className="text-slate-400 text-sm">Traccia pagamenti anticipati con supporto multi-metodo (carta, contanti, bonifico)</p>
+                  </div>
+                </div>
+              </div>
+              <button
+                className="mt-8 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold px-8 py-4 rounded-xl flex items-center gap-2 transition-all shadow-lg"
+                onClick={onNavigateToApp}
+              >
+                Prova la Gestione Tavoli
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Visual Mockup */}
+            <div className="order-1 lg:order-2">
+              <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
+                    <Calendar className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-bold">Gestione Prenotazioni</h3>
+                    <p className="text-slate-400 text-sm">Oggi, 25 Dicembre 2025</p>
+                  </div>
+                </div>
+
+                {/* Table Grid Mockup */}
+                <div className="grid grid-cols-4 gap-3 mb-6">
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((num) => (
+                    <div
+                      key={num}
+                      className={`aspect-square rounded-xl border-2 flex flex-col items-center justify-center p-2 transition-all ${num % 3 === 0
+                        ? 'bg-purple-900/30 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.2)]'
+                        : num % 2 === 0
+                          ? 'bg-yellow-900/30 border-yellow-500 shadow-[0_0_15px_rgba(234,179,8,0.2)]'
+                          : 'bg-slate-800 border-slate-700'
+                        }`}
+                    >
+                      <span className="font-black text-white text-lg">{num}</span>
+                      {num % 3 === 0 && <span className="text-[10px] text-purple-300 font-bold">Prenotato</span>}
+                      {num % 2 === 0 && num % 3 !== 0 && <span className="text-[10px] text-yellow-300 font-bold">A Tavola</span>}
+                      {num % 2 !== 0 && num % 3 !== 0 && <span className="text-[10px] text-slate-400 font-bold">Libero</span>}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Reservation List Mockup */}
+                <div className="space-y-2">
+                  <div className="bg-slate-800 border border-purple-500/50 rounded-lg p-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-purple-600 rounded-lg flex items-center justify-center">
+                        <span className="text-white font-black text-sm">3</span>
+                      </div>
+                      <div>
+                        <div className="text-white font-bold text-sm">Mario Rossi</div>
+                        <div className="text-slate-400 text-xs flex items-center gap-2">
+                          <Clock size={10} /> 20:00 • <Users size={10} /> 4 persone
+                        </div>
+                      </div>
+                    </div>
+                    <div className="bg-green-900/30 border border-green-500 rounded px-2 py-1 text-xs font-bold text-green-400">
+                      €20
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* WhatsApp Marketing Section */}
+      <section className="landing-section bg-gradient-to-b from-slate-900 to-slate-950 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_50%,rgba(34,197,94,0.1),transparent_50%)]"></div>
+        <div className="landing-container relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Visual Mockup */}
+            <div>
+              <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-600 to-emerald-600 rounded-xl flex items-center justify-center">
+                    <Share2 className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-bold">WhatsApp Marketing</h3>
+                    <p className="text-slate-400 text-sm">Powered by Meta Business API</p>
+                  </div>
+                </div>
+
+                {/* Message Composer Mockup */}
+                <div className="bg-slate-950 border border-slate-700 rounded-xl p-4 mb-4">
+                  <div className="text-xs text-slate-400 mb-2">Template Messaggio</div>
+                  <div className="bg-slate-800 rounded-lg p-3 mb-3">
+                    <p className="text-white text-sm">🎉 Ciao {'{'}{'{'} nome {'}'}{'}'}! Abbiamo una promozione speciale per te...</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="flex-1 bg-slate-800 rounded-lg px-3 py-2 text-slate-400 text-xs">
+                      Seleziona clienti...
+                    </div>
+                    <button className="bg-green-600 hover:bg-green-500 text-white font-bold px-4 py-2 rounded-lg text-xs transition-colors">
+                      Invia
+                    </button>
+                  </div>
+                </div>
+
+                {/* Stats Mockup */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="bg-slate-950 border border-slate-700 rounded-lg p-3 text-center">
+                    <div className="text-green-400 font-black text-xl">156</div>
+                    <div className="text-slate-400 text-xs">Inviati</div>
+                  </div>
+                  <div className="bg-slate-950 border border-slate-700 rounded-lg p-3 text-center">
+                    <div className="text-blue-400 font-black text-xl">142</div>
+                    <div className="text-slate-400 text-xs">Letti</div>
+                  </div>
+                  <div className="bg-slate-950 border border-slate-700 rounded-lg p-3 text-center">
+                    <div className="text-purple-400 font-black text-xl">91%</div>
+                    <div className="text-slate-400 text-xs">Tasso</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Text Content */}
+            <div>
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/10 border border-green-500/30 text-green-400 font-bold text-sm mb-6">
+                <Share2 size={16} /> MARKETING AUTOMATION
+              </div>
+              <h2 className="text-4xl md:text-5xl font-black text-white mb-6">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600">WhatsApp Marketing</span><br />
+                con Meta Business API
+              </h2>
+              <p className="text-slate-400 text-lg mb-8">
+                Raggiungi i tuoi clienti direttamente su WhatsApp con campagne personalizzate.
+                Integrazione ufficiale Meta per messaggi professionali, template personalizzabili
+                e statistiche in tempo reale.
+              </p>
+              <div className="space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <Sparkles className="w-5 h-5 text-green-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">Template AI-Powered</h4>
+                    <p className="text-slate-400 text-sm">Crea messaggi personalizzati con l'aiuto dell'intelligenza artificiale</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <Users className="w-5 h-5 text-emerald-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">Segmentazione Avanzata</h4>
+                    <p className="text-slate-400 text-sm">Filtra clienti per città, genere, VIP status e storico visite</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <BarChart3 className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">Analytics Dettagliate</h4>
+                    <p className="text-slate-400 text-sm">Monitora invii, letture e tassi di risposta delle tue campagne</p>
+                  </div>
+                </div>
+              </div>
+              <button
+                className="mt-8 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold px-8 py-4 rounded-xl flex items-center gap-2 transition-all shadow-lg"
+                onClick={onNavigateToApp}
+              >
+                Inizia con WhatsApp
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Kitchen & Delivery Coordination Section */}
+      <section className="landing-section bg-gradient-to-b from-slate-950 to-slate-900 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(249,115,22,0.1),transparent_50%)]"></div>
+        <div className="landing-container relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Text Content */}
+            <div className="order-2 lg:order-1">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-orange-500/10 border border-orange-500/30 text-orange-400 font-bold text-sm mb-6">
+                <Zap size={16} /> COORDINAMENTO TOTALE
+              </div>
+              <h2 className="text-4xl md:text-5xl font-black text-white mb-6">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-600">Sala, Cucina & Delivery</span><br />
+                Perfettamente Sincronizzati
+              </h2>
+              <p className="text-slate-400 text-lg mb-8">
+                Coordina tutti i reparti del tuo ristorante in tempo reale. Gli ordini fluiscono
+                automaticamente dalla sala alla cucina, con notifiche smart e display dedicati
+                per ogni reparto. Zero confusione, massima efficienza.
+              </p>
+              <div className="space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-orange-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <Bell className="w-5 h-5 text-orange-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">Display Cucina Intelligente</h4>
+                    <p className="text-slate-400 text-sm">Timer automatici, priorità ordini e notifiche real-time per ogni piatto</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <TrendingUp className="w-5 h-5 text-red-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">Sync Delivery Platforms</h4>
+                    <p className="text-slate-400 text-sm">Glovo, Uber Eats, Just Eat e Deliveroo unificati in un'unica dashboard</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-yellow-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <Clock className="w-5 h-5 text-yellow-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">Tempi di Preparazione Ottimizzati</h4>
+                    <p className="text-slate-400 text-sm">L'AI prevede i tempi di cottura e coordina gli ordini per servizio simultaneo</p>
+                  </div>
+                </div>
+              </div>
+              <button
+                className="mt-8 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-bold px-8 py-4 rounded-xl flex items-center gap-2 transition-all shadow-lg"
+                onClick={onNavigateToApp}
+              >
+                Scopri il Coordinamento
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Visual Mockup */}
+            <div className="order-1 lg:order-2">
+              <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-orange-600 to-red-600 rounded-xl flex items-center justify-center">
+                    <ChefHat className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-bold">Kitchen Display System</h3>
+                    <p className="text-slate-400 text-sm">Ordini in tempo reale</p>
+                  </div>
+                </div>
+
+                {/* Orders Mockup */}
+                <div className="space-y-3 mb-4">
+                  {/* Order 1 - In Progress */}
+                  <div className="bg-orange-900/30 border-2 border-orange-500 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center">
+                          <span className="text-white font-black text-sm">T5</span>
+                        </div>
+                        <span className="text-white font-bold">Tavolo 5</span>
+                      </div>
+                      <div className="flex items-center gap-2 bg-orange-600 px-3 py-1 rounded-full">
+                        <Clock size={12} className="text-white" />
+                        <span className="text-white text-xs font-bold">8:32</span>
+                      </div>
+                    </div>
+                    <div className="text-slate-300 text-sm">2x Carbonara, 1x Amatriciana</div>
+                  </div>
+
+                  {/* Order 2 - Delivery */}
+                  <div className="bg-slate-800 border border-slate-700 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+                          <TrendingUp size={14} className="text-white" />
+                        </div>
+                        <span className="text-white font-bold">Glovo #1247</span>
+                      </div>
+                      <div className="bg-slate-700 px-3 py-1 rounded-full">
+                        <span className="text-slate-300 text-xs font-bold">In Attesa</span>
+                      </div>
+                    </div>
+                    <div className="text-slate-400 text-sm">1x Pizza Margherita, 1x Tiramisu</div>
+                  </div>
+
+                  {/* Order 3 - Ready */}
+                  <div className="bg-green-900/30 border border-green-500 rounded-xl p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
+                          <CheckCircle2 size={14} className="text-white" />
+                        </div>
+                        <span className="text-white font-bold">Tavolo 2</span>
+                      </div>
+                      <div className="bg-green-600 px-3 py-1 rounded-full">
+                        <span className="text-white text-xs font-bold">Pronto!</span>
+                      </div>
+                    </div>
+                    <div className="text-slate-300 text-sm">3x Lasagne</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* AI Menu Management Section */}
+      <section className="landing-section bg-gradient-to-b from-slate-900 to-slate-950 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_50%,rgba(59,130,246,0.1),transparent_50%)]"></div>
+        <div className="landing-container relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Visual Mockup */}
+            <div>
+              <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-xl flex items-center justify-center">
+                    <Utensils className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-bold">AI Menu Manager</h3>
+                    <p className="text-slate-400 text-sm">Gestione intelligente del menu</p>
+                  </div>
+                </div>
+
+                {/* Menu Item Card */}
+                <div className="bg-slate-950 border border-slate-700 rounded-xl p-4 mb-4">
+                  <div className="flex items-start gap-4">
+                    <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center shrink-0">
+                      <Utensils className="w-8 h-8 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-white font-bold mb-1">Carbonara Tradizionale</h4>
+                      <p className="text-slate-400 text-xs mb-2 line-clamp-2">
+                        Un classico della cucina romana con guanciale croccante, pecorino romano DOP
+                        e uova fresche. Cremosa e irresistibile! ✨
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <span className="bg-blue-900/30 border border-blue-500 text-blue-400 text-xs px-2 py-1 rounded">AI Generated</span>
+                        <span className="text-green-400 font-bold text-sm">€12.50</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Suggestions */}
+                <div className="bg-blue-900/20 border border-blue-500/30 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Brain className="w-4 h-4 text-blue-400" />
+                    <span className="text-blue-400 font-bold text-sm">Suggerimenti AI</span>
+                  </div>
+                  <div className="space-y-2 text-xs text-slate-300">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={12} className="text-green-400" />
+                      <span>Descrizione ottimizzata per vendite (+24%)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={12} className="text-green-400" />
+                      <span>Prezzo competitivo vs mercato</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <TrendingUp size={12} className="text-orange-400" />
+                      <span>Piatto top performer questa settimana</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Text Content */}
+            <div>
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 font-bold text-sm mb-6">
+                <Brain size={16} /> AI MENU INTELLIGENCE
+              </div>
+              <h2 className="text-4xl md:text-5xl font-black text-white mb-6">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-600">Menu Intelligente</span><br />
+                Gestito dall'AI
+              </h2>
+              <p className="text-slate-400 text-lg mb-8">
+                L'intelligenza artificiale scrive descrizioni appetitose che vendono, ottimizza i prezzi
+                in base al mercato e suggerisce modifiche per massimizzare i profitti. Il tuo menu
+                diventa uno strumento di vendita automatico.
+              </p>
+              <div className="space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <Sparkles className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">Descrizioni AI Ottimizzate</h4>
+                    <p className="text-slate-400 text-sm">L'AI scrive testi persuasivi che aumentano le conversioni del 24%</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-cyan-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <BarChart3 className="w-5 h-5 text-cyan-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">Analisi Performance Piatti</h4>
+                    <p className="text-slate-400 text-sm">Scopri quali piatti vendono di più e ottimizza il menu in tempo reale</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <DollarSign className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">Pricing Intelligente</h4>
+                    <p className="text-slate-400 text-sm">Suggerimenti automatici sui prezzi basati su costi, concorrenza e domanda</p>
+                  </div>
+                </div>
+              </div>
+              <button
+                className="mt-8 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold px-8 py-4 rounded-xl flex items-center gap-2 transition-all shadow-lg"
+                onClick={onNavigateToApp}
+              >
+                Prova l'AI Menu
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Digital & Print Menu Section */}
+      <section className="landing-section bg-gradient-to-b from-slate-950 to-slate-900 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(168,85,247,0.1),transparent_50%)]"></div>
+        <div className="landing-container relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Visual Mockup */}
+            <div>
+              <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
+                    <FileText className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-bold">Menu Digitale & Cartaceo</h3>
+                    <p className="text-slate-400 text-sm">Sempre aggiornato in tempo reale</p>
+                  </div>
+                </div>
+
+                {/* QR Code Mockup */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  {/* QR Code Card */}
+                  <div className="bg-slate-950 border border-purple-500/30 rounded-xl p-4">
+                    <div className="aspect-square bg-white rounded-lg mb-3 flex items-center justify-center">
+                      <div className="w-24 h-24 bg-slate-900 rounded grid grid-cols-3 gap-1 p-2">
+                        {[...Array(9)].map((_, i) => (
+                          <div key={i} className={`${i % 2 === 0 ? 'bg-white' : 'bg-slate-900'} rounded-sm`}></div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-purple-400 font-bold text-xs mb-1">QR Menu</div>
+                      <div className="text-slate-400 text-[10px]">Scansiona e ordina</div>
+                    </div>
+                  </div>
+
+                  {/* Print Menu Preview */}
+                  <div className="bg-slate-950 border border-slate-700 rounded-xl p-4">
+                    <div className="aspect-square bg-gradient-to-br from-orange-500/20 to-red-500/20 rounded-lg mb-3 flex flex-col items-center justify-center p-3">
+                      <Printer className="w-8 h-8 text-orange-400 mb-2" />
+                      <div className="space-y-1 w-full">
+                        <div className="h-1 bg-slate-700 rounded w-full"></div>
+                        <div className="h-1 bg-slate-700 rounded w-3/4"></div>
+                        <div className="h-1 bg-slate-700 rounded w-full"></div>
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <div className="text-orange-400 font-bold text-xs mb-1">Menu A4</div>
+                      <div className="text-slate-400 text-[10px]">Pronto per stampa</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Features List */}
+                <div className="bg-purple-900/20 border border-purple-500/30 rounded-xl p-4">
+                  <div className="space-y-2 text-xs text-slate-300">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={12} className="text-purple-400" />
+                      <span>Aggiornamento automatico in tempo reale</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={12} className="text-purple-400" />
+                      <span>QR code personalizzato per ogni tavolo</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 size={12} className="text-purple-400" />
+                      <span>Export PDF professionale A4/A5</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Text Content */}
+            <div>
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/30 text-purple-400 font-bold text-sm mb-6">
+                <FileText size={16} /> MENU SEMPRE AGGIORNATO
+              </div>
+              <h2 className="text-4xl md:text-5xl font-black text-white mb-6">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">Menu Digitale & QR</span><br />
+                Sempre Sincronizzato
+              </h2>
+              <p className="text-slate-400 text-lg mb-8">
+                Modifica il menu una volta e aggiorna automaticamente il QR code digitale e i menu
+                cartacei. I tuoi clienti vedono sempre prezzi e piatti aggiornati, senza ristampe
+                costose o QR code obsoleti.
+              </p>
+              <div className="space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <Camera className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">QR Code Intelligente</h4>
+                    <p className="text-slate-400 text-sm">Menu digitale interattivo con foto, allergeni e descrizioni AI</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-pink-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <Printer className="w-5 h-5 text-pink-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">Stampa Professionale</h4>
+                    <p className="text-slate-400 text-sm">Export PDF ottimizzato per stampa in formato A4 e A5</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-indigo-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <Zap className="w-5 h-5 text-indigo-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">Sync Istantaneo</h4>
+                    <p className="text-slate-400 text-sm">Ogni modifica si riflette immediatamente su tutti i canali</p>
+                  </div>
+                </div>
+              </div>
+              <button
+                className="mt-8 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold px-8 py-4 rounded-xl flex items-center gap-2 transition-all shadow-lg"
+                onClick={onNavigateToApp}
+              >
+                Crea il Tuo Menu
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Social Media Marketing Section */}
+      <section className="landing-section bg-gradient-to-b from-slate-900 to-slate-950 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_50%,rgba(236,72,153,0.1),transparent_50%)]"></div>
+        <div className="landing-container relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            {/* Text Content */}
+            <div className="order-2 lg:order-1">
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-pink-500/10 border border-pink-500/30 text-pink-400 font-bold text-sm mb-6">
+                <Share2 size={16} /> SOCIAL AUTOMATION
+              </div>
+              <h2 className="text-4xl md:text-5xl font-black text-white mb-6">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-600">Social Media Marketing</span><br />
+                Automatizzato dall'AI
+              </h2>
+              <p className="text-slate-400 text-lg mb-8">
+                L'AI crea post accattivanti per i tuoi piatti e li pubblica automaticamente su
+                Facebook e Instagram. Foto professionali, descrizioni persuasive e hashtag
+                ottimizzati per massimizzare l'engagement.
+              </p>
+              <div className="space-y-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-pink-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <Sparkles className="w-5 h-5 text-pink-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">Post AI-Generated</h4>
+                    <p className="text-slate-400 text-sm">Testi creativi e coinvolgenti scritti dall'intelligenza artificiale</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-rose-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <Camera className="w-5 h-5 text-rose-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">Foto Ottimizzate</h4>
+                    <p className="text-slate-400 text-sm">Immagini dei piatti ottimizzate per i social con filtri automatici</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-4">
+                  <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center shrink-0">
+                    <TrendingUp className="w-5 h-5 text-purple-400" />
+                  </div>
+                  <div>
+                    <h4 className="text-white font-bold mb-1">Pubblicazione Automatica</h4>
+                    <p className="text-slate-400 text-sm">Pianifica e pubblica su Facebook e Instagram con un click</p>
+                  </div>
+                </div>
+              </div>
+              <button
+                className="mt-8 bg-gradient-to-r from-pink-600 to-rose-600 hover:from-pink-500 hover:to-rose-500 text-white font-bold px-8 py-4 rounded-xl flex items-center gap-2 transition-all shadow-lg"
+                onClick={onNavigateToApp}
+              >
+                Inizia il Marketing
+                <ArrowRight className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Visual Mockup */}
+            <div className="order-1 lg:order-2">
+              <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 shadow-2xl">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-pink-600 to-rose-600 rounded-xl flex items-center justify-center">
+                    <Share2 className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-white font-bold">AI Social Manager</h3>
+                    <p className="text-slate-400 text-sm">Creazione post automatica</p>
+                  </div>
+                </div>
+
+                {/* Social Post Preview */}
+                <div className="bg-slate-950 border border-slate-700 rounded-xl overflow-hidden mb-4">
+                  {/* Post Header */}
+                  <div className="p-4 flex items-center gap-3 border-b border-slate-700">
+                    <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center">
+                      <Utensils className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <div className="text-white font-bold text-sm">Il Tuo Ristorante</div>
+                      <div className="text-slate-400 text-xs">Sponsorizzato • 2h fa</div>
+                    </div>
+                  </div>
+
+                  {/* Post Image */}
+                  <div className="aspect-square relative overflow-hidden">
+                    <img
+                      src="/carbonara-dish.png"
+                      alt="Carbonara dish"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-2 right-2 bg-pink-600 text-white text-xs font-bold px-2 py-1 rounded">
+                      AI Generated
+                    </div>
+                  </div>
+
+                  {/* Post Content */}
+                  <div className="p-4">
+                    <p className="text-white text-sm mb-3">
+                      🍝 Carbonara come una volta! Guanciale croccante, pecorino DOP e uova fresche
+                      per un piatto che conquista al primo assaggio. Vieni a provare la vera tradizione romana! ✨
+                    </p>
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      <span className="text-pink-400 text-xs">#Carbonara</span>
+                      <span className="text-pink-400 text-xs">#CucinaRomana</span>
+                      <span className="text-pink-400 text-xs">#Foodie</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-slate-400 text-xs">
+                      <div className="flex items-center gap-1">
+                        <Heart size={14} className="text-pink-500" />
+                        <span>247</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Share2 size={14} />
+                        <span>18 condivisioni</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Publishing Options */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-3 flex items-center gap-2">
+                    <div className="w-8 h-8 bg-blue-600 rounded flex items-center justify-center">
+                      <Share2 size={14} className="text-white" />
+                    </div>
+                    <div>
+                      <div className="text-blue-400 font-bold text-xs">Facebook</div>
+                      <div className="text-slate-400 text-[10px]">Connesso</div>
+                    </div>
+                  </div>
+                  <div className="bg-pink-900/20 border border-pink-500/30 rounded-lg p-3 flex items-center gap-2">
+                    <div className="w-8 h-8 bg-gradient-to-br from-pink-600 to-purple-600 rounded flex items-center justify-center">
+                      <Camera size={14} className="text-white" />
+                    </div>
+                    <div>
+                      <div className="text-pink-400 font-bold text-xs">Instagram</div>
+                      <div className="text-slate-400 text-[10px]">Connesso</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

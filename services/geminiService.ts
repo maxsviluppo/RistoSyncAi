@@ -5,7 +5,7 @@ import { getGoogleApiKey } from "./storageService";
 
 export const askChefAI = async (query: string, currentItem: MenuItem | null): Promise<string> => {
     try {
-        const apiKey = getGoogleApiKey() || import.meta.env.VITE_GOOGLE_API_KEY;
+        const apiKey = getGoogleApiKey() || process.env.API_KEY;
         if (!apiKey) {
             return "⚠️ Configurazione AI mancante. Vai nelle Impostazioni > AI Intelligence e inserisci la tua Google API Key.";
         }
@@ -61,7 +61,7 @@ export const askChefAI = async (query: string, currentItem: MenuItem | null): Pr
 
 export const generateRestaurantAnalysis = async (stats: any, date: string): Promise<string> => {
     try {
-        const apiKey = getGoogleApiKey() || import.meta.env.VITE_GOOGLE_API_KEY;
+        const apiKey = getGoogleApiKey() || process.env.API_KEY;
         if (!apiKey) return "⚠️ Chiave API mancante.";
 
         const ai = new GoogleGenerativeAI(apiKey);
@@ -105,7 +105,7 @@ export const generateRestaurantAnalysis = async (stats: any, date: string): Prom
 
 export const generateDishIngredients = async (dishName: string): Promise<string> => {
     try {
-        const apiKey = getGoogleApiKey() || import.meta.env.VITE_GOOGLE_API_KEY;
+        const apiKey = getGoogleApiKey() || process.env.API_KEY;
         if (!apiKey) return "";
 
         const ai = new GoogleGenerativeAI(apiKey);
@@ -130,7 +130,7 @@ export const generateDishIngredients = async (dishName: string): Promise<string>
 
 export const generateDishDescription = async (dishName: string, ingredients: string): Promise<string> => {
     try {
-        const apiKey = getGoogleApiKey() || import.meta.env.VITE_GOOGLE_API_KEY;
+        const apiKey = getGoogleApiKey() || process.env.API_KEY;
         if (!apiKey) return "";
 
         const ai = new GoogleGenerativeAI(apiKey);
@@ -156,7 +156,7 @@ export const generateDishDescription = async (dishName: string, ingredients: str
 
 export const generateRestaurantDescription = async (restaurantName: string): Promise<string> => {
     try {
-        const apiKey = getGoogleApiKey() || import.meta.env.VITE_GOOGLE_API_KEY;
+        const apiKey = getGoogleApiKey() || process.env.API_KEY;
         if (!apiKey) return "";
 
         const ai = new GoogleGenerativeAI(apiKey);
@@ -191,7 +191,7 @@ export interface ExtractedMenuItem {
 
 export const extractMenuFromImage = async (imageBase64: string): Promise<ExtractedMenuItem[]> => {
     try {
-        const apiKey = getGoogleApiKey() || import.meta.env.VITE_GOOGLE_API_KEY;
+        const apiKey = getGoogleApiKey() || process.env.API_KEY;
         if (!apiKey) {
             console.error("API Key mancante");
             return [];
@@ -267,7 +267,7 @@ export const extractMenuFromImage = async (imageBase64: string): Promise<Extract
 
 export const generateSocialPost = async (topic: string, imageContext?: string): Promise<string> => {
     try {
-        const apiKey = getGoogleApiKey() || import.meta.env.VITE_GOOGLE_API_KEY;
+        const apiKey = getGoogleApiKey() || process.env.API_KEY;
         if (!apiKey) return "";
 
         const ai = new GoogleGenerativeAI(apiKey);
@@ -309,7 +309,7 @@ export const detectAllergensFromIngredients = async (ingredients: string): Promi
             return [];
         }
 
-        const apiKey = getGoogleApiKey() || import.meta.env.VITE_GOOGLE_API_KEY;
+        const apiKey = getGoogleApiKey() || process.env.API_KEY;
         if (!apiKey) {
             console.warn("API Key mancante per rilevamento allergeni");
             return [];
@@ -395,7 +395,7 @@ export const detectAllergensFromIngredients = async (ingredients: string): Promi
  */
 export const generateWhatsAppMessage = async (topic: string): Promise<string> => {
     try {
-        const apiKey = getGoogleApiKey() || import.meta.env.VITE_GOOGLE_API_KEY;
+        const apiKey = getGoogleApiKey() || process.env.API_KEY;
         if (!apiKey) return "";
 
         const ai = new GoogleGenerativeAI(apiKey);

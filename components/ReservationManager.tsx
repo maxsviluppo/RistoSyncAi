@@ -1152,9 +1152,20 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
                                                     type="number"
                                                     min="0"
                                                     step="0.01"
-                                                    value={formData.depositAmount}
+                                                    value={formData.depositAmount === 0 || formData.depositAmount === '' ? '' : formData.depositAmount}
                                                     onChange={(e) => setFormData({ ...formData, depositAmount: e.target.value })}
-                                                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-green-500"
+                                                    onFocus={(e) => {
+                                                        if (formData.depositAmount === 0 || formData.depositAmount === '') {
+                                                            setFormData({ ...formData, depositAmount: '' });
+                                                        }
+                                                    }}
+                                                    onBlur={(e) => {
+                                                        if (e.target.value === '') {
+                                                            setFormData({ ...formData, depositAmount: '' });
+                                                        }
+                                                    }}
+                                                    placeholder="es. 10.00"
+                                                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 placeholder:opacity-50 outline-none focus:border-green-500"
                                                 />
                                             </div>
                                             <div>

@@ -460,95 +460,95 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ showToast, showConfir
                                         </select>
                                     </div>
                                 </div>
-                            </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Telefono *</label>
-                                    <input
-                                        type="tel"
-                                        value={formData.phone}
-                                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Email</label>
-                                    <input
-                                        type="email"
-                                        value={formData.email}
-                                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Città</label>
-                                    <input
-                                        type="text"
-                                        value={formData.city}
-                                        onChange={(e) => {
-                                            const value = e.target.value;
-                                            const capitalized = value.charAt(0).toUpperCase() + value.slice(1);
-                                            setFormData({ ...formData, city: capitalized });
-                                        }}
-                                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Indirizzo</label>
-                                    <input
-                                        type="text"
-                                        value={formData.address}
-                                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500"
-                                    />
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Note</label>
-                                <textarea
-                                    value={formData.notes}
-                                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                                    placeholder="Note particolari sul cliente..."
-                                    className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500 resize-none h-24"
-                                />
-                            </div>
-
-                            <div className="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-slate-700">
-                                <div className="flex items-center gap-3">
-                                    <TrendingUp size={20} className="text-yellow-400" />
+                                <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <div className="font-bold text-white text-sm">Cliente VIP</div>
-                                        <div className="text-xs text-slate-400">Trattamento prioritario</div>
+                                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Telefono *</label>
+                                        <input
+                                            type="tel"
+                                            value={formData.phone}
+                                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                                            className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Email</label>
+                                        <input
+                                            type="email"
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                            className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500"
+                                        />
                                     </div>
                                 </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Città</label>
+                                        <input
+                                            type="text"
+                                            value={formData.city}
+                                            onChange={(e) => {
+                                                const value = e.target.value;
+                                                const capitalized = value.charAt(0).toUpperCase() + value.slice(1);
+                                                setFormData({ ...formData, city: capitalized });
+                                            }}
+                                            className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Indirizzo</label>
+                                        <input
+                                            type="text"
+                                            value={formData.address}
+                                            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                                            className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Note</label>
+                                    <textarea
+                                        value={formData.notes}
+                                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                                        placeholder="Note particolari sul cliente..."
+                                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500 resize-none h-24"
+                                    />
+                                </div>
+
+                                <div className="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-slate-700">
+                                    <div className="flex items-center gap-3">
+                                        <TrendingUp size={20} className="text-yellow-400" />
+                                        <div>
+                                            <div className="font-bold text-white text-sm">Cliente VIP</div>
+                                            <div className="text-xs text-slate-400">Trattamento prioritario</div>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setFormData({ ...formData, vip: !formData.vip })}
+                                        className={`w-12 h-6 rounded-full p-1 transition-colors ${formData.vip ? 'bg-yellow-600' : 'bg-slate-700'}`}
+                                    >
+                                        <div className={`w-4 h-4 rounded-full bg-white transition-transform ${formData.vip ? 'translate-x-6' : ''}`} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="p-6 border-t border-slate-800 flex gap-3">
                                 <button
-                                    onClick={() => setFormData({ ...formData, vip: !formData.vip })}
-                                    className={`w-12 h-6 rounded-full p-1 transition-colors ${formData.vip ? 'bg-yellow-600' : 'bg-slate-700'}`}
+                                    onClick={resetForm}
+                                    className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 rounded-xl transition-colors"
                                 >
-                                    <div className={`w-4 h-4 rounded-full bg-white transition-transform ${formData.vip ? 'translate-x-6' : ''}`} />
+                                    Annulla
+                                </button>
+                                <button
+                                    onClick={saveCustomer}
+                                    className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
+                                >
+                                    <Check size={20} />
+                                    {editingCustomer ? 'Aggiorna' : 'Salva'}
                                 </button>
                             </div>
-                        </div>
-
-                        <div className="p-6 border-t border-slate-800 flex gap-3">
-                            <button
-                                onClick={resetForm}
-                                className="flex-1 bg-slate-700 hover:bg-slate-600 text-white font-bold py-4 rounded-xl transition-colors"
-                            >
-                                Annulla
-                            </button>
-                            <button
-                                onClick={saveCustomer}
-                                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2"
-                            >
-                                <Check size={20} />
-                                {editingCustomer ? 'Aggiorna' : 'Salva'}
-                            </button>
                         </div>
                     </div>
                 </div>

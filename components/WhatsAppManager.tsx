@@ -7,8 +7,7 @@ import {
 } from 'lucide-react';
 import { Customer } from '../types';
 import { generateWhatsAppMessage } from '../services/geminiService';
-// Renamed to whatsappApi to fix Vercel build casing issue
-import { sendTextMessage, formatPhoneNumber, WhatsAppConfig } from '../services/whatsappApi';
+import { sendTextMessage, formatPhoneNumber, WhatsAppConfig } from '../services/whatsappService';
 import { getAppSettings } from '../services/storageService';
 
 interface WhatsAppManagerProps {
@@ -813,8 +812,6 @@ const WhatsAppManager: React.FC<WhatsAppManagerProps> = ({ onClose, showToast, s
                                                 </select>
                                             </div>
 
-
-
                                             {/* Gender Filter */}
                                             <div>
                                                 <label className="text-xs font-bold text-slate-400 uppercase mb-1 block">Sesso</label>
@@ -955,128 +952,131 @@ const WhatsAppManager: React.FC<WhatsAppManagerProps> = ({ onClose, showToast, s
                             </div>
 
                             {/* Right: Message Composer */}
-                            <div className="w-1/2 flex flex-col">
-                                <div className="p-4 border-b border-slate-800">
+                            <div className="w-1/2 flex flex-col overflow-hidden">
+                                <div className="p-4 border-b border-slate-800 flex-shrink-0">
                                     <h3 className="font-bold text-white flex items-center gap-2">
                                         <Edit3 size={18} className="text-green-400" />
                                         Componi Messaggio
                                     </h3>
                                 </div>
 
-                                {/* Mode Toggle */}
-                                <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-800/30">
-                                    <span className="text-sm font-bold text-slate-300">Modalità Invio</span>
-                                    <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-700">
-                                        <button
-                                            onClick={() => setIsTemplateMode(false)}
-                                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${!isTemplateMode ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                                        >
-                                            Testo Libero (Supporto)
-                                        </button>
-                                        <button
-                                            onClick={() => setIsTemplateMode(true)}
-                                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${isTemplateMode ? 'bg-green-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-                                        >
-                                            Template Meta (Marketing)
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {/* Template Quick Select (Only in Free Text Mode) */}
-                                {!isTemplateMode && (
-                                    <div className="p-4 border-b border-slate-800">
-                                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Template Rapidi</label>
-                                        <div className="flex flex-wrap gap-2">
+                                {/* Scrollable Content Area */}
+                                <div className="flex-1 overflow-y-auto">
+                                    {/* Mode Toggle */}
+                                    <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-800/30">
+                                        <span className="text-sm font-bold text-slate-300">Modalità Invio</span>
+                                        <div className="flex bg-slate-900 rounded-lg p-1 border border-slate-700">
                                             <button
-                                                onClick={() => setShowAiModal(true)}
-                                                className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 rounded-lg text-xs font-bold text-white transition-all flex items-center gap-1 shadow-lg shadow-purple-900/20"
+                                                onClick={() => setIsTemplateMode(false)}
+                                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${!isTemplateMode ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
                                             >
-                                                <Sparkles size={12} />
-                                                AI Magic Writer
+                                                Testo Libero (Supporto)
                                             </button>
-                                            {templates.map(t => (
-                                                <button
-                                                    key={t.id}
-                                                    onClick={() => setMessageText(t.content)}
-                                                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-bold text-slate-300 transition-colors"
-                                                >
-                                                    {t.name}
-                                                </button>
-                                            ))}
+                                            <button
+                                                onClick={() => setIsTemplateMode(true)}
+                                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${isTemplateMode ? 'bg-green-600 text-white shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
+                                            >
+                                                Template Meta (Marketing)
+                                            </button>
                                         </div>
                                     </div>
-                                )}
 
-                                {/* Message Editor OR Template Name Input */}
-                                <div className="flex-1 p-4 flex flex-col gap-4">
-                                    {isTemplateMode ? (
-                                        <div className="space-y-4">
-                                            <div className="bg-yellow-900/20 border border-yellow-500/30 p-4 rounded-xl">
-                                                <h4 className="text-yellow-400 font-bold text-sm mb-1 flex items-center gap-2">
-                                                    <AlertTriangle size={16} />
-                                                    Attenzione
-                                                </h4>
-                                                <p className="text-xs text-yellow-200/80">
-                                                    Per invii di massa (Marketing) devi usare <strong>Template approvati da Meta</strong>.
-                                                    Inserisci qui sotto il nome ESATTO del template (es. <code>hello_world</code> o il tuo template personalizzato).
-                                                </p>
-                                            </div>
-
-                                            <div>
-                                                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Nome Template Meta</label>
-                                                <input
-                                                    type="text"
-                                                    value={templateNameInput}
-                                                    onChange={(e) => setTemplateNameInput(e.target.value)}
-                                                    placeholder="es. hello_world"
-                                                    className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 outline-none focus:border-green-500 font-mono text-sm"
-                                                />
-                                            </div>
-
-                                            <div className="text-xs text-slate-500">
-                                                Nota: Se il template ha variabili, per ora verranno ignorate in questa versione semplificata. Assicurati di usare template senza parametri o statici per il test.
+                                    {/* Template Quick Select (Only in Free Text Mode) */}
+                                    {!isTemplateMode && (
+                                        <div className="p-4 border-b border-slate-800">
+                                            <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Template Rapidi</label>
+                                            <div className="flex flex-wrap gap-2">
+                                                <button
+                                                    onClick={() => setShowAiModal(true)}
+                                                    className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 rounded-lg text-xs font-bold text-white transition-all flex items-center gap-1 shadow-lg shadow-purple-900/20"
+                                                >
+                                                    <Sparkles size={12} />
+                                                    AI Magic Writer
+                                                </button>
+                                                {templates.map(t => (
+                                                    <button
+                                                        key={t.id}
+                                                        onClick={() => setMessageText(t.content)}
+                                                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-xs font-bold text-slate-300 transition-colors"
+                                                    >
+                                                        {t.name}
+                                                    </button>
+                                                ))}
                                             </div>
                                         </div>
-                                    ) : (
-                                        <textarea
-                                            value={messageText}
-                                            onChange={(e) => setMessageText(e.target.value)}
-                                            placeholder="Scrivi il tuo messaggio qui...
+                                    )}
+
+                                    {/* Message Editor OR Template Name Input */}
+                                    <div className="p-4 flex flex-col gap-4 min-h-[300px]">
+                                        {isTemplateMode ? (
+                                            <div className="space-y-4">
+                                                <div className="bg-yellow-900/20 border border-yellow-500/30 p-4 rounded-xl">
+                                                    <h4 className="text-yellow-400 font-bold text-sm mb-1 flex items-center gap-2">
+                                                        <AlertTriangle size={16} />
+                                                        Attenzione
+                                                    </h4>
+                                                    <p className="text-xs text-yellow-200/80">
+                                                        Per invii di massa (Marketing) devi usare <strong>Template approvati da Meta</strong>.
+                                                        Inserisci qui sotto il nome ESATTO del template (es. <code>hello_world</code> o il tuo template personalizzato).
+                                                    </p>
+                                                </div>
+
+                                                <div>
+                                                    <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Nome Template Meta</label>
+                                                    <input
+                                                        type="text"
+                                                        value={templateNameInput}
+                                                        onChange={(e) => setTemplateNameInput(e.target.value)}
+                                                        placeholder="es. hello_world"
+                                                        className="w-full bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 text-white placeholder-slate-500 outline-none focus:border-green-500 font-mono text-sm"
+                                                    />
+                                                </div>
+
+                                                <div className="text-xs text-slate-500">
+                                                    Nota: Se il template ha variabili, per ora verranno ignorate in questa versione semplificata. Assicurati di usare template senza parametri o statici per il test.
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <textarea
+                                                value={messageText}
+                                                onChange={(e) => setMessageText(e.target.value)}
+                                                placeholder="Scrivi il tuo messaggio qui...
 
 Usa {nome} per inserire il nome del cliente
 Usa {cognome} per il cognome
 Usa {citta} per la città
 Usa {data} per una data futura (7 giorni)"
-                                            className="w-full h-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white placeholder-slate-500 resize-none outline-none focus:border-green-500"
-                                        />
+                                                className="w-full min-h-[200px] bg-slate-800 border border-slate-700 rounded-xl p-4 text-white placeholder-slate-500 resize-none outline-none focus:border-green-500"
+                                            />
+                                        )}
+                                    </div>
+
+                                    {/* Preview */}
+                                    {messageText && !isTemplateMode && (
+                                        <div className="p-4 border-t border-slate-800">
+                                            <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Anteprima</label>
+                                            <div className="bg-green-900/20 border border-green-500/30 rounded-xl p-4 text-sm text-green-300">
+                                                {personalizeMessage(messageText, {
+                                                    id: 'preview',
+                                                    firstName: 'Mario',
+                                                    lastName: 'Rossi',
+                                                    phone: '3331234567',
+                                                    city: 'Roma',
+                                                    createdAt: Date.now(),
+                                                    totalVisits: 5,
+                                                    totalSpent: 250,
+                                                    vip: false
+                                                })}
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
 
-                                {/* Preview */}
-                                {messageText && (
-                                    <div className="p-4 border-t border-slate-800">
-                                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Anteprima</label>
-                                        <div className="bg-green-900/20 border border-green-500/30 rounded-xl p-4 text-sm text-green-300">
-                                            {personalizeMessage(messageText, {
-                                                id: 'preview',
-                                                firstName: 'Mario',
-                                                lastName: 'Rossi',
-                                                phone: '3331234567',
-                                                city: 'Roma',
-                                                createdAt: Date.now(),
-                                                totalVisits: 5,
-                                                totalSpent: 250,
-                                                vip: false
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Actions */}
-                                <div className="p-4 border-t border-slate-800 flex gap-3">
+                                {/* Actions - Fixed at bottom */}
+                                <div className="p-4 border-t border-slate-800 flex gap-3 flex-shrink-0 bg-slate-900">
                                     <button
                                         onClick={addToQueue}
-                                        disabled={!messageText.trim() || (sendMode === 'single' && selectedCustomers.length === 0)}
+                                        disabled={(isTemplateMode && !templateNameInput.trim()) || (!isTemplateMode && !messageText.trim()) || (sendMode === 'single' && selectedCustomers.length === 0)}
                                         className="flex-1 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 disabled:from-slate-700 disabled:to-slate-700 disabled:text-slate-500 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2"
                                     >
                                         <Send size={18} />
