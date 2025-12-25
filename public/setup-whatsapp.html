@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Setup WhatsApp API - RistoSync</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 2px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 2px solid #f5c6cb;
+        }
+        
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 2px solid #bee5eb;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        button.secondary {
+            background: #6c757d;
+        }
+        
+        .credentials {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            word-break: break-all;
+        }
+        
+        .credentials div {
+            margin: 5px 0;
+        }
+        
+        .credentials strong {
+            color: #667eea;
+        }
+        
+        .icon {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="icon">📱</div>
+        <h1>Setup WhatsApp API</h1>
+        <p class="subtitle">Configurazione automatica credenziali per RistoSync</p>
+        
+        <div id="status"></div>
+        
+        <div class="credentials">
+            <div><strong>Phone Number ID:</strong> 965414446646523</div>
+            <div><strong>Business Account ID:</strong> 405871605772314</div>
+            <div><strong>API Version:</strong> v22.0</div>
+            <div><strong>Access Token:</strong> EAAG... (configurato)</div>
+        </div>
+        
+        <button onclick="setupCredentials()">
+            🚀 Configura Credenziali WhatsApp
+        </button>
+        
+        <button onclick="verifySetup()" class="secondary">
+            ✅ Verifica Configurazione
+        </button>
+        
+        <button onclick="openRistoSync()" class="secondary">
+            🌐 Apri RistoSync
+        </button>
+    </div>
+
+    <script>
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = 'status ' + type;
+            statusDiv.innerHTML = message;
+        }
+
+        function setupCredentials() {
+            try {
+                const settings = JSON.parse(localStorage.getItem('ristosync_app_settings') || '{}');
+                
+                settings.restaurantProfile = settings.restaurantProfile || {};
+                settings.restaurantProfile.whatsappApiConfig = {
+                    phoneNumberId: '965414446646523',
+                    accessToken: 'EAAUB0tmAT24BQYtOJNZCjSiWHdSxZAspeyDtWakYciybKjQZCU10SQY7oz22DlKbzHZBnG1RkCo0AOwdWTAloGbQlfl6IZCpLVlY1uDvwUBsmLuiz6wYZCqAzTTu61cZB402ZBp0pVaz03p7UzXR5h33aQvNENPTjJDJWwr2oFVYOHwDzT0ELZA8OdWFXDZAzZA0HxRoqNQE1kkVvdg4z2TcRxRO64ZBc9LCsZAyh19hk5IXmcRzJFJ8n5tu4fTSKGC5NEOveIKUus8QWZB2c7c6tBny0szSPAMPpnmEOhewZDZD',
+                    businessAccountId: '405871605772314',
+                    apiVersion: 'v22.0'
+                };
+                
+                localStorage.setItem('ristosync_app_settings', JSON.stringify(settings));
+                
+                showStatus('✅ Credenziali WhatsApp salvate con successo!<br>Ora puoi aprire RistoSync e usare WhatsApp Marketing.', 'success');
+            } catch (error) {
+                showStatus('❌ Errore durante il salvataggio: ' + error.message, 'error');
+            }
+        }
+
+        function verifySetup() {
+            try {
+                const settings = JSON.parse(localStorage.getItem('ristosync_app_settings') || '{}');
+                const config = settings.restaurantProfile?.whatsappApiConfig;
+                
+                if (config && config.phoneNumberId && config.accessToken) {
+                    showStatus(
+                        '✅ Configurazione trovata!<br>' +
+                        'Phone Number ID: ' + config.phoneNumberId + '<br>' +
+                        'API Version: ' + config.apiVersion,
+                        'success'
+                    );
+                } else {
+                    showStatus('⚠️ Configurazione non trovata. Clicca su "Configura Credenziali WhatsApp" prima.', 'info');
+                }
+            } catch (error) {
+                showStatus('❌ Errore durante la verifica: ' + error.message, 'error');
+            }
+        }
+
+        function openRistoSync() {
+            window.open('/', '_blank');
+            showStatus('🌐 RistoSync aperto in una nuova scheda!', 'info');
+        }
+
+        // Auto-check on load
+        window.addEventListener('load', () => {
+            const settings = JSON.parse(localStorage.getItem('ristosync_app_settings') || '{}');
+            if (settings.restaurantProfile?.whatsappApiConfig) {
+                showStatus('ℹ️ Credenziali già configurate. Puoi verificarle o aprire RistoSync.', 'info');
+            } else {
+                showStatus('ℹ️ Clicca su "Configura Credenziali WhatsApp" per iniziare.', 'info');
+            }
+        });
+    </script>
+</body>
+</html>
