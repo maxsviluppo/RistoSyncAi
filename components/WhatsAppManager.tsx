@@ -7,8 +7,8 @@ import {
 } from 'lucide-react';
 import { Customer } from '../types';
 import { generateWhatsAppMessage } from '../services/geminiService';
-// Ensure correct casing for Vercel build
-import { sendTextMessage, formatPhoneNumber, WhatsAppConfig } from '../services/whatsappService';
+// Renamed to whatsappApi to fix Vercel build casing issue
+import { sendTextMessage, formatPhoneNumber, WhatsAppConfig } from '../services/whatsappApi';
 import { getAppSettings } from '../services/storageService';
 
 interface WhatsAppManagerProps {

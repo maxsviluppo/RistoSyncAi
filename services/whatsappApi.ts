@@ -1,6 +1,7 @@
 /**
  * WhatsApp Business Cloud API Service
  * Official Meta API integration for sending WhatsApp messages
+ * (Fixed import path case sensitivity)
  */
 
 export interface WhatsAppConfig {
@@ -63,6 +64,22 @@ export async function sendWhatsAppMessage(
         const data = await response.json();
 
         if (!response.ok) {
+            // Gestione specifica errori comuni
+            if (data.error?.code === 131026 || data.error?.code === 131030) {
+                return {
+                    success: false,
+                    error: 'Numero non abilitato (Modalità Test). Aggiungi questo numero alla "Phone Number List" nella Meta Dashboard o passa in Produzione.',
+                    details: data
+                };
+            }
+            if (data.error?.code === 190) {
+                return {
+                    success: false,
+                    error: 'Token scaduto o non valido. Aggiorna il token nelle impostazioni.',
+                    details: data
+                };
+            }
+
             return {
                 success: false,
                 error: data.error?.message || 'Failed to send message',
@@ -94,8 +111,9 @@ export async function sendTemplateMessage(
     templateName: string = 'hello_world',
     languageCode: string = 'en_US'
 ): Promise<WhatsAppResponse> {
+    const formattedTo = formatPhoneNumber(to);
     return sendWhatsAppMessage(config, {
-        to,
+        to: formattedTo,
         type: 'template',
         template: {
             name: templateName,
@@ -114,8 +132,9 @@ export async function sendTextMessage(
     to: string,
     text: string
 ): Promise<WhatsAppResponse> {
+    const formattedTo = formatPhoneNumber(to);
     return sendWhatsAppMessage(config, {
-        to,
+        to: formattedTo,
         type: 'text',
         text
     });
@@ -123,20 +142,31 @@ export async function sendTextMessage(
 
 /**
  * Format phone number for WhatsApp API
- * Removes spaces, dashes, and ensures country code
+ * Removes spaces, dashes, and automatically adds +39 for Italy if missing
  */
 export function formatPhoneNumber(phone: string): string {
     // Remove all non-numeric characters
     let cleaned = phone.replace(/\D/g, '');
 
-    // If it starts with 0, assume it's Italian and add +39
-    if (cleaned.startsWith('0')) {
-        cleaned = '39' + cleaned.substring(1);
+    // Remove leading 00 (international format)
+    if (cleaned.startsWith('00')) {
+        cleaned = cleaned.substring(2);
     }
 
-    // If it doesn't start with country code, assume Italian
-    if (!cleaned.startsWith('39') && cleaned.length === 10) {
-        cleaned = '39' + cleaned;
+    // Caso: Numero fisso/mobile che inizia con 0 (es. 06..., 02...) -> sostituisci con 39
+    if (cleaned.startsWith('0')) {
+        return '39' + cleaned.substring(1);
+    }
+
+    // Se inizia già con 39 ed è abbastanza lungo (> 10 cifre), assumiamo sia ok
+    if (cleaned.startsWith('39') && cleaned.length > 10) {
+        return cleaned;
+    }
+
+    // Se NON inizia con 39, assumiamo sia un numero italiano (mobile o fisso) e aggiungiamo il prefisso
+    // Es. 3471234567 (10 cifre) -> 393471234567
+    if (!cleaned.startsWith('39')) {
+        return '39' + cleaned;
     }
 
     return cleaned;
