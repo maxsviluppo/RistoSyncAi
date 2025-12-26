@@ -241,12 +241,14 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
                 );
 
                 if (targetOrder) {
-                    showNotification(`✅ VOCALE: Tavolo ${tableNum} PRONTO!`, 'success');
-                    playNotificationSound('ready');
+                    // IMPROVED LOGIC: Complete only ONE dish at a time
+                    // Find the first uncompleted item relevant to this department
+                    let completedOne = false;
 
-                    // AUTO-TICK: Spunta visivamente tutti i prodotti di questo reparto scansionando con i REFS
-                    targetOrder.items.forEach((item, idx) => {
-                        // Logic adapted from isItemRelevantForDept but using STATE REFS to ensure freshness
+                    for (let idx = 0; idx < targetOrder.items.length && !completedOne; idx++) {
+                        const item = targetOrder.items[idx];
+
+                        // Check if item is relevant for this department
                         const currentSettings = appSettingsRef.current;
                         const currentDept = departmentRef.current;
                         const currentMenu = allMenuItemsRef.current;
@@ -263,14 +265,21 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
                             });
                         }
 
-                        if (relevant) {
-                            if (!item.completed && item.menuItem.category !== Category.MENU_COMPLETO) {
-                                handlersRef.current.toggleOrderItemCompletion(targetOrder.id, idx);
-                            }
+                        // If relevant and not completed, complete it and stop
+                        if (relevant && !item.completed && item.menuItem.category !== Category.MENU_COMPLETO) {
+                            handlersRef.current.toggleOrderItemCompletion(targetOrder.id, idx);
+                            showNotification(`✅ VOCALE: ${item.menuItem.name} - Tavolo ${tableNum} PRONTO!`, 'success');
+                            playNotificationSound('ready');
+                            completedOne = true;
                         }
-                    });
+                    }
 
-                    handlersRef.current.updateOrderStatus(targetOrder.id, OrderStatus.READY);
+                    if (!completedOne) {
+                        // All items already completed - mark order as READY
+                        handlersRef.current.updateOrderStatus(targetOrder.id, OrderStatus.READY);
+                        showNotification(`✅ VOCALE: Tavolo ${tableNum} COMPLETAMENTE PRONTO!`, 'success');
+                        playNotificationSound('ready');
+                    }
                 } else {
                     showNotification(`❌ VOCALE: Tavolo ${tableNum} non trovato`, 'alert');
                 }

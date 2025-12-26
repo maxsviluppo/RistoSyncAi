@@ -688,7 +688,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
                                             <button
                                                 key={num}
                                                 onClick={() => handleTableClick(tableNum)}
-                                                className={`aspect-square rounded-xl border-2 flex flex-col items-center justify-center p-2 transition-all hover:scale-105 active:scale-95 relative group ${bgClass}`}
+                                                className={`aspect-square rounded-2xl border-2 flex flex-col items-center justify-center p-2 transition-all hover:scale-105 active:scale-95 relative group overflow-hidden ${bgClass}`}
                                             >
                                                 <span className={`font-black mb-1 transition-all ${res ? 'text-xl' : 'text-2xl'}`}>{num}</span>
 
@@ -703,7 +703,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
                                                                 {res.numberOfGuests}
                                                                 {res.numberOfChildren ? <span className="text-[9px] opacity-80">+{res.numberOfChildren}👶</span> : ''}
                                                             </span>
-                                                            <span className="flex items-center gap-0.5 text-[10px]"><Clock size={10} /> {res.reservationTime}</span>
+                                                            <span className="flex items-center gap-0.5 text-[10px]"><Clock size={10} /> {res.reservationTime.substring(0, 5)}</span>
                                                         </div>
                                                     </div>
                                                 ) : (

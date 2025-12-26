@@ -1357,3 +1357,190 @@ export const syncCustomersDown = async () => {
         window.dispatchEvent(new Event('local-customers-update'));
     }
 };
+
+// ============================================
+// 🆕 RESERVATION LOCAL STORAGE FUNCTIONS
+// ============================================
+
+const RESERVATIONS_KEY = 'reservations';
+
+/**
+ * Get all reservations from localStorage
+ */
+export const getReservations = (): Reservation[] => {
+    const data = localStorage.getItem(RESERVATIONS_KEY);
+    return data ? JSON.parse(data) : [];
+};
+
+/**
+ * Get reservations for today
+ */
+export const getTodayReservations = (): Reservation[] => {
+    const all = getReservations();
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    return all.filter(r =>
+        r.reservationDate === today &&
+        r.status !== ReservationStatus.CANCELLED &&
+        r.status !== ReservationStatus.NO_SHOW
+    );
+};
+
+/**
+ * Get active reservations (PENDING or SEATED) for a specific table
+ */
+export const getTableReservation = (tableNumber: string): Reservation | null => {
+    const all = getReservations();
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+
+    // Find active reservations for this table
+    const active = all.filter(r =>
+        r.tableNumber === tableNumber &&
+        r.reservationDate === today &&
+        (r.status === ReservationStatus.PENDING || r.status === ReservationStatus.SEATED)
+    );
+
+    if (active.length === 0) return null;
+
+    // Prioritize SEATED reservations (customer is here)
+    const seated = active.find(r => r.status === ReservationStatus.SEATED);
+    if (seated) return seated;
+
+    // For PENDING, only show if within 1 hour or past due (and not cancelled/completed)
+    // AND prioritize the earliest one
+    const pendingWithTime = active
+        .filter(r => r.status === ReservationStatus.PENDING)
+        .sort((a, b) => a.reservationTime.localeCompare(b.reservationTime));
+
+    const visiblePending = pendingWithTime.find(r => {
+        const [hours, minutes] = r.reservationTime.split(':').map(Number);
+        const resTime = new Date();
+        resTime.setHours(hours, minutes, 0, 0);
+
+        // Window: From (ResTime - 1 Hour) to (ResTime + X hours?? Usually until completed)
+        // Actually, we just want to know if we are "close" to the time.
+        // "Almeno un ora prima" -> Current Time >= (ResTime - 1h)
+        const oneHourBefore = new Date(resTime);
+        oneHourBefore.setHours(resTime.getHours() - 1);
+
+        // Also check if we are not TOO late (e.g. 12 hours late? probably expired logic handles that elsewhere, but let's be safe)
+        // For now, simple check: is it time to show it?
+        return now >= oneHourBefore;
+    });
+
+    return visiblePending || null;
+};
+
+/**
+ * Update reservation status and sync to cloud
+ */
+export const updateReservationStatus = async (
+    reservationId: string,
+    newStatus: ReservationStatus,
+    additionalData?: Partial<Reservation>
+): Promise<void> => {
+    const reservations = getReservations();
+    const reservation = reservations.find(r => r.id === reservationId);
+
+    if (!reservation) {
+        console.error('Reservation not found:', reservationId);
+        return;
+    }
+
+    const now = Date.now();
+    const updated: Reservation = {
+        ...reservation,
+        status: newStatus,
+        updatedAt: now,
+        ...additionalData
+    };
+
+    // Add timestamps based on status
+    if (newStatus === ReservationStatus.SEATED && !updated.seatedAt) {
+        updated.seatedAt = now;
+        updated.arrivedAt = updated.arrivedAt || now;
+    }
+    if (newStatus === ReservationStatus.CANCELLED && !updated.cancelledAt) {
+        updated.cancelledAt = now;
+    }
+    if (newStatus === ReservationStatus.COMPLETED && !updated.completedAt) {
+        updated.completedAt = now;
+    }
+    if (newStatus === ReservationStatus.NO_SHOW && !updated.noShowMarkedAt) {
+        updated.noShowMarkedAt = now;
+    }
+
+    const newReservations = reservations.map(r => r.id === reservationId ? updated : r);
+
+    // Save locally
+    localStorage.setItem(RESERVATIONS_KEY, JSON.stringify(newReservations));
+    window.dispatchEvent(new Event('local-reservations-update'));
+
+    // Sync to cloud
+    await saveReservationToCloud(updated);
+};
+
+/**
+ * Check if a table is reserved at a specific time
+ */
+export const isTableReserved = (tableNumber: string, date?: string, time?: string): boolean => {
+    const reservations = getReservations();
+    const checkDate = date || new Date().toISOString().split('T')[0];
+
+    return reservations.some(r =>
+        r.tableNumber === tableNumber &&
+        r.reservationDate === checkDate &&
+        (r.status === ReservationStatus.PENDING || r.status === ReservationStatus.SEATED) &&
+        (!time || r.reservationTime === time)
+    );
+};
+
+/**
+ * Get upcoming reservations (within next hour)
+ */
+export const getUpcomingReservations = (): Reservation[] => {
+    const all = getTodayReservations();
+    const now = new Date();
+    const oneHourLater = new Date(now.getTime() + 60 * 60 * 1000);
+
+    return all.filter(r => {
+        if (r.status !== ReservationStatus.PENDING) return false;
+
+        const [hours, minutes] = r.reservationTime.split(':').map(Number);
+        const reservationTime = new Date();
+        reservationTime.setHours(hours, minutes, 0, 0);
+
+        return reservationTime >= now && reservationTime <= oneHourLater;
+    }).sort((a, b) => a.reservationTime.localeCompare(b.reservationTime));
+};
+
+/**
+ * Mark customer as arrived (PENDING -> SEATED)
+ */
+export const markCustomerArrived = async (reservationId: string, waiterName?: string): Promise<void> => {
+    await updateReservationStatus(reservationId, ReservationStatus.SEATED, {
+        arrivedAt: Date.now(),
+        seatedAt: Date.now(),
+        waiterAssigned: waiterName
+    });
+};
+
+/**
+ * Cancel a reservation
+ */
+export const cancelReservation = async (reservationId: string, reason?: string): Promise<void> => {
+    await updateReservationStatus(reservationId, ReservationStatus.CANCELLED, {
+        cancelReason: reason,
+        cancelledAt: Date.now()
+    });
+};
+
+/**
+ * Link reservation to order when customer starts ordering
+ */
+export const linkReservationToOrder = async (reservationId: string, orderId: string): Promise<void> => {
+    await updateReservationStatus(reservationId, ReservationStatus.ACTIVE, {
+        orderId: orderId
+    });
+};

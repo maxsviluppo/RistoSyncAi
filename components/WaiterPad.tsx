@@ -1,19 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
-    Order, OrderStatus, Category, MenuItem, OrderItem
+    Order, OrderStatus, Category, MenuItem, OrderItem, Reservation, ReservationStatus
 } from '../types';
 import {
     getOrders, addOrder, updateOrderStatus, updateOrderItems,
     toggleOrderItemCompletion, serveItem,
     getWaiterName, logoutWaiter, getMenuItems,
     freeTable, getAppSettings, getAutomations, getTableCount,
-    fetchSettingsFromCloud
+    fetchSettingsFromCloud, getTodayReservations, getTableReservation, markCustomerArrived
 } from '../services/storageService';
 import {
     LogOut, Plus, Search, Utensils, CheckCircle,
     ChevronLeft, Trash2, User, Clock,
     DoorOpen, ChefHat, Pizza, Sandwich,
-    Wine, CakeSlice, UtensilsCrossed, Send as SendIcon, CheckSquare, Square, BellRing, X, ArrowLeft, AlertTriangle, Home, Lock, Mic, MicOff, Edit3
+    Wine, CakeSlice, UtensilsCrossed, Send as SendIcon, CheckSquare, Square, BellRing, X, ArrowLeft, AlertTriangle, Home, Lock, Mic, MicOff, Edit3, Calendar, Users, Baby
 } from 'lucide-react';
 
 interface WaiterPadProps {
@@ -48,6 +48,7 @@ const getCategoryIcon = (cat: Category) => {
 const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
     const [orders, setOrders] = useState<Order[]>([]);
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+    const [reservations, setReservations] = useState<Reservation[]>([]); // NEW: Reservations state
     const [tableCount, setTableCount] = useState(12);
 
     const [selectedTable, setSelectedTable] = useState<string | null>(null);
@@ -84,14 +85,17 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
             const fetchedOrders = getOrders() || [];
             const fetchedMenu = getMenuItems() || [];
             const fetchedTables = getTableCount() || 12;
+            const fetchedReservations = getTodayReservations() || []; // NEW: Load today's reservations
 
             setOrders(fetchedOrders);
             setMenuItems(fetchedMenu);
             setTableCount(fetchedTables);
+            setReservations(fetchedReservations); // NEW: Set reservations
         } catch (e) {
             console.error("Critical Error loading WaiterPad data:", e);
             setOrders([]);
             setMenuItems([]);
+            setReservations([]); // NEW: Reset reservations on error
         }
     };
 
@@ -101,42 +105,52 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
         window.addEventListener('local-storage-update', handleStorage);
         window.addEventListener('local-menu-update', handleStorage);
         window.addEventListener('local-settings-update', handleStorage);
+        window.addEventListener('local-reservations-update', handleStorage); // NEW: Listen for reservations
         return () => {
             window.removeEventListener('local-storage-update', handleStorage);
             window.removeEventListener('local-menu-update', handleStorage);
             window.removeEventListener('local-settings-update', handleStorage);
+            window.removeEventListener('local-reservations-update', handleStorage); // NEW: Cleanup
         };
     }, []);
 
     // COLLABORATION LOGIC REMOVED - Returning to simple waiter-per-table model
 
     const getTableStatus = (tableNum: string) => {
-        if (!orders) return 'free';
-        const tableOrders = orders.filter(o => o.tableNumber === tableNum && o.status !== OrderStatus.DELIVERED);
-        if (tableOrders.length === 0) return 'free';
+        // 1. Check Orders
+        if (orders) {
+            const tableOrders = orders.filter(o => o.tableNumber === tableNum && o.status !== OrderStatus.DELIVERED);
 
-        const allItemsServed = tableOrders.every(order => (order.items || []).every(item => item.served));
-        if (allItemsServed) return 'completed';
+            if (tableOrders.length > 0) {
+                const allItemsServed = tableOrders.every(order => (order.items || []).every(item => item.served));
+                if (allItemsServed) return 'completed';
 
-        const hasItemsToServe = tableOrders.some(o => (o.items || []).some(i => i.completed && !i.served));
-        if (hasItemsToServe) return 'ready';
+                const hasItemsToServe = tableOrders.some(o => (o.items || []).some(i => i.completed && !i.served));
+                if (hasItemsToServe) return 'ready';
 
-        // Check for delay on ANY active order (PENDING or COOKING)
-        const activeOrder = tableOrders.find(o => o.status === OrderStatus.COOKING || o.status === OrderStatus.PENDING);
-        if (activeOrder) {
-            const elapsedMinutes = (Date.now() - activeOrder.timestamp) / 60000;
-            if (elapsedMinutes > 25) return 'delayed'; // 25 min threshold (matches KitchenDisplay)
+                // Check for delay on ANY active order
+                const activeOrder = tableOrders.find(o => o.status === OrderStatus.COOKING || o.status === OrderStatus.PENDING);
+                if (activeOrder) {
+                    const elapsedMinutes = (Date.now() - activeOrder.timestamp) / 60000;
+                    if (elapsedMinutes > 25) return 'delayed';
+                }
+
+                if (tableOrders.some(o => o.status === OrderStatus.COOKING)) {
+                    return 'cooking';
+                }
+
+                return 'occupied'; // Default for having orders
+            }
         }
 
-        if (tableOrders.some(o => o.status === OrderStatus.COOKING)) {
-            return 'cooking';
+        // 2. Check Reservations (if no active orders)
+        const reservation = getTableReservation(tableNum);
+        if (reservation) {
+            if (reservation.status === ReservationStatus.SEATED) return 'occupied';
+            return 'reserved';
         }
 
-        const settings = getAppSettings();
-        const reservations = settings.tableReservations || [];
-        if (reservations.includes(tableNum)) return 'reserved';
-
-        return 'occupied';
+        return 'free';
     };
 
     // RESERVATION FUNCTION REMOVED - Handled by Cassa
@@ -565,6 +579,55 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
             <div className="flex-1 overflow-hidden flex flex-col relative">
                 {view === 'tables' && (
                     <div className="flex-1 overflow-y-auto p-4 relative">
+                        {/* NEW: Upcoming Reservations Banner */}
+                        {reservations.filter(r => r.status === ReservationStatus.PENDING).length > 0 && (
+                            <div className="mb-4 bg-gradient-to-r from-purple-900/40 to-purple-800/40 border border-purple-500/50 rounded-2xl p-4 shadow-lg">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Calendar size={20} className="text-purple-300" />
+                                    <h3 className="text-lg font-black text-white">Prenotazioni in Arrivo</h3>
+                                </div>
+                                <div className="space-y-2">
+                                    {reservations
+                                        .filter(r => r.status === ReservationStatus.PENDING)
+                                        .sort((a, b) => a.reservationTime.localeCompare(b.reservationTime))
+                                        .slice(0, 3)
+                                        .map(reservation => (
+                                            <div key={reservation.id} className="bg-slate-900/60 backdrop-blur-sm rounded-xl p-3 border border-purple-500/30 flex items-center justify-between">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="text-white font-black text-base">{reservation.customerName}</span>
+                                                        <span className="text-purple-300 text-sm font-bold">• Tavolo {reservation.tableNumber}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-3 text-xs text-purple-200">
+                                                        <span className="flex items-center gap-1">
+                                                            <Clock size={12} /> {reservation.reservationTime.substring(0, 5)}
+                                                        </span>
+                                                        <span className="flex items-center gap-1">
+                                                            <Users size={12} /> {reservation.numberOfGuests}
+                                                        </span>
+                                                        {reservation.numberOfChildren && reservation.numberOfChildren > 0 && (
+                                                            <span className="flex items-center gap-1">
+                                                                <Baby size={12} /> {reservation.numberOfChildren}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={async () => {
+                                                        await markCustomerArrived(reservation.id, waiterName || undefined);
+                                                        setTimeout(loadData, 100);
+                                                    }}
+                                                    className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-xl font-bold text-sm shadow-lg shadow-green-600/30 transition-all active:scale-95 flex items-center gap-2"
+                                                >
+                                                    <CheckCircle size={16} />
+                                                    Arrivato
+                                                </button>
+                                            </div>
+                                        ))}
+                                </div>
+                            </div>
+                        )}
+
                         {selectedTable && (
                             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fade-in">
                                 <div className="bg-slate-900 w-full sm:max-w-md h-[85vh] sm:h-auto sm:rounded-3xl rounded-t-3xl border border-slate-700 shadow-2xl flex flex-col overflow-hidden animate-slide-up">
@@ -640,6 +703,23 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                                                 <span className="text-[10px] leading-tight">Sì, Libera</span>
                                             </button>
                                         )}
+                                        {/* New: Confirm Arrival Button */}
+                                        {getTableStatus(selectedTable) === 'reserved' && (
+                                            <button
+                                                onClick={async () => {
+                                                    const res = getTableReservation(selectedTable);
+                                                    if (res) {
+                                                        await markCustomerArrived(res.id, waiterName || undefined);
+                                                        loadData();
+                                                        setSelectedTable(null);
+                                                    }
+                                                }}
+                                                className="flex-1 bg-purple-600 border-2 border-purple-400 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-[0_0_20px_rgba(168,85,247,0.4)] hover:bg-purple-500 transition-all flex flex-col items-center justify-center gap-2 hover:scale-[1.02]"
+                                            >
+                                                <CheckCircle size={20} className="mb-1" />
+                                                <span className="text-[10px] leading-tight">Cliente Arrivato</span>
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -684,6 +764,14 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                                         className={`aspect-square rounded-2xl border-2 flex flex-col items-center justify-center gap-1 shadow-lg transition-all active:scale-95 relative ${bgClass}`}
                                     >
                                         <span className="text-3xl font-black">{num}</span>
+
+                                        {/* Waiter Name visible to all */}
+                                        {currentTableOrder?.waiterName && (
+                                            <div className={`absolute top-1 left-1 px-1.5 py-0.5 rounded text-[8px] font-bold text-white uppercase tracking-wider flex items-center gap-1 ${isLocked ? 'bg-red-500/80' : 'bg-blue-600/80 shadow-sm'}`}>
+                                                <User size={6} />
+                                                {currentTableOrder.waiterName.substring(0, 8)}
+                                            </div>
+                                        )}
 
                                         {/* DELAY TIMER INDICATOR */}
                                         {(status === 'delayed' || status === 'cooking') && elapsedTime && (

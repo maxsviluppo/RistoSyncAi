@@ -90,6 +90,7 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ showToast, showConfir
                 all[index] = {
                     ...editingCustomer,
                     ...formData,
+                    gender: formData.gender || undefined,
                 };
             }
             showToast('✅ Cliente aggiornato!', 'success');
@@ -98,6 +99,7 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ showToast, showConfir
             const newCustomer: Customer = {
                 id: `customer_${Date.now()}`,
                 ...formData,
+                gender: formData.gender || undefined,
                 createdAt: Date.now(),
                 totalVisits: 0,
                 totalSpent: 0,
@@ -163,13 +165,13 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ showToast, showConfir
 
     const filteredCustomers = customers
         .filter(c =>
-            `${c.firstName} ${c.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            `${c.lastName} ${c.firstName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
             c.phone.includes(searchQuery) ||
             (c.email && c.email.toLowerCase().includes(searchQuery.toLowerCase()))
         )
         .sort((a, b) => {
-            const nameA = `${a.firstName} ${a.lastName}`.toLowerCase();
-            const nameB = `${b.firstName} ${b.lastName}`.toLowerCase();
+            const nameA = `${a.lastName} ${a.firstName}`.toLowerCase();
+            const nameB = `${b.lastName} ${b.firstName}`.toLowerCase();
             return nameA.localeCompare(nameB);
         });
 
@@ -271,7 +273,7 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ showToast, showConfir
                                     </div>
                                     <div>
                                         <div className="font-bold text-white flex items-center gap-2">
-                                            {customer.firstName} {customer.lastName}
+                                            {customer.lastName} {customer.firstName}
                                             {customer.vip && (
                                                 <span className="text-xs bg-yellow-900/30 border border-yellow-500 text-yellow-400 px-2 py-0.5 rounded-full">VIP</span>
                                             )}
@@ -343,7 +345,7 @@ const CustomerManager: React.FC<CustomerManagerProps> = ({ showToast, showConfir
                                 <div className="flex-1 grid grid-cols-4 gap-4 items-center">
                                     <div>
                                         <div className="font-bold text-white flex items-center gap-2">
-                                            {customer.firstName} {customer.lastName}
+                                            {customer.lastName} {customer.firstName}
                                             {customer.vip && (
                                                 <span className="text-xs bg-yellow-900/30 border border-yellow-500 text-yellow-400 px-2 py-0.5 rounded-full">VIP</span>
                                             )}

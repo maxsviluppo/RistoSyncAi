@@ -486,8 +486,21 @@ const WhatsAppManager: React.FC<WhatsAppManagerProps> = ({ onClose, showToast, s
 
 
         // Gender filter
+        // Gender filter
         if (filters.gender && filters.gender !== 'all') {
-            filtered = filtered.filter(c => c.gender === filters.gender);
+            filtered = filtered.filter(c => {
+                // If gender is explicitly set, use it
+                if (c.gender) return c.gender === filters.gender;
+
+                // Heuristic for Italian names if gender is NOT set
+                const firstName = c.firstName.toLowerCase().trim();
+                const isLikelyFemale = firstName.endsWith('a') && !['andrea', 'luca', 'mattia', 'elia', 'nicola', 'enea', 'tobio', 'gionata'].includes(firstName);
+
+                if (filters.gender === 'female') return isLikelyFemale;
+                if (filters.gender === 'male') return !isLikelyFemale; // Assume male if not likely female (simplified)
+
+                return false;
+            });
         }
 
         // City filter

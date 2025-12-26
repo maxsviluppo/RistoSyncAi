@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Order, OrderStatus } from '../types';
-import { getOrders, getTableCount, getAppSettings, resetAllTableDataService } from '../services/storageService';
-import { User, ChefHat, CheckCircle, Clock, AlertTriangle, Home, Users, Calendar, X, Receipt, Trash2 } from 'lucide-react';
+import { Order, OrderStatus, Reservation, ReservationStatus } from '../types';
+import { getOrders, getTableCount, getAppSettings, resetAllTableDataService, getTableReservation, getTodayReservations } from '../services/storageService';
+import { User, ChefHat, CheckCircle, Clock, AlertTriangle, Home, Users, Calendar, X, Receipt, Trash2, Baby } from 'lucide-react';
 import { Category } from '../types';
 
 interface TableMonitorProps {
@@ -10,6 +10,7 @@ interface TableMonitorProps {
 
 const TableMonitor: React.FC<TableMonitorProps> = ({ onExit }) => {
     const [orders, setOrders] = useState<Order[]>([]);
+    const [reservations, setReservations] = useState<Reservation[]>([]);
     const [tableCount, setTableCount] = useState(12);
     const [currentTime, setCurrentTime] = useState(new Date());
     const [selectedTable, setSelectedTable] = useState<string | null>(null);
@@ -17,6 +18,7 @@ const TableMonitor: React.FC<TableMonitorProps> = ({ onExit }) => {
 
     const loadData = () => {
         setOrders(getOrders() || []);
+        setReservations(getTodayReservations() || []);
         setTableCount(getTableCount() || 12);
     };
 
@@ -25,6 +27,7 @@ const TableMonitor: React.FC<TableMonitorProps> = ({ onExit }) => {
         const handleStorage = () => loadData();
         window.addEventListener('local-storage-update', handleStorage);
         window.addEventListener('local-settings-update', handleStorage);
+        window.addEventListener('local-reservations-update', handleStorage); // NEW: Listen for reservation changes
 
         // Update time every second
         const timeInterval = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -35,6 +38,7 @@ const TableMonitor: React.FC<TableMonitorProps> = ({ onExit }) => {
         return () => {
             window.removeEventListener('local-storage-update', handleStorage);
             window.removeEventListener('local-settings-update', handleStorage);
+            window.removeEventListener('local-reservations-update', handleStorage); // NEW: Cleanup
             clearInterval(timeInterval);
             clearInterval(dataInterval);
         };
@@ -43,24 +47,27 @@ const TableMonitor: React.FC<TableMonitorProps> = ({ onExit }) => {
     const getTableStatus = (tableNum: string) => {
         const tableOrders = orders.filter(o => o.tableNumber === tableNum && o.status !== OrderStatus.DELIVERED);
 
-        if (tableOrders.length === 0) {
-            // Check reservation
-            const settings = getAppSettings();
-            const reservations = settings.tableReservations || [];
-            if (reservations.includes(tableNum)) return 'reserved';
-            return 'free';
+        if (tableOrders.length > 0) {
+            const allItemsServed = tableOrders.every(order => (order.items || []).every(item => item.served));
+            if (allItemsServed) return 'completed';
+
+            const hasItemsToServe = tableOrders.some(o => (o.items || []).some(i => i.completed && !i.served));
+            if (hasItemsToServe) return 'ready';
+
+            const hasItemsCooking = tableOrders.some(o => (o.items || []).some(i => !i.completed));
+            if (hasItemsCooking) return 'cooking';
+
+            return 'occupied';
         }
 
-        const allItemsServed = tableOrders.every(order => (order.items || []).every(item => item.served));
-        if (allItemsServed) return 'completed';
+        // Check reservation status via Helper (which includes the 1h window logic)
+        const reservation = getTableReservation(tableNum);
+        if (reservation) {
+            if (reservation.status === ReservationStatus.SEATED) return 'occupied'; // Treat seated as occupied
+            return 'reserved';
+        }
 
-        const hasItemsToServe = tableOrders.some(o => (o.items || []).some(i => i.completed && !i.served));
-        if (hasItemsToServe) return 'ready';
-
-        const hasItemsCooking = tableOrders.some(o => (o.items || []).some(i => !i.completed));
-        if (hasItemsCooking) return 'cooking';
-
-        return 'occupied';
+        return 'free';
     };
 
     const getTableWaiter = (tableNum: string): string | null => {
@@ -187,6 +194,9 @@ const TableMonitor: React.FC<TableMonitorProps> = ({ onExit }) => {
                         const sharedWaiters = getSharedWaiters(tableNum);
                         const isShared = sharedWaiters.length > 0;
 
+                        // NEW: Get reservation for this table
+                        const reservation = getTableReservation(tableNum);
+
                         let bgClass = "bg-slate-800 border-slate-700";
                         let statusIcon = null;
                         let statusText = "Libero";
@@ -227,7 +237,7 @@ const TableMonitor: React.FC<TableMonitorProps> = ({ onExit }) => {
                             <div
                                 key={num}
                                 onClick={() => setSelectedTable(tableNum)}
-                                className={`aspect-square rounded-2xl border-2 flex flex-col p-2 shadow-xl transition-all relative cursor-pointer hover:scale-105 active:scale-95 ${bgClass} ${isShared ? 'ring-4 ring-purple-500/50' : ''}`}
+                                className={`aspect-square rounded-2xl border-2 flex flex-col p-2 shadow-xl transition-all relative cursor-pointer hover:scale-105 active:scale-95 overflow-hidden ${bgClass} ${isShared ? 'ring-4 ring-purple-500/50' : ''}`}
                             >
                                 {/* Top Bar: Shared & Elapsed Time */}
                                 <div className="flex justify-between items-start w-full h-6">
@@ -254,6 +264,18 @@ const TableMonitor: React.FC<TableMonitorProps> = ({ onExit }) => {
                                             {statusText}
                                         </span>
                                     </div>
+
+                                    {reservation && reservation.status !== ReservationStatus.SEATED && (
+                                        <div className="absolute bottom-1 left-0 w-full px-2">
+                                            <div className="bg-purple-600/90 backdrop-blur-sm rounded-lg py-1 px-0.5 text-center shadow-lg border border-purple-400/30">
+                                                <p className="text-white text-[9px] font-bold truncate px-1">{reservation.customerName}</p>
+                                                <div className="flex items-center justify-center gap-1.5 mt-0.5 text-[8px] text-purple-100">
+                                                    <span className="flex items-center gap-0.5"><Users size={7} />{reservation.numberOfGuests}</span>
+                                                    <span className="flex items-center gap-0.5"><Clock size={7} />{reservation.reservationTime.substring(0, 5)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Bottom: Waiter Name */}
@@ -288,118 +310,122 @@ const TableMonitor: React.FC<TableMonitorProps> = ({ onExit }) => {
             </div>
 
             {/* TABLE DETAILS MODAL */}
-            {selectedTable && (
-                <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in" onClick={() => setSelectedTable(null)}>
-                    <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-slide-up" onClick={e => e.stopPropagation()}>
-                        {/* Modal Header */}
-                        <div className="bg-slate-800 p-5 border-b border-slate-700 flex justify-between items-center">
-                            <div>
-                                <h2 className="text-2xl font-black text-white flex items-center gap-2">
-                                    Tavolo {selectedTable}
-                                    {getTableStatus(selectedTable) === 'reserved' && <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded-full uppercase tracking-wide">Prenotato</span>}
-                                </h2>
-                                <p className="text-slate-400 text-sm font-bold flex items-center gap-2 mt-1">
-                                    <User size={14} /> {getTableWaiter(selectedTable) || 'Nessun cameriere'}
-                                    {getSharedWaiters(selectedTable).length > 0 && <span className="text-purple-400"> (+{getSharedWaiters(selectedTable).join(', ')})</span>}
-                                </p>
+            {
+                selectedTable && (
+                    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in" onClick={() => setSelectedTable(null)}>
+                        <div className="bg-slate-900 border border-slate-700 w-full max-w-lg rounded-3xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden animate-slide-up" onClick={e => e.stopPropagation()}>
+                            {/* Modal Header */}
+                            <div className="bg-slate-800 p-5 border-b border-slate-700 flex justify-between items-center">
+                                <div>
+                                    <h2 className="text-2xl font-black text-white flex items-center gap-2">
+                                        Tavolo {selectedTable}
+                                        {getTableStatus(selectedTable) === 'reserved' && <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded-full uppercase tracking-wide">Prenotato</span>}
+                                    </h2>
+                                    <p className="text-slate-400 text-sm font-bold flex items-center gap-2 mt-1">
+                                        <User size={14} /> {getTableWaiter(selectedTable) || 'Nessun cameriere'}
+                                        {getSharedWaiters(selectedTable).length > 0 && <span className="text-purple-400"> (+{getSharedWaiters(selectedTable).join(', ')})</span>}
+                                    </p>
+                                </div>
+                                <button onClick={() => setSelectedTable(null)} className="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-full flex items-center justify-center text-white transition-colors">
+                                    <X size={20} />
+                                </button>
                             </div>
-                            <button onClick={() => setSelectedTable(null)} className="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-full flex items-center justify-center text-white transition-colors">
-                                <X size={20} />
-                            </button>
-                        </div>
 
-                        {/* Modal Content */}
-                        <div className="p-6 overflow-y-auto custom-scroll flex-1">
-                            {orders.filter(o => o.tableNumber === selectedTable && o.status !== 'Servito').length > 0 ? (
-                                <div className="space-y-4">
-                                    {orders.filter(o => o.tableNumber === selectedTable && o.status !== 'Servito').map(order => (
-                                        <div key={order.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-4">
-                                            <div className="flex justify-between items-center mb-3">
-                                                <div className="flex items-center gap-2">
-                                                    <Clock size={14} className="text-slate-500" />
-                                                    <span className="text-xs text-slate-500 font-mono">{new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                                                </div>
-                                                <span className={`text-xs font-bold px-2 py-1 rounded-lg uppercase ${order.status === 'Pronto' ? 'bg-green-600 text-white animate-pulse' : order.status === 'In Preparazione' ? 'bg-orange-600 text-white' : 'bg-slate-700 text-slate-300'}`}>
-                                                    {order.status}
-                                                </span>
-                                            </div>
-                                            <div className="space-y-2">
-                                                {order.items.map((item, idx) => (
-                                                    <div key={idx} className="flex justify-between items-center text-sm border-b border-slate-800/50 pb-2 last:border-0 last:pb-0">
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="font-bold text-slate-400">{item.quantity}x</span>
-                                                            <span className={item.served ? "text-slate-500 line-through decoration-slate-600" : "text-white"}>{item.menuItem.name}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-2">
-                                                            {item.notes && <span className="text-[10px] bg-yellow-500/10 text-yellow-500 px-1.5 py-0.5 rounded border border-yellow-500/20 max-w-[100px] truncate">{item.notes}</span>}
-                                                            {item.completed ? (
-                                                                <CheckCircle size={14} className="text-green-500" />
-                                                            ) : (
-                                                                <div className="w-3.5 h-3.5 rounded-full border border-slate-600"></div>
-                                                            )}
-                                                        </div>
+                            {/* Modal Content */}
+                            <div className="p-6 overflow-y-auto custom-scroll flex-1">
+                                {orders.filter(o => o.tableNumber === selectedTable && o.status !== 'Servito').length > 0 ? (
+                                    <div className="space-y-4">
+                                        {orders.filter(o => o.tableNumber === selectedTable && o.status !== 'Servito').map(order => (
+                                            <div key={order.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-4">
+                                                <div className="flex justify-between items-center mb-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <Clock size={14} className="text-slate-500" />
+                                                        <span className="text-xs text-slate-500 font-mono">{new Date(order.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                                     </div>
-                                                ))}
+                                                    <span className={`text-xs font-bold px-2 py-1 rounded-lg uppercase ${order.status === 'Pronto' ? 'bg-green-600 text-white animate-pulse' : order.status === 'In Preparazione' ? 'bg-orange-600 text-white' : 'bg-slate-700 text-slate-300'}`}>
+                                                        {order.status}
+                                                    </span>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    {order.items.map((item, idx) => (
+                                                        <div key={idx} className="flex justify-between items-center text-sm border-b border-slate-800/50 pb-2 last:border-0 last:pb-0">
+                                                            <div className="flex items-center gap-3">
+                                                                <span className="font-bold text-slate-400">{item.quantity}x</span>
+                                                                <span className={item.served ? "text-slate-500 line-through decoration-slate-600" : "text-white"}>{item.menuItem.name}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2">
+                                                                {item.notes && <span className="text-[10px] bg-yellow-500/10 text-yellow-500 px-1.5 py-0.5 rounded border border-yellow-500/20 max-w-[100px] truncate">{item.notes}</span>}
+                                                                {item.completed ? (
+                                                                    <CheckCircle size={14} className="text-green-500" />
+                                                                ) : (
+                                                                    <div className="w-3.5 h-3.5 rounded-full border border-slate-600"></div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="text-center py-10 text-slate-500 flex flex-col items-center">
-                                    <Receipt size={48} className="mb-4 opacity-20" />
-                                    <p>Nessun ordine attivo</p>
-                                    <p className="text-xs mt-2">Il tavolo è libero o l'ordine è stato completato.</p>
-                                </div>
-                            )}
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-10 text-slate-500 flex flex-col items-center">
+                                        <Receipt size={48} className="mb-4 opacity-20" />
+                                        <p>Nessun ordine attivo</p>
+                                        <p className="text-xs mt-2">Il tavolo è libero o l'ordine è stato completato.</p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* RESET CONFIRMATION MODAL */}
-            {showResetConfirm && (
-                <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-                    <div className="bg-slate-900 border-2 border-red-500/50 w-full max-w-sm rounded-3xl p-8 shadow-2xl shadow-red-900/50 animate-bounce-in relative overflow-hidden">
-                        {/* Background Effect */}
-                        <div className="absolute -top-10 -right-10 w-32 h-32 bg-red-600/20 rounded-full blur-3xl pointer-events-none" />
+            {
+                showResetConfirm && (
+                    <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
+                        <div className="bg-slate-900 border-2 border-red-500/50 w-full max-w-sm rounded-3xl p-8 shadow-2xl shadow-red-900/50 animate-bounce-in relative overflow-hidden">
+                            {/* Background Effect */}
+                            <div className="absolute -top-10 -right-10 w-32 h-32 bg-red-600/20 rounded-full blur-3xl pointer-events-none" />
 
-                        <div className="flex flex-col items-center text-center gap-4 relative z-10">
-                            <div className="w-16 h-16 rounded-full bg-red-900/30 border-2 border-red-500 flex items-center justify-center mb-2 shadow-[0_0_20px_rgba(239,68,68,0.3)]">
-                                <AlertTriangle size={32} className="text-red-500 animate-pulse" />
-                            </div>
+                            <div className="flex flex-col items-center text-center gap-4 relative z-10">
+                                <div className="w-16 h-16 rounded-full bg-red-900/30 border-2 border-red-500 flex items-center justify-center mb-2 shadow-[0_0_20px_rgba(239,68,68,0.3)]">
+                                    <AlertTriangle size={32} className="text-red-500 animate-pulse" />
+                                </div>
 
-                            <h3 className="text-2xl font-black text-white">Reset Totale?</h3>
+                                <h3 className="text-2xl font-black text-white">Reset Totale?</h3>
 
-                            <div className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800 w-full">
-                                <p className="text-slate-400 text-sm leading-relaxed">
-                                    Stai per cancellare tutte le <span className="text-purple-400 font-bold">Prenotazioni</span> e le <span className="text-blue-400 font-bold">Collaborazioni</span> attive.
-                                    <br /><br />
-                                    <span className="text-red-400 font-bold text-xs uppercase tracking-widest">Azione Irreversibile</span>
-                                </p>
-                            </div>
+                                <div className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800 w-full">
+                                    <p className="text-slate-400 text-sm leading-relaxed">
+                                        Stai per cancellare tutte le <span className="text-purple-400 font-bold">Prenotazioni</span> e le <span className="text-blue-400 font-bold">Collaborazioni</span> attive.
+                                        <br /><br />
+                                        <span className="text-red-400 font-bold text-xs uppercase tracking-widest">Azione Irreversibile</span>
+                                    </p>
+                                </div>
 
-                            <div className="flex gap-3 w-full mt-2">
-                                <button
-                                    onClick={() => setShowResetConfirm(false)}
-                                    className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-all border border-slate-700"
-                                >
-                                    Annulla
-                                </button>
-                                <button
-                                    onClick={async () => {
-                                        await resetAllTableDataService();
-                                        setTimeout(() => window.location.reload(), 500);
-                                    }}
-                                    className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl shadow-lg shadow-red-600/30 transition-all active:scale-95 border border-red-500"
-                                >
-                                    CONFERMA
-                                </button>
+                                <div className="flex gap-3 w-full mt-2">
+                                    <button
+                                        onClick={() => setShowResetConfirm(false)}
+                                        className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-all border border-slate-700"
+                                    >
+                                        Annulla
+                                    </button>
+                                    <button
+                                        onClick={async () => {
+                                            await resetAllTableDataService();
+                                            setTimeout(() => window.location.reload(), 500);
+                                        }}
+                                        className="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white font-black rounded-xl shadow-lg shadow-red-600/30 transition-all active:scale-95 border border-red-500"
+                                    >
+                                        CONFERMA
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 
