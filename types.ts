@@ -145,6 +145,8 @@ export interface AppSettings {
     paymentMethod?: 'stripe' | 'paypal' | 'bonifico';
     paymentReference?: string;
   };
+  // Trial tracking
+  trialUsed?: boolean;
 }
 
 export interface MenuItem {

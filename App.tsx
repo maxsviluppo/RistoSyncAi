@@ -1683,6 +1683,57 @@ export function App() {
                         {adminTab === 'profile' && (
                             <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-20">
                                 <h2 className="text-3xl font-black text-white mb-8">Profilo Ristorante</h2>
+
+                                {/* SUBSCRIPTION BANNER */}
+                                {(() => {
+                                    const planType = appSettings.restaurantProfile?.planType || 'Trial';
+                                    const endDate = appSettings.restaurantProfile?.subscriptionEndDate;
+                                    const isExpired = endDate ? new Date(endDate) < new Date() : false;
+                                    const daysLeft = endDate ? Math.ceil((new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
+
+                                    const getPlanStyle = () => {
+                                        if (isExpired) return { bg: 'from-red-600 to-red-800', border: 'border-red-500', icon: '⚠️' };
+                                        if (planType.toLowerCase().includes('pro')) return { bg: 'from-purple-600 to-pink-600', border: 'border-purple-500', icon: '👑' };
+                                        if (planType.toLowerCase().includes('basic')) return { bg: 'from-blue-600 to-cyan-600', border: 'border-blue-500', icon: '⭐' };
+                                        return { bg: 'from-indigo-600 to-blue-600', border: 'border-indigo-500', icon: '🎉' };
+                                    };
+
+                                    const style = getPlanStyle();
+
+                                    return (
+                                        <div className={`bg-gradient-to-r ${style.bg} p-5 rounded-2xl border ${style.border} shadow-xl flex flex-col md:flex-row items-center justify-between gap-4`}>
+                                            <div className="flex items-center gap-4">
+                                                <div className="text-4xl">{style.icon}</div>
+                                                <div>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="text-white/80 text-sm font-medium">Il tuo piano:</span>
+                                                        <span className="bg-white/20 px-3 py-1 rounded-full text-white font-bold text-sm uppercase">
+                                                            {planType}
+                                                        </span>
+                                                    </div>
+                                                    <p className={`text-sm font-medium ${isExpired ? 'text-red-200' : 'text-white/90'}`}>
+                                                        {isExpired
+                                                            ? '❌ Abbonamento scaduto - Rinnova subito!'
+                                                            : daysLeft !== null
+                                                                ? daysLeft > 30
+                                                                    ? `✓ Valido fino al ${new Date(endDate!).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })}`
+                                                                    : `⏰ Scade tra ${daysLeft} giorni (${new Date(endDate!).toLocaleDateString('it-IT')})`
+                                                                : '∞ Accesso illimitato'
+                                                        }
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <button
+                                                onClick={() => setShowSubscriptionManager(true)}
+                                                className="px-6 py-3 bg-white hover:bg-gray-100 text-slate-900 font-bold rounded-xl shadow-lg transition-all transform hover:scale-105 active:scale-95 flex items-center gap-2"
+                                            >
+                                                <CreditCard size={18} />
+                                                {isExpired ? 'Rinnova Ora' : 'Gestisci Abbonamento'}
+                                            </button>
+                                        </div>
+                                    );
+                                })()}
+
                                 <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
                                     <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Store className="text-blue-500" /> Dati Pubblici</h3>
                                     <p className="text-slate-400 text-sm mb-6">Questi dati appariranno nel Menu Digitale.</p>
