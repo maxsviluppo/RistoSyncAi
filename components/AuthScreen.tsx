@@ -2,8 +2,12 @@ import React, { useState } from 'react';
 import { supabase, SUPER_ADMIN_EMAIL, saveSupabaseConfig, resetSupabaseConfig } from '../services/supabase';
 import { ChefHat, Mail, Lock, ArrowRight, Loader, Eye, EyeOff, AlertTriangle, ArrowLeft, Send, Database, Save, RefreshCw, XCircle } from 'lucide-react';
 
-const AuthScreen: React.FC = () => {
-    const [isLogin, setIsLogin] = useState(true);
+interface AuthScreenProps {
+    initialMode?: 'login' | 'register';
+}
+
+const AuthScreen: React.FC<AuthScreenProps> = ({ initialMode = 'login' }) => {
+    const [isLogin, setIsLogin] = useState(initialMode === 'login');
     const [isRecovery, setIsRecovery] = useState(false);
 
     // Auth State
@@ -97,15 +101,21 @@ const AuthScreen: React.FC = () => {
                             subscription_status: 'active',
                             settings: {
                                 restaurantProfile: {
-                                    planType: 'Trial',
+                                    planType: 'Prova',
                                     subscriptionEndDate: expiryDate.toISOString(),
                                     subscriptionCost: defaultCost,
                                     name: restaurantName
                                 }
                             }
                         }, { onConflict: 'id' });
+
+                        // NOTIFY ADMIN (Simulated)
+                        console.log(`[ NOTIFICA ] Nuova registrazione Trial: ${email}. Avviso inviato a info@ristosync.it`);
                     } catch (e) { console.log("Profile setup error: ", e); }
                 }
+
+                // Clear auth mode
+                localStorage.removeItem('auth_mode');
 
                 // Se richiesta conferma email, mostra messaggio
                 if (data.user && !data.session) {

@@ -18,6 +18,7 @@ import PlatformEditModal from './components/PlatformEditModal';
 import TableMonitor from './components/TableMonitor';
 import ReservationManager from './components/ReservationManager';
 import CustomerManager from './components/CustomerManager';
+import SubscriptionManager from './components/SubscriptionManager';
 import { LandingPage } from './components/LandingPage';
 import { ChefHat, Smartphone, User, Settings, Bell, Utensils, X, Save, Plus, Trash2, Edit2, Wheat, Milk, Egg, Nut, Fish, Bean, Flame, Leaf, Info, LogOut, Bot, Key, Database, ShieldCheck, Lock, AlertTriangle, Mail, RefreshCw, Send, Printer, Mic, MicOff, TrendingUp, BarChart3, Calendar, ChevronLeft, ChevronRight, DollarSign, History, Receipt, UtensilsCrossed, Eye, ArrowRight, QrCode, Share2, Copy, MapPin, Store, Phone, Globe, Star, Pizza, CakeSlice, Wine, Sandwich, MessageCircle, FileText, PhoneCall, Sparkles, Loader, Facebook, Instagram, Youtube, Linkedin, Music, Compass, FileSpreadsheet, Image as ImageIcon, Upload, FileImage, ExternalLink, CreditCard, Banknote, Briefcase, Clock, Check, ListPlus, ArrowRightLeft, Code2, Cookie, Shield, Wrench, Download, CloudUpload, BookOpen, EyeOff, LayoutGrid, ArrowLeft, PlayCircle, ChevronDown, FileJson, Wallet, Crown, Zap, ShieldCheck as ShieldIcon, Trophy, Timer, LifeBuoy, Minus, Hash, Euro, TrendingDown, Package, Factory, Users, Lightbulb, Headphones, Cloud, BarChart, Camera, CheckCircle, Scan, Megaphone, Bike } from 'lucide-react';
 import { getWaiterName, saveWaiterName, getMenuItems, addMenuItem, updateMenuItem, deleteMenuItem, getNotificationSettings, saveNotificationSettings, initSupabaseSync, getGoogleApiKey, saveGoogleApiKey, removeGoogleApiKey, getAppSettings, saveAppSettings, getOrders, deleteHistoryByDate, performFactoryReset, deleteAllMenuItems, importDemoMenu } from './services/storageService';
@@ -132,6 +133,7 @@ export function App() {
     const [showAdmin, setShowAdmin] = useState(false);
     const [adminTab, setAdminTab] = useState<'profile' | 'subscription' | 'menu' | 'notif' | 'info' | 'ai' | 'analytics' | 'share' | 'receipts' | 'messages' | 'marketing' | 'delivery' | 'customers' | 'whatsapp'>('menu');
     const [showWhatsAppManager, setShowWhatsAppManager] = useState(false);
+    const [showSubscriptionManager, setShowSubscriptionManager] = useState(false);
     const [adminViewMode, setAdminViewMode] = useState<'dashboard' | 'app'>('dashboard');
 
     const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -442,7 +444,7 @@ export function App() {
     // --- ACTIONS ---
 
 
-    const checkRoleAccess = (selectedRole: string) => {
+    const checkRoleAccess = async (selectedRole: string) => {
         // Enforce strict state separation: Clear Monitor state when entering a role
         setShowMonitor(false);
         // Clear URL param if present to prevent auto-reopen on reload
@@ -450,6 +452,42 @@ export function App() {
         if (url.searchParams.has('monitor')) {
             window.history.pushState({}, '', window.location.pathname);
         }
+
+        // --- BASIC PLAN RESTRICTION ---
+        const plan = (appSettings.restaurantProfile?.planType || '').toLowerCase();
+        const isBasic = plan.includes('basic');
+        const restrictedRoles = ['kitchen', 'pizzeria', 'pub', 'delivery'];
+
+        if (isBasic && restrictedRoles.includes(selectedRole)) {
+            const allowed = appSettings.restaurantProfile?.allowedDepartment;
+
+            if (allowed) {
+                // If already set, check if it matches
+                if (allowed !== selectedRole) {
+                    showToast(`⛔ Il piano Basic include solo il reparto: ${allowed.toUpperCase()}. Passa a PRO per sbloccare tutto.`, 'error');
+                    return;
+                }
+            } else {
+                // Not set yet, ask for confirmation to lock it
+                const confirmLock = await showConfirm(
+                    '🔒 Attenzione: Piano Basic',
+                    `Il piano Basic permette l'uso di UN SOLO reparto. \n\nVuoi attivare "${selectedRole.toUpperCase()}" come reparto unico? \nQuesta scelta è permanente.`
+                );
+
+                if (!confirmLock) return;
+
+                // Save choice
+                const updatedProfile = { ...appSettings.restaurantProfile, allowedDepartment: selectedRole as any };
+                const newSettings = { ...appSettings, restaurantProfile: updatedProfile };
+
+                setAppSettingsState(newSettings);
+                setProfileForm(updatedProfile); // Helper state
+                await saveAppSettings(newSettings);
+
+                showToast(`✅ Reparto ${selectedRole.toUpperCase()} attivato con successo!`, 'success');
+            }
+        }
+        // -----------------------------
 
         if (selectedRole === 'kitchen') setRole('kitchen');
         else if (selectedRole === 'pizzeria') setRole('pizzeria');
@@ -1073,13 +1111,27 @@ export function App() {
     if (showLandingPage) {
         return <LandingPage onNavigateToApp={() => {
             setShowLandingPage(false);
-            // Update URL without reload
             window.history.pushState({}, '', '?landing=false');
-        }} />;
+        }}
+            onSelectPlan={(planId) => {
+                setShowLandingPage(false);
+                window.history.pushState({}, '', '?landing=false');
+                if (planId !== 'trial') {
+                    // If not trial, open subscription manager to pay
+                    setShowSubscriptionManager(true);
+                    // Pre-select plan
+                    localStorage.setItem('preselected_plan', planId);
+                } else {
+                    // Trial logic: Go to Auth Screen in Register Mode
+                    localStorage.setItem('auth_mode', 'register');
+                    setShowSubscriptionManager(false);
+                }
+            }}
+        />;
     }
 
     if (loadingSession) return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white"><Loader className="animate-spin text-orange-500" size={48} /></div>;
-    if (!session) return <AuthScreen />;
+    if (!session) return <AuthScreen initialMode={localStorage.getItem('auth_mode') === 'register' ? 'register' : 'login'} />;
     if (isSuperAdmin && adminViewMode === 'dashboard') return <SuperAdminDashboard onEnterApp={() => setAdminViewMode('app')} />;
     if (isBanned) return <div className="min-h-screen bg-red-950 flex flex-col items-center justify-center text-white p-8 text-center"><Shield size={64} className="mb-6 text-red-500" /><h1 className="text-4xl font-black mb-4">ACCOUNT BLOCCATO</h1><p className="text-xl mb-8">Il tuo account è stato disabilitato permanentemente per violazione dei termini.</p><button onClick={signOut} className="bg-red-700 hover:bg-red-600 px-8 py-3 rounded-xl font-bold">Esci</button></div>;
     if (accountDeleted) return <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-8 text-center"><AlertTriangle size={64} className="mb-6 text-slate-500" /><h1 className="text-4xl font-black mb-4">ACCOUNT DISATTIVATO</h1><p className="text-xl mb-8 max-w-md">Il tuo account è stato disattivato. Contatta l'amministrazione per richiedere la riattivazione.</p><div className="bg-slate-900 p-6 rounded-2xl border border-slate-700 max-w-md w-full mb-8 text-left"><p className="font-bold text-slate-300 mb-2">Contatta l'amministrazione:</p><div className="flex items-center gap-2 text-white mb-1"><Mail size={16} /> {adminContactEmail}</div><div className="flex items-center gap-2 text-white"><PhoneCall size={16} /> {adminPhone}</div></div><button onClick={signOut} className="bg-slate-700 hover:bg-slate-600 px-8 py-3 rounded-xl font-bold">Esci</button></div>;
@@ -1089,60 +1141,60 @@ export function App() {
             <div className="text-center mb-8 pt-8">
                 <Clock size={64} className="mx-auto mb-4 text-orange-500" />
                 <h1 className="text-4xl font-black mb-2">SERVIZIO IN ATTESA</h1>
-                <p className="text-lg text-slate-300 max-w-md mx-auto">Il tuo abbonamento è in attesa di attivazione. Scegli un piano per iniziare!</p>
+                <p className="text-lg text-slate-300 max-w-md mx-auto">Il tuo abbonamento è in attesa di rinnovo. Scegli un piano per riattivare immediatamente il servizio.</p>
             </div>
 
             {/* PIANI ABBONAMENTO */}
             <div className="w-full max-w-4xl mb-8">
                 <h2 className="text-xl font-black text-center mb-6 text-orange-400">📦 Piani Disponibili</h2>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* PIANO MENSILE */}
-                    <div className="bg-slate-800/80 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 text-center hover:border-blue-500/50 transition-all hover:scale-105">
-                        <div className="w-14 h-14 bg-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4">
-                            <Calendar size={28} className="text-white" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* PIANO BASIC */}
+                    <div className="bg-slate-800/80 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 text-center hover:border-blue-500/50 transition-all hover:scale-105 flex flex-col">
+                        <div className="w-14 h-14 bg-slate-700 rounded-xl flex items-center justify-center mx-auto mb-4">
+                            <Store size={28} className="text-white" />
                         </div>
-                        <h3 className="text-xl font-black text-white mb-2">MENSILE</h3>
-                        <div className="text-4xl font-black text-blue-400 mb-1">€49<span className="text-lg text-slate-400">/mese</span></div>
-                        <p className="text-sm text-slate-400 mb-4">Fatturazione mensile • Disdici quando vuoi</p>
-                        <ul className="text-xs text-slate-300 text-left space-y-2 mb-4">
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Gestione ordini illimitata</li>
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Menu digitale QR</li>
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> AI Assistant</li>
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Supporto email</li>
+                        <h3 className="text-xl font-black text-white mb-2">BASIC</h3>
+                        <div className="text-4xl font-black text-white mb-1">€49,90<span className="text-lg text-slate-400">/mese</span></div>
+                        <p className="text-sm text-slate-400 mb-6 font-bold">L'essenziale per il tuo locale</p>
+
+                        <ul className="text-xs text-slate-300 text-left space-y-3 mb-8 flex-1">
+                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Menu Digitale Illimitato</li>
+                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Gestione Ordini & Tavoli</li>
+                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Statistiche Base</li>
+                            <li className="flex items-center gap-2 opacity-50"><X size={14} className="text-slate-500 shrink-0" /> No WhatsApp Marketing</li>
+                            <li className="flex items-center gap-2 opacity-50"><X size={14} className="text-slate-500 shrink-0" /> No AI Assistant</li>
                         </ul>
+                        <button
+                            onClick={() => openPaymentInstructions('Basic', '49.90')}
+                            className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl transition-all"
+                        >
+                            Attiva Basic
+                        </button>
                     </div>
 
-                    {/* PIANO ANNUALE - EVIDENZIATO */}
-                    <div className="bg-gradient-to-b from-orange-600/20 to-slate-800/80 backdrop-blur-sm border-2 border-orange-500 rounded-2xl p-6 text-center relative hover:scale-105 transition-all shadow-lg shadow-orange-500/20">
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-orange-500 text-white text-xs font-black px-4 py-1 rounded-full">⭐ PIÙ POPOLARE</div>
-                        <div className="w-14 h-14 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center mx-auto mb-4 mt-2">
-                            <Calendar size={28} className="text-white" />
-                        </div>
-                        <h3 className="text-xl font-black text-white mb-2">ANNUALE</h3>
-                        <div className="text-4xl font-black text-orange-400 mb-1">€399<span className="text-lg text-slate-400">/anno</span></div>
-                        <p className="text-sm text-green-400 font-bold mb-4">Risparmi €189! (€33/mese)</p>
-                        <ul className="text-xs text-slate-300 text-left space-y-2 mb-4">
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Tutto il piano Mensile</li>
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> 2 mesi GRATIS</li>
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Supporto prioritario</li>
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Statistiche avanzate</li>
-                        </ul>
-                    </div>
-
-                    {/* PIANO VIP */}
-                    <div className="bg-gradient-to-b from-purple-900/30 to-slate-800/80 backdrop-blur-sm border border-purple-500/50 rounded-2xl p-6 text-center hover:border-purple-400 transition-all hover:scale-105">
-                        <div className="w-14 h-14 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+                    {/* PIANO PRO - EVIDENZIATO */}
+                    <div className="bg-gradient-to-b from-purple-900/40 to-slate-900/80 backdrop-blur-sm border-2 border-purple-500 rounded-2xl p-6 text-center relative hover:scale-105 transition-all shadow-lg shadow-purple-900/20 flex flex-col">
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-black px-4 py-1 rounded-full uppercase tracking-wider shadow-lg">CONSIGLIATO</div>
+                        <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mx-auto mb-4 mt-2">
                             <Sparkles size={28} className="text-white" />
                         </div>
-                        <h3 className="text-xl font-black text-white mb-2">VIP / PREMIUM</h3>
-                        <div className="text-4xl font-black text-purple-400 mb-1">€799<span className="text-lg text-slate-400">/anno</span></div>
-                        <p className="text-sm text-slate-400 mb-4">Per catene e ristoranti premium</p>
-                        <ul className="text-xs text-slate-300 text-left space-y-2 mb-4">
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Tutto il piano Annuale</li>
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Multi-sede incluso</li>
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Account manager dedicato</li>
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Personalizzazioni su misura</li>
+                        <h3 className="text-xl font-black text-white mb-2">PRO AI</h3>
+                        <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-1">€99,90<span className="text-lg text-slate-400 font-normal">/mese</span></div>
+                        <p className="text-sm text-purple-200 mb-6 font-bold">La suite completa con AI</p>
+
+                        <ul className="text-xs text-white text-left space-y-3 mb-8 flex-1">
+                            <li className="flex items-center gap-2 font-bold"><CheckCircle size={14} className="text-purple-400 shrink-0" /> Tutto incluso nel Basic</li>
+                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-purple-400 shrink-0" /> WhatsApp Marketing Auto</li>
+                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-purple-400 shrink-0" /> Menu Intelligence AI</li>
+                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-purple-400 shrink-0" /> Analisi Food Cost</li>
+                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-purple-400 shrink-0" /> Supporto Prioritario VIP</li>
                         </ul>
+                        <button
+                            onClick={() => openPaymentInstructions('Pro', '99.90')}
+                            className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold rounded-xl transition-all shadow-lg text-lg"
+                        >
+                            Attiva Pro AI
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1174,6 +1226,25 @@ export function App() {
                             level="M"
                         />
                         <p className="text-center text-[10px] font-bold text-slate-900 mt-2 uppercase flex items-center gap-1"><QrCode size={10} /> Paga con App</p>
+                    </div>
+                </div>
+
+                {/* PayPal Option */}
+                <div className="mt-6 border-t border-slate-800 pt-6">
+                    <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                        <div className="text-center md:text-left">
+                            <p className="font-bold text-white flex items-center justify-center md:justify-start gap-2 mb-1">
+                                <span className="bg-[#003087] text-white px-2 py-0.5 rounded italic font-black text-sm">Pay</span><span className="text-[#009cde] font-black text-sm italic -ml-2">Pal</span>
+                                <span className="text-slate-300 text-sm font-normal">Disponibile</span>
+                            </p>
+                            <p className="text-xs text-slate-400">Invia il pagamento a <span className="text-white font-mono">{adminContactEmail}</span></p>
+                        </div>
+                        <button
+                            onClick={() => window.open('https://paypal.me/ristosync', '_blank')}
+                            className="bg-[#003087] hover:bg-[#00256b] text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg text-sm"
+                        >
+                            Paga con PayPal <ExternalLink size={14} />
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1248,10 +1319,11 @@ export function App() {
                                     <span className="text-[10px] uppercase font-bold text-indigo-400 group-hover:text-white">Super Admin</span>
                                 </button>
                             )}
+
                             <button onClick={handleAdminAuth} className="group bg-slate-800 hover:bg-slate-700 p-4 rounded-2xl transition-all duration-300 border border-slate-700 hover:border-slate-500 flex flex-col items-center gap-1 shadow-lg active:scale-95" title="Impostazioni Admin"><Settings className="text-slate-400 group-hover:text-white group-hover:rotate-45 transition-transform" size={24} /><span className="text-[10px] uppercase font-bold text-slate-500 group-hover:text-slate-300">Admin</span></button><button onClick={signOut} className="group bg-slate-800 hover:bg-red-900/20 p-4 rounded-2xl transition-all duration-300 border border-slate-700 hover:border-red-500/50 flex flex-col items-center gap-1 shadow-lg active:scale-95" title="Esci"><LogOut className="text-slate-400 group-hover:text-red-400" size={24} /><span className="text-[10px] uppercase font-bold text-slate-500 group-hover:text-red-400">Esci</span></button></div>
                     </div>
-                    {subscriptionExpired && (<div className="relative z-10 mb-8 bg-red-600/10 border border-red-500/30 p-4 rounded-2xl flex items-center justify-between animate-pulse"><div className="flex items-center gap-3 text-red-400 font-bold"><AlertTriangle size={24} /><span>Abbonamento Scaduto! Rinnova per continuare a usare tutte le funzioni.</span></div><button onClick={() => { setShowAdmin(true); setAdminTab('subscription'); }} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-500">Rinnova</button></div>)}
-                    {daysRemaining !== null && daysRemaining <= 5 && !subscriptionExpired && (<div className="relative z-10 mb-8 bg-orange-600/10 border border-orange-500/30 p-4 rounded-2xl flex items-center justify-between"><div className="flex items-center gap-3 text-orange-400 font-bold"><Clock size={24} /><span>Abbonamento in scadenza tra {daysRemaining} giorni.</span></div><button onClick={() => { setShowAdmin(true); setAdminTab('subscription'); }} className="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-orange-500">Gestisci</button></div>)}
+                    {subscriptionExpired && (<div className="relative z-10 mb-8 bg-red-600/10 border border-red-500/30 p-4 rounded-2xl flex items-center justify-between animate-pulse"><div className="flex items-center gap-3 text-red-400 font-bold"><AlertTriangle size={24} /><span>Abbonamento Scaduto! Rinnova per continuare a usare tutte le funzioni.</span></div><button onClick={() => setShowSubscriptionManager(true)} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-500">Rinnova</button></div>)}
+                    {daysRemaining !== null && daysRemaining <= 5 && !subscriptionExpired && (<div className="relative z-10 mb-8 bg-orange-600/10 border border-orange-500/30 p-4 rounded-2xl flex items-center justify-between"><div className="flex items-center gap-3 text-orange-400 font-bold"><Clock size={24} /><span>Abbonamento in scadenza tra {daysRemaining} giorni.</span></div><button onClick={() => setShowSubscriptionManager(true)} className="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-orange-500">Gestisci</button></div>)}
                     <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-7xl mx-auto px-4">
                         <div className="flex flex-col gap-5 md:row-span-2">
                             <button onClick={() => checkRoleAccess('waiter')} className="group relative flex-1 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-500/50 overflow-hidden min-h-[160px]">
@@ -1344,12 +1416,53 @@ export function App() {
                                 {unreadMessagesCount > 0 && <span className="absolute right-4 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{unreadMessagesCount}</span>}
                             </button>
                             <button onClick={() => setAdminTab('notif')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'notif' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Bell size={18} /> Notifiche & Reparti</button>
-                            <button onClick={() => setAdminTab('subscription')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'subscription' ? 'bg-green-600 text-white shadow-lg shadow-green-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><CreditCard size={18} /> Abbonamento</button>
+                            <button onClick={() => setShowSubscriptionManager(true)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all text-slate-400 hover:bg-slate-800 hover:text-white bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-500/30`}><CreditCard size={18} className="text-purple-400" /> Abbonamento</button>
                             <button onClick={() => setAdminTab('analytics')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'analytics' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><BarChart3 size={18} /> Statistiche</button>
                             <button onClick={() => setAdminTab('receipts')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'receipts' ? 'bg-yellow-600 text-white shadow-lg shadow-yellow-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Receipt size={18} /> Scontrini Cassa</button>
-                            <button onClick={() => setAdminTab('ai')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'ai' ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Bot size={18} /> AI Intelligence</button>
-                            <button onClick={() => setAdminTab('marketing')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'marketing' ? 'bg-pink-500 text-white shadow-lg shadow-pink-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Megaphone size={18} /> Marketing <span className="ml-auto bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Beta</span></button>
-                            <button onClick={() => setAdminTab('whatsapp')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'whatsapp' ? 'bg-green-600 text-white shadow-lg shadow-green-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><MessageCircle size={18} /> WhatsApp Marketing</button>
+                            <button
+                                onClick={() => {
+                                    const plan = (profileForm?.planType || '').toLowerCase();
+                                    if (plan.includes('basic')) {
+                                        showToast('Questa funzione richiede il piano PRO', 'error');
+                                        return;
+                                    }
+                                    setAdminTab('ai');
+                                }}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'ai' ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/20' : (profileForm?.planType || '').toLowerCase().includes('basic') ? 'text-slate-600 cursor-not-allowed opacity-50' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+                            >
+                                <Bot size={18} /> AI Intelligence
+                                {(profileForm?.planType || '').toLowerCase().includes('basic') && <Lock size={14} className="ml-auto" />}
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    const plan = (profileForm?.planType || '').toLowerCase();
+                                    if (plan.includes('basic')) {
+                                        showToast('Questa funzione richiede il piano PRO', 'error');
+                                        return;
+                                    }
+                                    setAdminTab('marketing');
+                                }}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'marketing' ? 'bg-pink-500 text-white shadow-lg shadow-pink-900/20' : (profileForm?.planType || '').toLowerCase().includes('basic') ? 'text-slate-600 cursor-not-allowed opacity-50' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+                            >
+                                <Megaphone size={18} /> Marketing
+                                {(profileForm?.planType || '').toLowerCase().includes('basic') ? <Lock size={14} className="ml-auto" /> : <span className="ml-auto bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">Beta</span>}
+                            </button>
+
+                            <button
+                                onClick={() => {
+                                    const plan = (profileForm?.planType || '').toLowerCase();
+                                    if (plan.includes('basic')) {
+                                        showToast('Questa funzione richiede il piano PRO', 'error');
+                                        return;
+                                    }
+                                    setAdminTab('whatsapp');
+                                }}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'whatsapp' ? 'bg-green-600 text-white shadow-lg shadow-green-900/20' : (profileForm?.planType || '').toLowerCase().includes('basic') ? 'text-slate-600 cursor-not-allowed opacity-50' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+                            >
+                                <MessageCircle size={18} /> WhatsApp Marketing
+                                {(profileForm?.planType || '').toLowerCase().includes('basic') && <Lock size={14} className="ml-auto" />}
+                            </button>
                             <button onClick={() => setAdminTab('delivery')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'delivery' ? 'bg-green-600 text-white shadow-lg shadow-green-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Bike size={18} /> Piattaforme Delivery</button>
                             <button onClick={() => setAdminTab('info')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'info' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Info size={18} /> Info & Supporto</button>
                         </nav>
@@ -3262,11 +3375,19 @@ export function App() {
                     />
                 )}
 
+
                 {showWhatsAppManager && (
                     <WhatsAppManager
                         onClose={() => setShowWhatsAppManager(false)}
                         showToast={showToast}
                         showConfirm={showConfirm}
+                    />
+                )}
+
+                {showSubscriptionManager && (
+                    <SubscriptionManager
+                        onClose={() => setShowSubscriptionManager(false)}
+                        showToast={showToast}
                     />
                 )}
             </>
@@ -3316,6 +3437,12 @@ export function App() {
                     onClose={() => setShowWhatsAppManager(false)}
                     showToast={showToast}
                     showConfirm={showConfirm}
+                />
+            )}
+            {showSubscriptionManager && (
+                <SubscriptionManager
+                    onClose={() => setShowSubscriptionManager(false)}
+                    showToast={showToast}
                 />
             )}
         </>

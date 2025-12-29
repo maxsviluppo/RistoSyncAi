@@ -655,7 +655,7 @@ const WhatsAppManager: React.FC<WhatsAppManagerProps> = ({ onClose, showToast, s
                             <MessageCircle className="text-white" size={24} />
                         </div>
                         <div>
-                            <h2 className="text-2xl font-black text-white">WhatsApp Messaging</h2>
+                            <h2 className="text-2xl font-black text-white">WhatsApp Marketing</h2>
                             <p className="text-slate-400 text-sm">Invia messaggi ai tuoi clienti in modo intelligente</p>
                         </div>
                     </div>
@@ -1380,6 +1380,149 @@ Usa {data} per una data futura (7 giorni)"
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {view === 'stats' && (
+                        <div className="h-full flex flex-col overflow-hidden">
+                            <div className="p-6 border-b border-slate-800">
+                                <h3 className="text-xl font-black text-white">Statistiche Messaggi</h3>
+                                <p className="text-slate-400 text-sm mt-1">Clicca su una statistica per vedere i dettagli</p>
+                            </div>
+
+                            <div className="flex-1 overflow-y-auto p-6">
+                                {/* Stats Grid */}
+                                <div className="grid grid-cols-2 gap-4 mb-6">
+                                    {/* Sent Messages */}
+                                    <button
+                                        onClick={() => setSelectedStatDetail(selectedStatDetail === 'sent' ? null : 'sent')}
+                                        className={`bg-gradient-to-br from-green-900/40 to-green-800/40 border-2 rounded-2xl p-6 text-left transition-all hover:scale-105 ${selectedStatDetail === 'sent' ? 'border-green-400 shadow-lg shadow-green-500/20' : 'border-green-500/30'}`}
+                                    >
+                                        <div className="flex items-center justify-between mb-2">
+                                            <CheckCircle size={32} className="text-green-400" />
+                                            <span className="text-4xl font-black text-white">{stats.totalSent}</span>
+                                        </div>
+                                        <h4 className="text-green-300 font-bold text-sm uppercase tracking-wide">Inviati</h4>
+                                    </button>
+
+                                    {/* Delivered Messages */}
+                                    <button
+                                        onClick={() => setSelectedStatDetail(selectedStatDetail === 'delivered' ? null : 'delivered')}
+                                        className={`bg-gradient-to-br from-blue-900/40 to-blue-800/40 border-2 rounded-2xl p-6 text-left transition-all hover:scale-105 ${selectedStatDetail === 'delivered' ? 'border-blue-400 shadow-lg shadow-blue-500/20' : 'border-blue-500/30'}`}
+                                    >
+                                        <div className="flex items-center justify-between mb-2">
+                                            <UserCheck size={32} className="text-blue-400" />
+                                            <span className="text-4xl font-black text-white">{stats.totalDelivered}</span>
+                                        </div>
+                                        <h4 className="text-blue-300 font-bold text-sm uppercase tracking-wide">Consegnati</h4>
+                                    </button>
+
+                                    {/* Failed Messages */}
+                                    <button
+                                        onClick={() => setSelectedStatDetail(selectedStatDetail === 'failed' ? null : 'failed')}
+                                        className={`bg-gradient-to-br from-red-900/40 to-red-800/40 border-2 rounded-2xl p-6 text-left transition-all hover:scale-105 ${selectedStatDetail === 'failed' ? 'border-red-400 shadow-lg shadow-red-500/20' : 'border-red-500/30'}`}
+                                    >
+                                        <div className="flex items-center justify-between mb-2">
+                                            <XCircle size={32} className="text-red-400" />
+                                            <span className="text-4xl font-black text-white">{stats.totalFailed}</span>
+                                        </div>
+                                        <h4 className="text-red-300 font-bold text-sm uppercase tracking-wide">Falliti</h4>
+                                    </button>
+
+                                    {/* Queued Messages */}
+                                    <button
+                                        onClick={() => setSelectedStatDetail(selectedStatDetail === 'queued' ? null : 'queued')}
+                                        className={`bg-gradient-to-br from-yellow-900/40 to-yellow-800/40 border-2 rounded-2xl p-6 text-left transition-all hover:scale-105 ${selectedStatDetail === 'queued' ? 'border-yellow-400 shadow-lg shadow-yellow-500/20' : 'border-yellow-500/30'}`}
+                                    >
+                                        <div className="flex items-center justify-between mb-2">
+                                            <Clock size={32} className="text-yellow-400" />
+                                            <span className="text-4xl font-black text-white">{stats.totalInQueue}</span>
+                                        </div>
+                                        <h4 className="text-yellow-300 font-bold text-sm uppercase tracking-wide">In Coda</h4>
+                                    </button>
+                                </div>
+
+                                {/* Detail View */}
+                                {selectedStatDetail && (
+                                    <div className="bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden animate-fade-in">
+                                        <div className="p-4 bg-slate-900/50 border-b border-slate-700 flex items-center justify-between">
+                                            <h4 className="font-bold text-white flex items-center gap-2">
+                                                {selectedStatDetail === 'sent' && <><CheckCircle size={18} className="text-green-400" /> Messaggi Inviati</>}
+                                                {selectedStatDetail === 'delivered' && <><UserCheck size={18} className="text-blue-400" /> Messaggi Consegnati</>}
+                                                {selectedStatDetail === 'failed' && <><XCircle size={18} className="text-red-400" /> Messaggi Falliti</>}
+                                                {selectedStatDetail === 'queued' && <><Clock size={18} className="text-yellow-400" /> Messaggi in Coda</>}
+                                            </h4>
+                                            <button
+                                                onClick={() => setSelectedStatDetail(null)}
+                                                className="text-slate-400 hover:text-white transition-colors"
+                                            >
+                                                <X size={18} />
+                                            </button>
+                                        </div>
+
+                                        <div className="max-h-96 overflow-y-auto p-4 space-y-2">
+                                            {(() => {
+                                                let filteredMessages: QueuedMessage[] = [];
+
+                                                if (selectedStatDetail === 'sent') {
+                                                    filteredMessages = messageQueue.filter(m => m.status === 'sent' || m.status === 'delivered' || m.status === 'read');
+                                                } else if (selectedStatDetail === 'delivered') {
+                                                    filteredMessages = messageQueue.filter(m => m.status === 'delivered' || m.status === 'read');
+                                                } else if (selectedStatDetail === 'failed') {
+                                                    filteredMessages = messageQueue.filter(m => m.status === 'failed');
+                                                } else if (selectedStatDetail === 'queued') {
+                                                    filteredMessages = messageQueue.filter(m => m.status === 'queued' || m.status === 'sending');
+                                                }
+
+                                                if (filteredMessages.length === 0) {
+                                                    return (
+                                                        <div className="text-center py-8 text-slate-500">
+                                                            <List size={32} className="mx-auto mb-2 opacity-50" />
+                                                            <p className="text-sm">Nessun messaggio in questa categoria</p>
+                                                        </div>
+                                                    );
+                                                }
+
+                                                return filteredMessages.map(msg => (
+                                                    <div key={msg.id} className="bg-slate-900/50 rounded-xl p-3 border border-slate-700/50">
+                                                        <div className="flex items-start justify-between mb-2">
+                                                            <div className="flex items-center gap-2">
+                                                                <User size={14} className="text-slate-400" />
+                                                                <span className="font-bold text-white text-sm">{msg.customerName}</span>
+                                                            </div>
+                                                            <span className={`text-xs px-2 py-0.5 rounded-full font-bold ${msg.status === 'sent' || msg.status === 'delivered' || msg.status === 'read' ? 'bg-green-500/20 text-green-400' :
+                                                                msg.status === 'failed' ? 'bg-red-500/20 text-red-400' :
+                                                                    'bg-yellow-500/20 text-yellow-400'
+                                                                }`}>
+                                                                {msg.status}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 text-xs text-slate-400 mb-2">
+                                                            <Phone size={12} />
+                                                            <span>{msg.customerPhone}</span>
+                                                        </div>
+                                                        <p className="text-xs text-slate-300 line-clamp-2 bg-slate-950/50 rounded p-2">
+                                                            {msg.message}
+                                                        </p>
+                                                        {msg.error && (
+                                                            <div className="mt-2 text-xs text-red-400 bg-red-900/20 rounded p-2 flex items-start gap-1">
+                                                                <AlertTriangle size={12} className="mt-0.5 flex-shrink-0" />
+                                                                <span>{msg.error}</span>
+                                                            </div>
+                                                        )}
+                                                        {msg.sentTime && (
+                                                            <div className="mt-2 text-xs text-slate-500 flex items-center gap-1">
+                                                                <Clock size={12} />
+                                                                Inviato: {new Date(msg.sentTime).toLocaleString('it-IT')}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ));
+                                            })()}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
 

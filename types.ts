@@ -88,8 +88,10 @@ export interface RestaurantProfile {
 
   // Subscription Fields
   subscriptionEndDate?: string; // ISO Date String
-  planType?: 'Trial' | 'Pro' | 'Enterprise' | 'Free' | 'Demo' | 'Promo';
+  planType?: 'Trial' | 'Basic' | 'Pro' | 'Basic_Annuale' | 'Pro_Annuale' | 'Free' | 'Demo' | 'Promo';
   subscriptionCost?: string; // Custom cost set by Admin (string to allow formatting like "29.90")
+  allowedDepartment?: 'kitchen' | 'pizzeria' | 'pub' | 'delivery'; // For Basic Plan restriction
+
 
   // Agent Data
   agent?: AgentInfo;
@@ -134,6 +136,15 @@ export interface AppSettings {
   tableReservations?: string[];
   sharedTables?: Record<string, string[]>; // tableNum -> [waiterName1, waiterName2]
   activeCollaborations?: any[]; // For syncing request/accept flows
+  // Subscription data
+  subscription?: {
+    planId: 'trial' | 'basic' | 'pro';
+    status: 'active' | 'pending' | 'expired' | 'cancelled';
+    startDate: number;
+    endDate: number;
+    paymentMethod?: 'stripe' | 'paypal' | 'bonifico';
+    paymentReference?: string;
+  };
 }
 
 export interface MenuItem {

@@ -1,0 +1,18 @@
+# LISTA FILE DA PUSHARE SU GITHUB
+
+## File Core (7)
+App.tsx
+types.ts
+package.json
+package-lock.json
+components/SubscriptionManager.tsx
+services/stripeConfig.ts
+services/stripeService.ts
+
+## File Documentazione (4)
+FILE_MODIFICATI_DEPLOY.md
+BACKUP_INFO_2025-12-29.md
+COMANDI_GIT_PUSH.md
+RIEPILOGO_DEPLOY_COMPLETO.md
+
+## TOTALE: 11 file

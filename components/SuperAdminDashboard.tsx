@@ -758,9 +758,9 @@ NOTIFY pgrst, 'reload schema';`;
                                             const getPlanColor = () => {
                                                 if (isExpired) return 'bg-red-500/10 text-red-500 border-red-500/20 shadow-[0_0_10px_rgba(239,68,68,0.1)]';
                                                 if (planType === 'Trial') return 'bg-blue-500/10 text-blue-400 border-blue-500/20 shadow-[0_0_10px_rgba(59,130,246,0.1)]';
-                                                if (planType === 'Mensile') return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_10px_rgba(16,185,129,0.1)]';
-                                                if (planType === 'Annuale') return 'bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-[0_0_10px_rgba(245,158,11,0.1)]';
-                                                if (planType === 'VIP' || planType === 'Premium') return 'bg-purple-500/10 text-purple-400 border-purple-500/20 shadow-[0_0_10px_rgba(168,85,247,0.1)]';
+                                                if (planType === 'Free') return 'bg-slate-500/10 text-slate-400 border-slate-500/20 shadow-[0_0_10px_rgba(148,163,184,0.1)]';
+                                                if (planType === 'Basic') return 'bg-blue-600/10 text-blue-500 border-blue-600/20 shadow-[0_0_10px_rgba(37,99,235,0.1)]';
+                                                if (planType === 'Pro') return 'bg-purple-500/10 text-purple-400 border-purple-500/20 shadow-[0_0_10px_rgba(168,85,247,0.1)]';
                                                 if (planType === 'Promo') return 'bg-pink-500/10 text-pink-400 border-pink-500/20 shadow-[0_0_10px_rgba(236,72,153,0.1)]';
                                                 return 'bg-slate-500/10 text-slate-400 border-slate-500/20';
                                             };
@@ -1027,22 +1027,21 @@ NOTIFY pgrst, 'reload schema';`;
                                                     <div>
                                                         <label className="text-[10px] text-slate-500 uppercase font-bold block mb-2">Piano Selezionato</label>
                                                         {isEditingRegistry ? (
-                                                            <div className="space-y-2 max-h-[200px] overflow-y-auto custom-scroll pr-1">
+                                                            <div className="space-y-2 max-h-[280px] overflow-y-auto custom-scroll pr-1">
                                                                 {[
-                                                                    { value: 'Trial', label: 'Trial (15gg)', color: 'blue' },
-                                                                    { value: 'Mensile', label: 'Mensile Standard', color: 'emerald' },
-                                                                    { value: 'Annuale', label: 'Annuale Pro', color: 'amber' },
-                                                                    { value: 'Promo', label: `${promoName || 'Promo Special'}`, color: 'pink' },
-                                                                    { value: 'VIP', label: 'VIP Support', color: 'purple' },
-                                                                    { value: 'Free', label: 'Free / Demo', color: 'indigo' },
+                                                                    { value: 'trial', label: 'Trial (15gg)', color: 'blue', cost: '0' },
+                                                                    { value: 'basic', label: 'Basic €49,90/mese', color: 'emerald', cost: '49.90' },
+                                                                    { value: 'pro', label: 'Pro AI €99,90/mese', color: 'purple', cost: '99.90' },
+                                                                    { value: 'basic_yearly', label: 'Basic Annuale €499', color: 'teal', cost: '499.00' },
+                                                                    { value: 'pro_yearly', label: 'Pro Annuale €999', color: 'violet', cost: '999.00' },
+                                                                    { value: 'promo', label: `${promoName || 'Promo Special'}`, color: 'pink', cost: promoCost || '29.90' },
+                                                                    { value: 'demo', label: 'Demo / Illimitato', color: 'indigo', cost: '0' },
                                                                 ].map(plan => (
                                                                     <button
                                                                         key={plan.value}
                                                                         onClick={() => {
                                                                             setSubPlan(plan.value);
-                                                                            if (plan.value === 'Promo') setSubCost(promoCost || '29.90');
-                                                                            else if (plan.value === 'Trial' || plan.value === 'Free') setSubCost('0');
-                                                                            else if (plan.value === 'Mensile') setSubCost(globalDefaultCost || '49.90');
+                                                                            setSubCost(plan.cost);
                                                                         }}
                                                                         className={`w-full px-4 py-3 rounded-xl text-left flex justify-between items-center transition-all border ${subPlan === plan.value ? `bg-${plan.color}-500/20 border-${plan.color}-500 text-${plan.color}-400` : 'bg-slate-900 border-slate-700 text-slate-400 hover:bg-slate-800'}`}
                                                                     >

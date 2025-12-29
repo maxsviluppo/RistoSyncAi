@@ -26,7 +26,8 @@ import {
   Camera,
   ChefHat,
   Calendar,
-  Heart
+  Heart,
+  Store
 } from 'lucide-react';
 
 // Promo Timer Component
@@ -76,9 +77,10 @@ import { supabase } from '../services/supabase';
 
 interface LandingPageProps {
   onNavigateToApp: () => void;
+  onSelectPlan?: (planId: 'trial' | 'basic' | 'pro') => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToApp }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToApp, onSelectPlan }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [roiMonthlyOrders, setRoiMonthlyOrders] = useState(800);
   const [roiMinutesPerOrder, setRoiMinutesPerOrder] = useState(4);
@@ -1450,121 +1452,142 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToApp }) => 
             </p>
           </div>
 
-          <div className="flex flex-col md:flex-row gap-8 justify-center items-stretch">
-            {/* Standard Plan */}
-            <div className={`landing-pricing-card bg-slate-900/50 border ${promoConfig ? 'border-purple-500/50' : 'border-slate-700'} relative flex-1 max-w-md overflow-hidden group`}>
 
-              {/* Promo Overlay Elements (Always Visible & Bright) */}
-              {/* Promo Overlay Elements (New Flash Box) */}
-              {promoConfig && (
-                <div className="absolute top-1/4 left-1/2 -translate-x-1/2 z-40 w-full max-w-[260px] cursor-pointer group-hover:scale-105 transition-transform duration-300" onClick={() => document.getElementById('pricing')?.scrollIntoView()}>
-                  <div className="bg-fuchsia-600 border-4 border-yellow-300 rounded-[2rem] p-5 shadow-[0_10px_40px_rgba(192,38,211,0.5)] text-center transform -rotate-3 hover:rotate-0 transition-all">
+          {/* PRICING GRID */}
+          <div className="flex flex-col lg:flex-row gap-6 justify-center items-stretch mt-8">
 
-                    {/* Yellow Title */}
-                    <h3 className="text-yellow-300 font-black uppercase text-sm tracking-widest mb-1 drop-shadow-md">
-                      {promoConfig.name}
-                    </h3>
-
-                    {/* Promo Cost */}
-                    <div className="text-white font-black text-5xl mb-3 drop-shadow-lg tracking-tighter">
-                      €{promoConfig.cost}
-                    </div>
-
-                    {/* Timer & Info in Blue (White box for contrast) */}
-                    <div className="bg-white rounded-xl p-2 mx-auto shadow-inner">
-                      <div className="text-blue-500 text-[10px] font-black uppercase tracking-tight leading-tight">OFFERTA LAMPO SCADE IN:</div>
-                      <div className="text-blue-700 font-mono font-black text-xl leading-none mt-1">
-                        <PromoTimer deadlineHours={promoConfig.deadlineHours || '72'} lastUpdated={promoConfig.lastUpdated || new Date().toISOString()} />
-                      </div>
-                    </div>
-
-                  </div>
+            {/* PLAN 1: TRIAL (PROVA) */}
+            <div className="landing-pricing-card bg-slate-900 border-2 border-indigo-500/30 flex flex-col p-8 rounded-3xl hover:border-indigo-500 transition-colors">
+              <div className="mb-4">
+                <div className="w-12 h-12 bg-indigo-500/20 rounded-xl flex items-center justify-center mb-3">
+                  <Zap className="text-indigo-400" size={24} />
                 </div>
-              )}
-
-              {/* Card Content (Dimmed when Promo Active) */}
-              <div className={`transition-all duration-300 ${promoConfig ? 'opacity-40 grayscale-[0.8] blur-[1px]' : ''}`}>
-                <div className="landing-pricing-badge">STANDARD</div>
-                <div className="landing-pricing-amount text-white">
-                  <span className="landing-pricing-currency">€</span>
-                  <span className={`landing-pricing-value ${promoConfig ? 'line-through decoration-red-500 decoration-4 text-slate-500' : ''}`}>{displayPrice}</span>
-                  <span className="landing-pricing-period">/mese</span>
-                </div>
-                <div className="landing-pricing-location">PER LOCATION</div>
-
-                <div className="landing-pricing-features space-y-3 my-8">
-                  {pricingFeatures.map((feature, index) => (
-                    <div key={index} className="landing-pricing-feature flex items-center gap-3 text-slate-300">
-                      <CheckCircle2 className="w-5 h-5 text-orange-500 shrink-0" />
-                      <span>{feature}</span>
-                    </div>
-                  ))}
-                </div>
-
-                <button className="landing-pricing-cta w-full py-4 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-bold transition-all" onClick={onNavigateToApp}>
-                  Attiva Prova di 15 Giorni
-                  <ArrowRight className="w-5 h-5 ml-2 inline" />
-                </button>
-                <p className="landing-pricing-note text-center text-xs text-slate-500 mt-4">
-                  Nessuna carta di credito richiesta
-                </p>
+                <h3 className="text-xl font-bold text-white">Prova Gratuita</h3>
+                <p className="text-slate-400 text-sm">Per provare senza impegno.</p>
               </div>
+
+              <div className="mb-6">
+                <p className="flex items-baseline gap-1">
+                  <span className="text-4xl font-black text-white">Gratis</span>
+                </p>
+                <p className="text-sm text-indigo-400 font-bold mt-1">Per 15 giorni</p>
+              </div>
+
+              <ul className="space-y-3 mb-8 flex-1">
+                <li className="flex items-center gap-3 text-sm text-slate-300">
+                  <CheckCircle2 size={16} className="text-indigo-500 shrink-0" /> Tutte le funzionalità
+                </li>
+                <li className="flex items-center gap-3 text-sm text-slate-300">
+                  <CheckCircle2 size={16} className="text-indigo-500 shrink-0" /> Menu Digitale
+                </li>
+                <li className="flex items-center gap-3 text-sm text-slate-300">
+                  <CheckCircle2 size={16} className="text-indigo-500 shrink-0" /> Nessuna Carta Richiesta
+                </li>
+              </ul>
             </div>
 
-            {/* Promo Plan (Active Card) */}
-            {promoConfig && (
-              <div className="landing-pricing-card bg-gradient-to-b from-purple-900/50 to-slate-900 border border-purple-500/50 relative flex-1 max-w-md shadow-[0_0_30px_rgba(168,85,247,0.15)] transform md:scale-105 z-10">
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-purple-600 text-white px-4 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow-lg flex items-center gap-2 animate-pulse">
-                  <Sparkles size={14} /> {promoConfig.name}
+            {/* PLAN 2: BASIC */}
+            <div className="landing-pricing-card bg-slate-900 border-2 border-slate-700 flex flex-col p-8 rounded-3xl hover:border-slate-500 transition-colors relative">
+              <div className="mb-4">
+                <div className="w-12 h-12 bg-slate-700/50 rounded-xl flex items-center justify-center mb-3">
+                  <Store className="text-slate-300" size={24} />
                 </div>
-                <div className="landing-pricing-amount text-white mt-4 flex flex-col items-center">
-                  <div className="flex items-baseline justify-center">
-                    <span className="landing-pricing-currency text-purple-400">€</span>
-                    <span className="landing-pricing-value text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">{promoConfig.cost}</span>
-                    <span className="landing-pricing-period text-purple-300">/ {promoConfig.duration}</span>
-                  </div>
-                  {/* Timer Component */}
-                  {promoConfig.deadlineHours && promoConfig.lastUpdated && (
-                    <div className="mt-2 scale-110">
-                      <PromoTimer deadlineHours={promoConfig.deadlineHours} lastUpdated={promoConfig.lastUpdated} />
-                    </div>
-                  )}
-                </div>
-                <div className="landing-pricing-location text-purple-400 mt-2">OFFERTA LIMITATA</div>
+                <h3 className="text-xl font-bold text-white">Basic</h3>
+                <p className="text-slate-400 text-sm">L'essenziale per partire.</p>
+              </div>
 
-                <div className="landing-pricing-features space-y-3 my-8">
-                  <div className="landing-pricing-feature flex items-center gap-3 text-slate-300">
-                    <CheckCircle2 className="w-5 h-5 text-purple-500 shrink-0" />
-                    <span className="font-bold text-white">Tutte le funzioni Standard</span>
-                  </div>
-                  <div className="landing-pricing-feature flex items-center gap-3 text-slate-300">
-                    <CheckCircle2 className="w-5 h-5 text-purple-500 shrink-0" />
-                    <span>Priorità Supporto VIP</span>
-                  </div>
-                  <div className="landing-pricing-feature flex items-center gap-3 text-slate-300">
-                    <CheckCircle2 className="w-5 h-5 text-purple-500 shrink-0" />
-                    <span>Setup Guidato Gratuito</span>
-                  </div>
-                  <div className="landing-pricing-feature flex items-center gap-3 text-slate-300">
-                    <CheckCircle2 className="w-5 h-5 text-purple-500 shrink-0" />
-                    <span>Accesso Anticipato AI Beta</span>
-                  </div>
-                </div>
-
-                <button className="landing-pricing-cta w-full py-4 rounded-xl bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold transition-all shadow-lg shadow-purple-600/20" onClick={onNavigateToApp}>
-                  Richiedi {promoConfig.name}
-                  <ArrowRight className="w-5 h-5 ml-2 inline" />
-                </button>
-                <p className="landing-pricing-note text-center text-xs text-purple-400/60 mt-4">
-                  Posti limitati disponibili
+              <div className="mb-6">
+                <p className="flex items-baseline gap-1">
+                  <span className="text-4xl font-black text-white">€ 49,90</span>
+                  <span className="text-sm text-slate-400">/mese</span>
                 </p>
               </div>
-            )}
+
+              <ul className="space-y-3 mb-8 flex-1">
+                <li className="flex items-center gap-3 text-sm text-slate-300">
+                  <CheckCircle2 size={16} className="text-green-500 shrink-0" /> Menu Digitale Illimitato
+                </li>
+                <li className="flex items-center gap-3 text-sm text-slate-300">
+                  <CheckCircle2 size={16} className="text-green-500 shrink-0" /> Gestione Ordini & Tavoli
+                </li>
+                <li className="flex items-center gap-3 text-sm text-slate-300">
+                  <CheckCircle2 size={16} className="text-green-500 shrink-0" /> Statistiche Base
+                </li>
+                <li className="flex items-center gap-3 text-sm text-slate-500 line-through decoration-slate-600">
+                  <X size={16} className="text-slate-600 shrink-0" /> Marketing WhatsApp
+                </li>
+                <li className="flex items-center gap-3 text-sm text-slate-500 line-through decoration-slate-600">
+                  <X size={16} className="text-slate-600 shrink-0" /> AI Assistant
+                </li>
+              </ul>
+            </div>
+
+            {/* PLAN 3: PRO (RECOMMENDED) */}
+            <div className="landing-pricing-card bg-slate-900 border-2 border-purple-500 flex flex-col p-8 rounded-3xl transform md:-translate-y-4 shadow-2xl shadow-purple-900/30 relative overflow-hidden">
+              <div className="absolute top-0 right-0 bg-gradient-to-l from-purple-600 to-pink-600 text-white text-[10px] font-black px-4 py-1.5 rounded-bl-xl uppercase tracking-wider">
+                Consigliato / AI
+              </div>
+
+              <div className="mb-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mb-3 shadow-lg">
+                  <Sparkles className="text-white" size={24} />
+                </div>
+                <h3 className="text-xl font-bold text-white">Pro AI</h3>
+                <p className="text-purple-200 text-sm">La suite completa con AI.</p>
+              </div>
+
+              <div className="mb-6">
+                <p className="flex items-baseline gap-1">
+                  <span className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">€ 99,90</span>
+                  <span className="text-sm text-slate-400">/mese</span>
+                </p>
+                <p className="text-xs text-green-400 mt-2 font-bold flex items-center gap-1">
+                  <TrendingUp size={12} /> ROI stimato: 10x
+                </p>
+              </div>
+
+              <ul className="space-y-3 mb-8 flex-1">
+                <li className="flex items-center gap-3 text-sm text-white font-bold">
+                  <div className="bg-purple-500/20 p-1 rounded-full"><CheckCircle2 size={14} className="text-purple-400" /></div> Tutto incluso nel Basic
+                </li>
+                <li className="flex items-center gap-3 text-sm text-slate-300">
+                  <CheckCircle2 size={16} className="text-purple-500 shrink-0" /> WhatsApp Marketing Auto
+                </li>
+                <li className="flex items-center gap-3 text-sm text-slate-300">
+                  <CheckCircle2 size={16} className="text-purple-500 shrink-0" /> Menu Intelligence AI
+                </li>
+                <li className="flex items-center gap-3 text-sm text-slate-300">
+                  <CheckCircle2 size={16} className="text-purple-500 shrink-0" /> Analisi Food Cost AI
+                </li>
+                <li className="flex items-center gap-3 text-sm text-slate-300">
+                  <CheckCircle2 size={16} className="text-purple-500 shrink-0" /> Supporto Prioritario VIP
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* SINGLE CTA BUTTON */}
+          <div className="max-w-3xl mx-auto mt-12 text-center">
+            <div className="bg-gradient-to-r from-blue-900/40 to-purple-900/40 border border-blue-500/30 rounded-3xl p-8 backdrop-blur-md">
+              <h3 className="text-2xl font-black text-white mb-4">Inizia Oggi Gratuitamente</h3>
+              <p className="text-slate-300 mb-6 max-w-xl mx-auto">
+                Registrando il tuo ristorante accederai automaticamente al piano <strong className="text-white">Free Trial (15 giorni)</strong>.
+                Al termine della prova potrai scegliere il piano più adatto a te (Basic o Pro AI).
+                Riceverai email di conferma dopo la registrazione.
+              </p>
+              <button
+                onClick={() => onSelectPlan?.('trial') || onNavigateToApp()}
+                className="w-full md:w-auto px-12 py-4 bg-orange-500 hover:bg-orange-600 text-white font-black text-lg rounded-2xl shadow-xl shadow-orange-500/20 transition-all hover:scale-105 flex items-center justify-center gap-3 mx-auto"
+              >
+                <Zap size={24} />
+                Attiva Prova 15 Giorni
+              </button>
+              <p className="text-xs text-slate-500 mt-4">Nessuna carta di credito richiesta per iniziare.</p>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Contact Section */}
       <section id="contact" className="landing-section">
         <div className="landing-container">
           <div className="landing-section-header">
@@ -1699,6 +1722,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onNavigateToApp }) => 
           max-width: 1200px;
           margin: 0 auto;
           padding: 0 20px;
+        }
+
+        .landing-section {
+          padding: 100px 0;
+          position: relative;
+        }
+
+        .landing-section-dark {
+          background: #050505;
         }
 
         .landing-header-content {
