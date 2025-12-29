@@ -19,6 +19,8 @@ import TableMonitor from './components/TableMonitor';
 import ReservationManager from './components/ReservationManager';
 import CustomerManager from './components/CustomerManager';
 import SubscriptionManager from './components/SubscriptionManager';
+import PaymentSuccessModal from './components/PaymentSuccessModal';
+import DepartmentSelectorModal from './components/DepartmentSelectorModal';
 import { LandingPage } from './components/LandingPage';
 import { ChefHat, Smartphone, User, Settings, Bell, Utensils, X, Save, Plus, Trash2, Edit2, Wheat, Milk, Egg, Nut, Fish, Bean, Flame, Leaf, Info, LogOut, Bot, Key, Database, ShieldCheck, Lock, AlertTriangle, Mail, RefreshCw, Send, Printer, Mic, MicOff, TrendingUp, BarChart3, Calendar, ChevronLeft, ChevronRight, DollarSign, History, Receipt, UtensilsCrossed, Eye, ArrowRight, QrCode, Share2, Copy, MapPin, Store, Phone, Globe, Star, Pizza, CakeSlice, Wine, Sandwich, MessageCircle, FileText, PhoneCall, Sparkles, Loader, Facebook, Instagram, Youtube, Linkedin, Music, Compass, FileSpreadsheet, Image as ImageIcon, Upload, FileImage, ExternalLink, CreditCard, Banknote, Briefcase, Clock, Check, ListPlus, ArrowRightLeft, Code2, Cookie, Shield, Wrench, Download, CloudUpload, BookOpen, EyeOff, LayoutGrid, ArrowLeft, PlayCircle, ChevronDown, FileJson, Wallet, Crown, Zap, ShieldCheck as ShieldIcon, Trophy, Timer, LifeBuoy, Minus, Hash, Euro, TrendingDown, Package, Factory, Users, Lightbulb, Headphones, Cloud, BarChart, Camera, CheckCircle, Scan, Megaphone, Bike } from 'lucide-react';
 import { getWaiterName, saveWaiterName, getMenuItems, addMenuItem, updateMenuItem, deleteMenuItem, getNotificationSettings, saveNotificationSettings, initSupabaseSync, getGoogleApiKey, saveGoogleApiKey, removeGoogleApiKey, getAppSettings, saveAppSettings, getOrders, deleteHistoryByDate, performFactoryReset, deleteAllMenuItems, importDemoMenu } from './services/storageService';
@@ -118,6 +120,18 @@ export function App() {
     const [accountDeleted, setAccountDeleted] = useState(false);
     const [subscriptionExpired, setSubscriptionExpired] = useState(false);
     const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
+
+    // Payment Success Modal State
+    const [showPaymentSuccessModal, setShowPaymentSuccessModal] = useState(false);
+    const [paymentSuccessData, setPaymentSuccessData] = useState<{
+        planType: string;
+        endDate: string;
+        price: string;
+    } | null>(null);
+
+    // Department Selector Modal State (for Basic plan users)
+    const [showDepartmentSelector, setShowDepartmentSelector] = useState(false);
+    const [pendingRoleSelection, setPendingRoleSelection] = useState<string | null>(null);
 
     const [role, setRole] = useState<'kitchen' | 'pizzeria' | 'pub' | 'waiter' | 'delivery' | null>(null);
     const [showLogin, setShowLogin] = useState(false);
@@ -543,13 +557,13 @@ export function App() {
                 // Rimuovi il pagamento pendente da localStorage
                 localStorage.removeItem('ristosync_pending_payment');
 
-                // Messaggio di successo
-                showToast(`🎉 Pagamento completato! Piano ${planType} attivato fino al ${new Date(endDateISO).toLocaleDateString('it-IT')}`, 'success');
-
-                // Ricarica la pagina per aggiornare lo stato
-                setTimeout(() => {
-                    window.location.reload();
-                }, 2500);
+                // Mostra il bellissimo modal di congratulazioni
+                setPaymentSuccessData({
+                    planType: planType,
+                    endDate: endDateISO,
+                    price: price
+                });
+                setShowPaymentSuccessModal(true);
 
             } catch (error) {
                 console.error('Error handling Stripe success:', error);
@@ -629,24 +643,12 @@ export function App() {
                     showToast(`⛔ Il piano Basic include solo il reparto: ${allowed.toUpperCase()}. Passa a PRO per sbloccare tutto.`, 'error');
                     return;
                 }
+                // Il reparto è già impostato e corrisponde, procedi
             } else {
-                // Not set yet, ask for confirmation to lock it
-                const confirmLock = await showConfirm(
-                    '🔒 Attenzione: Piano Basic',
-                    `Il piano Basic permette l'uso di UN SOLO reparto. \n\nVuoi attivare "${selectedRole.toUpperCase()}" come reparto unico? \nQuesta scelta è permanente.`
-                );
-
-                if (!confirmLock) return;
-
-                // Save choice
-                const updatedProfile = { ...appSettings.restaurantProfile, allowedDepartment: selectedRole as any };
-                const newSettings = { ...appSettings, restaurantProfile: updatedProfile };
-
-                setAppSettingsState(newSettings);
-                setProfileForm(updatedProfile); // Helper state
-                await saveAppSettings(newSettings);
-
-                showToast(`✅ Reparto ${selectedRole.toUpperCase()} attivato con successo!`, 'success');
+                // Not set yet, show the beautiful department selector modal
+                setPendingRoleSelection(selectedRole);
+                setShowDepartmentSelector(true);
+                return; // Non procedere, aspetta la selezione dal modal
             }
         }
         // -----------------------------
@@ -659,6 +661,52 @@ export function App() {
             const storedName = getWaiterName();
             if (storedName) setRole('waiter');
             else setShowLogin(true);
+        }
+    };
+
+    // Handler per quando l'utente seleziona un reparto dal modal
+    const handleDepartmentSelection = async (department: 'kitchen' | 'pizzeria' | 'pub' | 'delivery') => {
+        try {
+            // Save choice
+            const updatedProfile = { ...appSettings.restaurantProfile, allowedDepartment: department };
+            const newSettings = { ...appSettings, restaurantProfile: updatedProfile };
+
+            setAppSettingsState(newSettings);
+            setProfileForm(updatedProfile);
+            await saveAppSettings(newSettings);
+
+            // Aggiorna anche su Supabase
+            if (supabase && session) {
+                const { data: currentProfile } = await supabase
+                    .from('profiles')
+                    .select('settings')
+                    .eq('id', session.user.id)
+                    .single();
+
+                const updatedSettings = {
+                    ...currentProfile?.settings,
+                    restaurantProfile: {
+                        ...currentProfile?.settings?.restaurantProfile,
+                        allowedDepartment: department,
+                    }
+                };
+
+                await supabase
+                    .from('profiles')
+                    .update({ settings: updatedSettings })
+                    .eq('id', session.user.id);
+            }
+
+            // Close modal and show success
+            setShowDepartmentSelector(false);
+            showToast(`✅ Reparto ${department.toUpperCase()} attivato con successo! Ora puoi iniziare a lavorare!`, 'success');
+
+            // Set the role to enter the department
+            setRole(department);
+
+        } catch (error) {
+            console.error('Error saving department selection:', error);
+            showToast('❌ Errore nel salvataggio. Riprova.', 'error');
         }
     };
 
@@ -3607,6 +3655,33 @@ export function App() {
                     showToast={showToast}
                 />
             )}
+
+            {/* Payment Success Modal */}
+            {showPaymentSuccessModal && paymentSuccessData && (
+                <PaymentSuccessModal
+                    isOpen={showPaymentSuccessModal}
+                    onClose={() => {
+                        setShowPaymentSuccessModal(false);
+                        setPaymentSuccessData(null);
+                        // Ricarica la pagina per mostrare lo stato aggiornato
+                        window.location.reload();
+                    }}
+                    planType={paymentSuccessData.planType}
+                    endDate={paymentSuccessData.endDate}
+                    price={paymentSuccessData.price}
+                />
+            )}
+
+            {/* Department Selector Modal for Basic Plan */}
+            <DepartmentSelectorModal
+                isOpen={showDepartmentSelector}
+                onClose={() => {
+                    setShowDepartmentSelector(false);
+                    setPendingRoleSelection(null);
+                }}
+                onSelect={handleDepartmentSelection}
+                currentDepartment={appSettings.restaurantProfile?.allowedDepartment}
+            />
         </>
     );
 }

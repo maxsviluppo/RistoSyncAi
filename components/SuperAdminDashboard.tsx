@@ -324,6 +324,11 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onEnterApp })
         if (!supabase || !viewingProfile) return;
 
         const currentSettings = viewingProfile.settings || {};
+        const currentPlan = currentSettings.restaurantProfile?.planType || 'Trial';
+
+        // Se il piano è cambiato, resetta allowedDepartment per permettere nuova scelta
+        const planChanged = currentPlan !== subPlan;
+        const shouldResetDepartment = planChanged || subPlan === 'Trial' || subPlan === 'Demo' || subPlan === 'Free';
 
         const updatedSettings = {
             ...currentSettings,
@@ -334,6 +339,8 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onEnterApp })
                 subscriptionCost: subCost,
                 planType: subPlan,
                 name: viewingProfile.restaurant_name,
+                // Reset allowedDepartment se il piano è cambiato o è Trial/Demo
+                allowedDepartment: shouldResetDepartment ? undefined : currentSettings.restaurantProfile?.allowedDepartment,
                 agent: {
                     name: agentName,
                     iban: agentIban,
@@ -362,7 +369,9 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onEnterApp })
             fetchProfiles();
         } else {
             setIsEditingRegistry(false);
-            // alert("Dati aggiornati con successo!");
+            if (planChanged) {
+                showToastMsg(`✅ Piano cambiato a ${subPlan}. Il reparto verrà richiesto al prossimo accesso.`, 'success');
+            }
         }
     };
 
