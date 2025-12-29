@@ -187,9 +187,16 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, show
         // Altrimenti usa restaurantProfile
         if (profilePlan) {
             let planId: PlanType | null = null;
-            if (profilePlan.includes('pro')) planId = 'pro';
-            else if (profilePlan.includes('basic')) planId = 'basic';
-            else if (profilePlan.includes('trial')) planId = 'trial';
+
+            // IMPORTANTE: Controlla Trial/Prova PRIMA di Pro per evitare confusione
+            // "Prova" contiene "pro" quindi deve essere controllato per primo
+            if (profilePlan.includes('trial') || profilePlan.includes('prova')) {
+                planId = 'trial';
+            } else if (profilePlan.includes('basic')) {
+                planId = 'basic';
+            } else if (profilePlan.includes('pro')) {
+                planId = 'pro';
+            }
 
             const isExpired = profileEndDate ? new Date(profileEndDate) < new Date() : false;
 
@@ -223,20 +230,21 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, show
         const planLevel = getPlanLevel(planId);
         const { planId: currentPlanId, isExpired: expired } = getCurrentPlan();
 
-        // Se non c'è abbonamento o è scaduto
+        // TRIAL: Disponibile SOLO se mai usato prima
+        if (planId === 'trial') {
+            const trialUsed = hasUsedTrial();
+            return {
+                available: !trialUsed,
+                reason: trialUsed ? 'Trial già utilizzato' : 'Disponibile',
+                isCurrent: currentPlanId === 'trial' && !expired,
+                isUpgrade: false,
+                isDowngrade: false
+            };
+        }
+
+        // Se non c'è abbonamento attivo o è scaduto
         if (!currentPlanId || expired) {
-            // Trial disponibile solo se mai usato
-            if (planId === 'trial') {
-                const trialUsed = hasUsedTrial();
-                return {
-                    available: !trialUsed,
-                    reason: trialUsed ? 'Trial già utilizzato' : 'Disponibile',
-                    isCurrent: false,
-                    isUpgrade: false,
-                    isDowngrade: false
-                };
-            }
-            // Basic e Pro sempre disponibili se scaduto
+            // Basic e Pro sempre disponibili se non c'è piano attivo
             return {
                 available: true,
                 reason: 'Disponibile',
@@ -249,7 +257,7 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, show
         // Piano attivo e non scaduto
         const currentLevel = getPlanLevel(currentPlanId);
 
-        // Piano corrente - non selezionabile
+        // Piano corrente - mostra come attuale ma non selezionabile
         if (planId === currentPlanId) {
             return {
                 available: false,
@@ -260,18 +268,7 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, show
             };
         }
 
-        // Trial - mai disponibile se c'è un piano attivo
-        if (planId === 'trial') {
-            return {
-                available: false,
-                reason: 'Trial già utilizzato',
-                isCurrent: false,
-                isUpgrade: false,
-                isDowngrade: false
-            };
-        }
-
-        // Upgrade disponibile
+        // UPGRADE: Sempre disponibile (da Trial a Basic/Pro, o da Basic a Pro)
         if (planLevel > currentLevel) {
             return {
                 available: true,
@@ -282,10 +279,11 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, show
             };
         }
 
-        // Downgrade non disponibile
+        // DOWNGRADE: NON disponibile (da Pro a Basic, o da Basic/Pro a Trial)
+        // L'utente deve aspettare la scadenza del piano corrente
         return {
             available: false,
-            reason: 'Downgrade non disponibile',
+            reason: 'Attendi scadenza piano',
             isCurrent: false,
             isUpgrade: false,
             isDowngrade: true
@@ -299,7 +297,9 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, show
             if (availability.isCurrent) {
                 showToast('ℹ️ Questo è già il tuo piano attuale', 'info');
             } else if (availability.isDowngrade) {
-                showToast('⚠️ Non puoi passare a un piano inferiore. Attendi la scadenza.', 'error');
+                showToast('⚠️ Il downgrade non è disponibile. Potrai scegliere un piano inferiore alla scadenza del tuo abbonamento attuale.', 'error');
+            } else if (planId === 'trial') {
+                showToast('⚠️ La prova gratuita è disponibile solo una volta per ogni utente.', 'error');
             } else {
                 showToast(`⚠️ ${availability.reason}`, 'error');
             }
@@ -649,7 +649,6 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, show
                                                                     ? 'Inizia Prova Gratuita'
                                                                     : `Attiva Piano ${plan.name}`
                                                     }
-                                                    {!isDisabled && !availability.isCurrent && <ArrowRight size={18} />}
                                                 </button>
                                             </div>
                                         </div>

@@ -411,14 +411,47 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onEnterApp })
 
         showConfirm(
             'ELIMINAZIONE DEFINITIVA',
-            `⚠️ SEI SICURO DI VOLER ELIMINARE "${name}"?\n\nL'azione è irreversibile. Verranno cancellati:\n- Profilo Ristorante\n- Tutti i dati associati (se collegati)\n\nL'utente Auth rimarrà ma senza profilo.`,
+            `⚠️ SEI SICURO DI VOLER ELIMINARE "${name}"?\n\nL'azione è irreversibile. Verranno cancellati:\n- Profilo Ristorante\n- Tutti i dati associati (ordini, menu, prenotazioni, clienti, ecc.)\n\nL'utente Auth rimarrà ma senza profilo.`,
             async () => {
-                const { error } = await supabase!.from('profiles').delete().eq('id', id);
-                if (!error) {
-                    fetchProfiles();
-                    showToastMsg(`Account "${name}" ELIMINATO con successo.`, 'success');
-                } else {
-                    showToastMsg("Errore durante l'eliminazione: " + error.message, 'error');
+                try {
+                    // Elimina tutti i dati correlati all'utente in ordine
+                    // 1. Messaggi (sia come sender che come recipient)
+                    await supabase!.from('messages').delete().eq('sender_id', id);
+                    await supabase!.from('messages').delete().eq('recipient_id', id);
+
+                    // 2. Ordini
+                    await supabase!.from('orders').delete().eq('user_id', id);
+
+                    // 3. Menu items
+                    await supabase!.from('menu_items').delete().eq('user_id', id);
+
+                    // 4. Marketing promotions
+                    await supabase!.from('marketing_promotions').delete().eq('user_id', id);
+
+                    // 5. Marketing automations
+                    await supabase!.from('marketing_automations').delete().eq('user_id', id);
+
+                    // 6. Social posts
+                    await supabase!.from('social_posts').delete().eq('user_id', id);
+
+                    // 7. Prenotazioni
+                    await supabase!.from('reservations').delete().eq('user_id', id);
+
+                    // 8. Clienti
+                    await supabase!.from('customers').delete().eq('user_id', id);
+
+                    // 9. Infine, elimina il profilo
+                    const { error } = await supabase!.from('profiles').delete().eq('id', id);
+
+                    if (!error) {
+                        fetchProfiles();
+                        showToastMsg(`Account "${name}" e tutti i suoi dati ELIMINATI con successo.`, 'success');
+                    } else {
+                        showToastMsg("Errore durante l'eliminazione del profilo: " + error.message, 'error');
+                    }
+                } catch (err: any) {
+                    showToastMsg("Errore durante l'eliminazione: " + (err.message || 'Errore sconosciuto'), 'error');
+                    console.error('Delete error:', err);
                 }
             }
         );
