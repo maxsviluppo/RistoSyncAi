@@ -26,6 +26,7 @@ import { supabase, signOut, isSupabaseConfigured, SUPER_ADMIN_EMAIL } from './se
 import { ToastProvider, useToast } from './components/ToastProvider';
 
 import { askChefAI, generateRestaurantAnalysis, generateDishDescription, generateDishIngredients, generateRestaurantDescription, detectAllergensFromIngredients } from './services/geminiService';
+import { sendPaymentConfirmationEmail, sendAdminPaymentNotification } from './services/emailService';
 import { MenuItem, Category, Department, AppSettings, OrderStatus, Order, RestaurantProfile, OrderItem, NotificationSettings, SocialLinks, DeliveryPlatform } from './types';
 import { useDialog } from './hooks/useDialog';
 import QRCodeGenerator from 'react-qr-code';
@@ -481,7 +482,7 @@ export function App() {
                         };
                         saveAppSettings(localSettings);
 
-                        // Invia notifica all'admin
+                        // Invia notifica all'admin (via messages table)
                         await supabase.from('messages').insert({
                             sender_id: 'system',
                             recipient_id: null,
@@ -490,6 +491,29 @@ export function App() {
                             is_read: false,
                             created_at: new Date().toISOString(),
                         });
+
+                        // Invia email di conferma al cliente
+                        const customerName = currentProfile?.settings?.restaurantProfile?.name ||
+                            currentProfile?.settings?.restaurantProfile?.responsiblePerson ||
+                            'Cliente';
+
+                        await sendPaymentConfirmationEmail(
+                            session.user.email,
+                            customerName,
+                            planType,
+                            price,
+                            endDateISO,
+                            sessionIdParam || undefined
+                        );
+
+                        // Invia email di notifica all'admin
+                        await sendAdminPaymentNotification(
+                            session.user.email,
+                            customerName,
+                            planType,
+                            price,
+                            sessionIdParam || undefined
+                        );
                     }
 
                     // Messaggio di successo

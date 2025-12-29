@@ -68,8 +68,8 @@ const PLANS: Plan[] = [
         priceYearly: 499.00,
         description: '1 reparto a scelta',
         icon: <ChefHat size={32} />,
-        color: 'blue',
-        gradient: 'from-blue-600 to-blue-700',
+        color: 'orange', // CAMBIATO DA BLUE AD ARANCIONE PER TEST DEPLOY
+        gradient: 'from-orange-500 to-orange-600', // CAMBIATO DA BLUE AD ARANCIONE
         features: [
             '1 reparto a scelta (Cucina, Pizzeria, Pub o Delivery)',
             'Gestione Ordini Completa',
