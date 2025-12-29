@@ -420,191 +420,172 @@ export function App() {
     // IMPORTANTE: I Payment Links di Stripe NON passano parametri nell'URL
     // Quindi leggiamo il piano salvato in localStorage PRIMA del redirect
     // Il redirect URL deve essere configurato in Stripe Dashboard → Payment Links → Edit → After payment
+    // Handle Stripe Success Return
     useEffect(() => {
         const handleStripeReturn = async () => {
-            // Controlla se c'è un pagamento pendente in localStorage
+            // Check URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const isSuccessURL = urlParams.get('subscription') === 'success' ||
+                urlParams.has('success') ||
+                urlParams.get('payment_intent') !== null;
+
+            // Check localStorage
             const pendingPaymentStr = localStorage.getItem('ristosync_pending_payment');
 
-            if (!pendingPaymentStr) {
-                // Nessun pagamento pendente, niente da fare
+            // IF no success URL AND no pending payment -> Exit
+            if (!isSuccessURL && !pendingPaymentStr) return;
+
+            // IF no session -> Wait for login (React will re-run effect when session changes)
+            if (!session) {
+                console.log('Stripe return detected but waiting for session...');
                 return;
             }
 
-            const pendingPayment = JSON.parse(pendingPaymentStr);
+            console.log('Stripe return detected with active session.');
 
-            // Evita doppia elaborazione - controlla se già completato
-            if (pendingPayment.completed === true) {
-                console.log('Payment already processed, skipping');
+            // Get pending payment data
+            let pendingPayment = null;
+            try {
+                if (pendingPaymentStr) {
+                    pendingPayment = JSON.parse(pendingPaymentStr);
+                }
+            } catch (e) {
+                console.error("Error parsing pending payment", e);
+            }
+
+            // If we have URL success but no local data -> we can't process safely
+            if (!pendingPayment) {
+                console.warn("Success URL present but missing local payment data.");
+                if (isSuccessURL) window.history.replaceState({}, '', window.location.pathname);
+                return;
+            }
+
+            // AVOID DOUBLE PROCESSING
+            if (pendingPayment.completed) {
+                console.log('Payment already processed locally.');
+                if (isSuccessURL) window.history.replaceState({}, '', window.location.pathname);
                 localStorage.removeItem('ristosync_pending_payment');
                 return;
             }
 
-            console.log('Found pending payment:', pendingPayment);
-
-            // Verifica che il pagamento non sia troppo vecchio (max 60 minuti per dare tempo)
+            // CHECK EXPIRATION (allow 2 hours to be safe)
             const paymentTime = new Date(pendingPayment.timestamp).getTime();
-            const now = Date.now();
-            const sixtyMinutes = 60 * 60 * 1000;
-
-            if (now - paymentTime > sixtyMinutes) {
-                console.log('Pending payment expired, removing');
+            if (Date.now() - paymentTime > (2 * 60 * 60 * 1000)) {
+                console.log('Pending payment expired.');
                 localStorage.removeItem('ristosync_pending_payment');
                 return;
             }
 
-            // Verifica se stiamo tornando da Stripe
-            // 1. Referrer contiene stripe.com o buy.stripe.com
-            // 2. URL contiene ?subscription=success (configurato nel Stripe Dashboard)
-            // 3. URL contiene parametri di pagamento
-            const referrer = document.referrer || '';
-            const isFromStripe = referrer.includes('stripe.com') || referrer.includes('buy.stripe');
-            const urlParams = new URLSearchParams(window.location.search);
-            const hasSubscriptionSuccess = urlParams.get('subscription') === 'success';
-            const hasSuccessParam = urlParams.has('success') || urlParams.has('payment_intent') || hasSubscriptionSuccess;
+            // Proceed with activation
+            console.log('Processing payment activation...');
 
-            // Se il parametro subscription=success è presente, SEMPRE procedi (redirect configurato in Stripe)
-            if (hasSubscriptionSuccess) {
-                console.log('Redirect from Stripe detected via subscription=success parameter');
-                // Pulisci l'URL
-                window.history.replaceState({}, '', window.location.pathname);
-            }
-
-            // Se siamo tornati da Stripe OPPURE c'è un pending payment recente (< 5 min) procedi
-            const isVeryRecent = (now - paymentTime) < (5 * 60 * 1000); // 5 minuti
-
-            if (!isFromStripe && !hasSuccessParam && !isVeryRecent) {
-                console.log('Not returning from Stripe and payment not recent enough, skipping');
-                return;
-            }
-
-            // Abbiamo un pagamento pendente recente - procedi con l'attivazione
-            // Marca come in elaborazione
+            // Mark as completed in local storage to prevent loops
             pendingPayment.completed = true;
             localStorage.setItem('ristosync_pending_payment', JSON.stringify(pendingPayment));
 
             try {
                 const plan = pendingPayment.plan; // 'basic' o 'pro'
-                const billingCycle = pendingPayment.billingCycle; // 'monthly' o 'yearly'
+                const billingCycle = pendingPayment.billingCycle || 'monthly';
 
-                // Determina il piano e la durata
-                let planType: string;
-                let months: number;
-                let price: string;
+                // Normalizza planType
+                const planType = plan === 'basic' ? 'Basic' : 'Pro';
 
-                if (plan === 'basic' && billingCycle === 'monthly') {
-                    planType = 'Basic';
-                    months = 1;
-                    price = '€1.00'; // Prezzo test
-                } else if (plan === 'basic' && billingCycle === 'yearly') {
-                    planType = 'Basic_Annuale';
-                    months = 12;
-                    price = '€499.00';
-                } else if (plan === 'pro' && billingCycle === 'monthly') {
-                    planType = 'Pro';
-                    months = 1;
-                    price = '€99.90';
-                } else if (plan === 'pro' && billingCycle === 'yearly') {
-                    planType = 'Pro_Annuale';
-                    months = 12;
-                    price = '€999.00';
+                // Calcola date
+                const startDate = new Date();
+                const endDate = new Date(startDate);
+                if (billingCycle === 'yearly') {
+                    endDate.setFullYear(startDate.getFullYear() + 1);
                 } else {
-                    showToast('❌ Piano non riconosciuto', 'error');
-                    localStorage.removeItem('ristosync_pending_payment');
-                    return;
+                    endDate.setMonth(startDate.getMonth() + 1);
                 }
 
-                // Calcola data di scadenza
-                const endDate = new Date();
-                endDate.setMonth(endDate.getMonth() + months);
+                const endDateMs = endDate.getTime();
                 const endDateISO = endDate.toISOString();
 
-                // Aggiorna il profilo utente su Supabase
-                if (supabase && session) {
-                    const { data: currentProfile } = await supabase
-                        .from('profiles')
-                        .select('settings')
-                        .eq('id', session.user.id)
-                        .single();
-
-                    const updatedSettings = {
-                        ...currentProfile?.settings,
-                        restaurantProfile: {
-                            ...currentProfile?.settings?.restaurantProfile,
-                            planType: planType,
-                            subscriptionEndDate: endDateISO,
-                            subscriptionCost: price,
-                            lastPaymentDate: new Date().toISOString(),
-                            paymentMethod: 'stripe',
-                        }
-                    };
-
-                    await supabase
-                        .from('profiles')
-                        .update({
-                            settings: updatedSettings,
-                            subscription_status: 'active'
-                        })
-                        .eq('id', session.user.id);
-
-                    // Aggiorna anche localStorage
-                    const localSettings = getAppSettings();
-                    localSettings.restaurantProfile = {
-                        ...localSettings.restaurantProfile,
+                // 1. UPDATE SUPABASE
+                // Aggiorniamo sia 'subscription_status' (colonna diretta) che 'settings' (JSON)
+                // Usiamo appSettings correnti come base
+                const currentSettings = { ...appSettings };
+                const updatedSettings = {
+                    ...currentSettings,
+                    restaurantProfile: {
+                        ...(currentSettings.restaurantProfile || {}),
                         planType: planType,
-                        subscriptionEndDate: endDateISO,
-                        subscriptionCost: price,
-                    };
-                    saveAppSettings(localSettings);
+                        subscriptionStatus: 'active',
+                        subscriptionEndDate: endDateMs,
+                        // Se Basic, resetta reparto per forzare la scelta se necessario
+                        allowedDepartment: planType === 'Basic' ? undefined : (currentSettings.restaurantProfile?.allowedDepartment)
+                    }
+                };
 
-                    // Invia notifica all'admin (via messages table)
-                    await supabase.from('messages').insert({
-                        sender_id: 'system',
-                        recipient_id: null,
-                        subject: '💰 Nuovo Pagamento Stripe Ricevuto',
-                        content: `🎉 NUOVO PAGAMENTO RICEVUTO\n\nCliente: ${session.user.email}\nPiano: ${planType}\nImporto: ${price}\nData: ${new Date().toLocaleString('it-IT')}`,
-                        is_read: false,
-                        created_at: new Date().toISOString(),
-                    });
+                const { error: dbError } = await supabase
+                    .from('profiles')
+                    .update({
+                        settings: updatedSettings,
+                        subscription_status: 'active'
+                    })
+                    .eq('id', session.user.id);
 
-                    // Invia email di conferma al cliente
-                    const customerName = currentProfile?.settings?.restaurantProfile?.name ||
-                        currentProfile?.settings?.restaurantProfile?.responsiblePerson ||
-                        'Cliente';
-
-                    await sendPaymentConfirmationEmail(
-                        session.user.email,
-                        customerName,
-                        planType,
-                        price,
-                        endDateISO,
-                        undefined
-                    );
-
-                    // Invia email di notifica all'admin
-                    await sendAdminPaymentNotification(
-                        session.user.email,
-                        customerName,
-                        planType,
-                        price,
-                        undefined
-                    );
+                if (dbError) {
+                    console.error("Errore update DB:", dbError);
+                    // Non blocchiamo tutto, l'utente ha pagato!
+                    // Proseguiamo con l'aggiornamento locale
                 }
 
-                // Rimuovi il pagamento pendente da localStorage
-                localStorage.removeItem('ristosync_pending_payment');
+                // 2. UPDATE LOCAL STATE
+                setAppSettingsState(updatedSettings);
+                saveAppSettings(updatedSettings); // Helper che salva anche in localStorage 'appSettings'
 
-                // Mostra il bellissimo modal di congratulazioni
+                // 3. SEND EMAILS (Non-blocking)
+                const price = billingCycle === 'yearly'
+                    ? (planType === 'Basic' ? '499.00' : '999.00')
+                    : (planType === 'Basic' ? '49.90' : '99.90');
+
+                const customerName = updatedSettings.restaurantProfile?.name || session.user.email || 'Cliente';
+
+                // Send emails in background
+                Promise.all([
+                    sendPaymentConfirmationEmail(
+                        session.user.email || '',
+                        customerName,
+                        planType,
+                        `€${price}`,
+                        endDate.toLocaleDateString('it-IT')
+                    ),
+                    sendAdminPaymentNotification(
+                        session.user.email || '',
+                        customerName,
+                        planType,
+                        `€${price}`
+                    )
+                ]).catch(err => console.error("Errore invio email:", err));
+
+
+                // 4. SHOW SUCCESS MODAL & CLEANUP
                 setPaymentSuccessData({
                     planType: planType,
                     endDate: endDateISO,
                     price: price
                 });
+
+                // Chiudi altri modali
+                setShowSubscriptionManager(false);
+
+                // Mostra successo
                 setShowPaymentSuccessModal(true);
 
-            } catch (error) {
-                console.error('Error handling Stripe success:', error);
-                showToast('❌ Errore durante l\'attivazione del piano. Contatta l\'assistenza.', 'error');
+                // Rimuovi pending payment
                 localStorage.removeItem('ristosync_pending_payment');
+
+                // Pulisci URL solo alla fine
+                if (isSuccessURL) {
+                    window.history.replaceState({}, '', window.location.pathname);
+                }
+
+            } catch (error) {
+                console.error('CRITICAL Error handling Stripe success:', error);
+                showToast('Errore attivazione abbonamento. Contatta supporto.', 'error');
+                // Non rimuoviamo pending_payment così al refresh riprova nel limite temporale
             }
         };
 
