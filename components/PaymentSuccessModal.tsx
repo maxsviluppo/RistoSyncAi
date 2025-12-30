@@ -7,6 +7,7 @@ interface PaymentSuccessModalProps {
     planType: string;
     endDate: string;
     price: string;
+    restaurantName?: string;
 }
 
 const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
@@ -14,7 +15,8 @@ const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
     onClose,
     planType,
     endDate,
-    price
+    price,
+    restaurantName
 }) => {
     const [showConfetti, setShowConfetti] = useState(false);
 
@@ -40,9 +42,9 @@ const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
         { icon: <TrendingUp size={20} />, text: 'Report Avanzati' },
     ] : [
         { icon: <ChefHat size={20} />, text: 'Il tuo reparto è attivo' },
-        { icon: <Zap size={20} />, text: 'Gestione ordini completa' },
+        { icon: <Bot size={20} />, text: 'AI Intelligence inclusa' },
+        { icon: <Zap size={20} />, text: 'Gestione ordini e delivery' },
         { icon: <Star size={20} />, text: 'Menu digitale professionale' },
-        { icon: <CheckCircle size={20} />, text: 'Monitor tavoli real-time' },
     ];
 
     return (
@@ -121,6 +123,11 @@ const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
 
                     {/* Motivational Text */}
                     <div className="space-y-4 mb-8">
+                        {restaurantName && (
+                            <p className="text-2xl text-white font-bold leading-relaxed">
+                                🎊 <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-orange-400 to-pink-500">{restaurantName}</span> 🎊
+                            </p>
+                        )}
                         <p className="text-xl text-white/90 font-medium leading-relaxed">
                             Benvenuto nel <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400 font-bold">futuro della ristorazione!</span>
                         </p>

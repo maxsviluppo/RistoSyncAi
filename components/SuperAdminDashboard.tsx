@@ -325,6 +325,9 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onEnterApp })
 
         const currentSettings = viewingProfile.settings || {};
 
+        // Salva il piano precedente per confronto
+        const previousPlan = currentSettings.restaurantProfile?.planType;
+
         const updatedSettings = {
             ...currentSettings,
             restaurantProfile: {
@@ -362,7 +365,49 @@ const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ onEnterApp })
             fetchProfiles();
         } else {
             setIsEditingRegistry(false);
-            // alert("Dati aggiornati con successo!");
+
+            // *** TRIGGER MODALI SE IL PIANO È CAMBIATO ***
+            if (previousPlan !== subPlan && (subPlan === 'Basic' || subPlan === 'Pro')) {
+                // Salva flag nel database per mostrare modali al prossimo login
+                const isBasicSelection = subPlan === 'Basic';
+
+                const settingsWithFlag = {
+                    ...updatedSettings,
+                    restaurantProfile: {
+                        ...updatedSettings.restaurantProfile,
+                        // SE DIVENTA BASIC, FORZA RESET REPARTO PER FARLO SCEGLIERE
+                        allowedDepartment: isBasicSelection ? undefined : updatedSettings.restaurantProfile?.allowedDepartment,
+                        showPlanChangeModal: true, // Flag per triggerare modali
+                        planChangeData: {
+                            newPlan: subPlan,
+                            endDate: subDate,
+                            cost: subCost,
+                            restaurantName: viewingProfile.restaurant_name,
+                            changedAt: new Date().toISOString()
+                        }
+                    }
+                };
+
+                // Aggiorna DB con flag
+                await supabase!
+                    .from('profiles')
+                    .update({ settings: settingsWithFlag })
+                    .eq('id', viewingProfile.id);
+
+                // Emetti anche evento per sessioni attive
+                const planChangeEvent = new CustomEvent('plan-changed-by-admin', {
+                    detail: {
+                        userId: viewingProfile.id,
+                        newPlan: subPlan,
+                        endDate: subDate,
+                        cost: subCost,
+                        restaurantName: viewingProfile.restaurant_name
+                    }
+                });
+                window.dispatchEvent(planChangeEvent);
+
+                showToastMsg(`✅ Piano cambiato a ${subPlan}! L'utente vedrà i modali al prossimo accesso.`, 'success');
+            }
         }
     };
 

@@ -106,6 +106,16 @@ export interface RestaurantProfile {
   };
 
   adminNotes?: string; // Note interne Super Admin
+
+  // Plan Change Sync (Internal)
+  showPlanChangeModal?: boolean;
+  planChangeData?: {
+    newPlan: string;
+    endDate: string;
+    cost: string;
+    restaurantName: string;
+    changedAt: string;
+  };
 }
 
 // Delivery Platform Configuration

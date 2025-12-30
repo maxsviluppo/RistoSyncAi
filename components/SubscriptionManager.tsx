@@ -11,6 +11,7 @@ import { simpleCheckout } from '../services/stripeService';
 interface SubscriptionManagerProps {
     onClose: () => void;
     showToast: (message: string, type: 'success' | 'error' | 'info') => void;
+    mode?: 'modal' | 'embedded'; // New prop
 }
 
 // Plan Types
@@ -125,7 +126,7 @@ const PAYPAL_DETAILS = {
     link: 'https://paypal.me/ristosync'
 };
 
-const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, showToast }) => {
+const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, showToast, mode = 'modal' }) => {
     const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null);
     const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
     const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | null>(null);
@@ -165,13 +166,17 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, show
             }
 
             // Create a synthetic subscription object for UI logic
+            const endDate = settings.restaurantProfile.subscriptionEndDate
+                ? new Date(settings.restaurantProfile.subscriptionEndDate).getTime()
+                : Date.now() + (30 * 24 * 60 * 60 * 1000); // Default 30 days if unknown
+
+            const isExpired = Date.now() > endDate;
+
             const syntheticSub: Subscription = {
                 planId: mappedPlanId,
-                status: 'active', // Assume active if present in profile
+                status: isExpired ? 'expired' : 'active', // Correct status based on date
                 startDate: Date.now(),
-                endDate: settings.restaurantProfile.subscriptionEndDate
-                    ? new Date(settings.restaurantProfile.subscriptionEndDate).getTime()
-                    : Date.now() + (30 * 24 * 60 * 60 * 1000) // Default 30 days if unknown
+                endDate: endDate
             };
             setCurrentSubscription(syntheticSub);
         }
@@ -311,12 +316,20 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, show
 
 
 
-    return (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
-            <div className="bg-slate-900 w-full max-w-5xl max-h-[95vh] rounded-[2rem] border border-slate-700 flex flex-col overflow-hidden shadow-2xl">
+    const isModal = mode === 'modal';
 
-                {/* Header */}
-                <div className="p-6 border-b border-slate-800 flex items-center justify-between flex-shrink-0">
+    return (
+        <div className={isModal
+            ? "fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in overflow-y-auto"
+            : "w-full animate-fade-in"
+        }>
+            <div className={`${isModal
+                ? "bg-slate-900 w-full max-w-5xl max-h-[95vh] rounded-[2rem] border border-slate-700 flex flex-col overflow-hidden shadow-2xl"
+                : "bg-transparent w-full flex flex-col"
+                }`}>
+
+                {/* Header - Only show close button in modal mode */}
+                <div className={`p-6 border-b border-slate-800 flex items-center justify-between flex-shrink-0 ${!isModal ? 'bg-slate-900/50 rounded-t-2xl border border-slate-700' : ''}`}>
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center">
                             <Crown className="text-white" size={24} />
@@ -331,12 +344,14 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, show
                         </div>
                     </div>
 
-                    <button
-                        onClick={onClose}
-                        className="w-12 h-12 bg-slate-800 hover:bg-slate-700 rounded-xl flex items-center justify-center transition-colors"
-                    >
-                        <X size={20} className="text-slate-400" />
-                    </button>
+                    {isModal && (
+                        <button
+                            onClick={onClose}
+                            className="w-12 h-12 bg-slate-800 hover:bg-slate-700 rounded-xl flex items-center justify-center transition-colors"
+                        >
+                            <X size={20} className="text-slate-400" />
+                        </button>
+                    )}
                 </div>
 
                 {/* Content */}
@@ -424,9 +439,19 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, show
                                     let buttonText = isTrial ? 'Inizia Prova Gratuita' : `Attiva Piano ${plan.name}`;
                                     let isDisabled = false;
 
+                                    const now = Date.now();
+                                    const endDate = currentSubscription?.endDate || 0;
+                                    const daysLeft = Math.ceil((endDate - now) / (1000 * 60 * 60 * 24));
+                                    const isExpiringSoon = daysLeft <= 5;
+
                                     if (isCurrentPlan) {
-                                        buttonText = 'Piano Attuale';
-                                        isDisabled = true;
+                                        if (isExpiringSoon && plan.id !== 'trial') {
+                                            buttonText = 'Rinnova Ora';
+                                            isDisabled = false;
+                                        } else {
+                                            buttonText = 'Piano Attuale';
+                                            isDisabled = true;
+                                        }
                                     } else if (isTrial) {
                                         if (!isTrialAvailable) {
                                             buttonText = 'Già Usufruito';

@@ -358,6 +358,58 @@ export function App() {
                     setShowWelcomeModal(true);
                 }
 
+                // *** PAYMENT SUCCESS MODAL - Pattern WelcomeModal ***
+                // Controlliamo se c'è un flag di cambio piano dal DB
+                if (data.settings?.restaurantProfile?.showPlanChangeModal) {
+                    const planData = data.settings.restaurantProfile.planChangeData;
+
+                    if (planData) {
+                        console.log('🎉 [LOGIN] Plan change detected, preparing modal:', planData);
+                        const isBasic = planData.newPlan && planData.newPlan.toLowerCase().includes('basic');
+
+                        // 1. Aggiorniamo SUBITO lo stato locale per riflettere il nuovo piano
+                        // Questo assicura che quando il modal si chiude, i controlli 'isBasic' siano corretti
+                        const updatedSettings = {
+                            ...data.settings,
+                            restaurantProfile: {
+                                ...data.settings.restaurantProfile,
+                                planType: planData.newPlan,
+                                subscriptionEndDate: planData.endDate,
+                                subscriptionCost: planData.cost,
+                                showPlanChangeModal: false, // Puliamo flag locale
+                                planChangeData: undefined,
+                                // IMPORTANTE: Se è Basic, resettiamo allowedDepartment così parte il selettore
+                                allowedDepartment: isBasic ? undefined : data.settings.restaurantProfile?.allowedDepartment
+                            }
+                        };
+
+                        // Aggiorniamo stato React e LocalStorage
+                        setAppSettingsState(updatedSettings);
+                        saveAppSettings(updatedSettings);
+                        setProfileForm(updatedSettings.restaurantProfile);
+
+                        // 2. Prepariamo e mostriamo il modal
+                        setPaymentSuccessData({
+                            planType: planData.newPlan,
+                            endDate: planData.endDate,
+                            price: planData.cost || '0.00',
+                            restaurantName: planData.restaurantName || data.restaurant_name
+                        } as any);
+
+                        setShowPaymentSuccessModal(true);
+
+                        // 3. Puliamo il flag nel DB asincronamente
+                        supabase
+                            .from('profiles')
+                            .update({ settings: updatedSettings }) // Salviamo le impostazioni aggiornate (flag pulito)
+                            .eq('id', user.id)
+                            .then(({ error }) => {
+                                if (error) console.error('Error cleaning plan change flag:', error);
+                                else console.log('✅ Plan change flag cleaned in DB');
+                            });
+                    }
+                }
+
                 // Piano Free/Demo = sempre attivo
                 if (plan === 'Free' || plan === 'Demo') {
                     setDaysRemaining(null);
@@ -389,6 +441,8 @@ export function App() {
                 setIsSuspended(false);
                 setIsBanned(false);
                 setSubscriptionExpired(false);
+
+                // Check completato
                 return true;
 
             } catch (e) {
@@ -652,6 +706,110 @@ export function App() {
         }
     }, [session]);
 
+    // Listen for plan changes from SuperAdmin
+    useEffect(() => {
+        const handlePlanChange = (event: any) => {
+            const { userId, newPlan, endDate, cost, restaurantName } = event.detail;
+
+            // Se l'evento riguarda l'utente corrente
+            if (session?.user?.id === userId) {
+                console.log('🚀 LIVE Plan change detected:', event.detail);
+
+                const isBasic = newPlan === 'Basic';
+
+                // Aggiorna appSettings localmente
+                const updatedSettings = {
+                    ...appSettings,
+                    restaurantProfile: {
+                        ...(appSettings.restaurantProfile || {}),
+                        planType: newPlan,
+                        subscriptionEndDate: endDate,
+                        subscriptionCost: cost,
+                        // Reset reparto se diventa Basic per forzare scelta
+                        allowedDepartment: isBasic ? undefined : appSettings.restaurantProfile?.allowedDepartment
+                    }
+                };
+                setAppSettingsState(updatedSettings);
+                saveAppSettings(updatedSettings);
+
+                // Mostra modal congratulazioni
+                setTimeout(() => {
+                    setPaymentSuccessData({
+                        planType: newPlan,
+                        endDate: endDate,
+                        price: cost || '0.00',
+                        restaurantName: restaurantName // Passiamo il nome se presente
+                    } as any);
+
+                    console.log('🎉 [LIVE] Showing PaymentSuccessModal');
+                    setShowPaymentSuccessModal(true);
+
+                    // *** FIX: Porta l'utente alla DASHBOARD per vedere il modal ***
+                    // Non andare in Admin!
+                    setShowAdmin(false);
+                    setRole(null);
+                }, 500);
+            }
+        };
+
+        window.addEventListener('plan-changed-by-admin', handlePlanChange);
+        return () => window.removeEventListener('plan-changed-by-admin', handlePlanChange);
+    }, [session, appSettings]);
+
+    // checkPlanChangeFlag RIIMOSSO - Sostituito da checkUserStatus
+
+    // Initial check on session and also listen for background updates
+    useEffect(() => {
+        // if (session) {
+        //     checkPlanChangeFlag();
+        // }
+
+        const handleSettingsUpdate = () => {
+            console.log("🔄 [SYNC] Local settings update detected in App.tsx");
+            const newSettings = getAppSettings();
+            setAppSettingsState(newSettings);
+            setProfileForm(newSettings.restaurantProfile || {});
+
+            // If the flag just arrived in settings via sync, reload window to trigger checkUserStatus
+            if (newSettings.restaurantProfile?.showPlanChangeModal) {
+                // checkPlanChangeFlag(); // DISABILITATO
+                // window.location.reload(); // Opzionale: per forzare il check su login
+            }
+        };
+
+        const handleStorageUpdate = () => {
+            // Update orders for analytics if they changed in background
+            setMenuItems(getMenuItems());
+        };
+
+        window.addEventListener('local-settings-update', handleSettingsUpdate);
+        window.addEventListener('local-storage-update', handleStorageUpdate);
+        window.addEventListener('local-menu-update', handleStorageUpdate);
+
+        return () => {
+            window.removeEventListener('local-settings-update', handleSettingsUpdate);
+            window.removeEventListener('local-storage-update', handleStorageUpdate);
+            window.removeEventListener('local-menu-update', handleStorageUpdate);
+        };
+    }, [session]);
+
+    // Auto-trigger Department Selector for Basic plan without department
+    useEffect(() => {
+        // NON mostrare se c'è un modal di congratulazioni attivo o in arrivo
+        if (!session || showPaymentSuccessModal || showDepartmentSelector) return;
+
+        // NON mostrare se c'è un cambio piano in sospeso (il modal di congratulazioni deve apparire prima)
+        if (appSettings.restaurantProfile?.showPlanChangeModal) return;
+
+        const plan = (appSettings.restaurantProfile?.planType || '').toLowerCase();
+        const hasNoDept = !appSettings.restaurantProfile?.allowedDepartment;
+
+        if (plan.includes('basic') && hasNoDept) {
+            // console.log("⚡ Auto-triggering Department Selector for Basic plan");
+            // setShowDepartmentSelector(true);
+        }
+    }, [session, appSettings.restaurantProfile?.planType, appSettings.restaurantProfile?.allowedDepartment, appSettings.restaurantProfile?.showPlanChangeModal, showPaymentSuccessModal, showDepartmentSelector]);
+
     // --- ACTIONS ---
 
 
@@ -668,7 +826,7 @@ export function App() {
         // --- BASIC PLAN RESTRICTION ---
         const plan = (appSettings.restaurantProfile?.planType || '').toLowerCase();
         const isBasic = plan.includes('basic');
-        const restrictedRoles = ['kitchen', 'pizzeria', 'pub', 'delivery'];
+        const restrictedRoles = ['kitchen', 'pizzeria', 'pub'];
 
         if (isBasic && restrictedRoles.includes(selectedRole)) {
             const allowed = appSettings.restaurantProfile?.allowedDepartment;
@@ -680,11 +838,10 @@ export function App() {
                     return;
                 }
             } else {
-                // *** Se l'utente non ha ancora scelto, mostra messaggio e apri impostazioni ***
-                showToast('⚙️ Configura prima il tuo reparto nelle Impostazioni del Profilo', 'info');
-                setShowAdmin(true);
-                setAdminTab('profile');
-                return; // Non procedere con setRole, aspetta la configurazione
+                // *** FIX: Se non ha reparto, NON mostrare toast, MA APRI IL SELETTORE ***
+                console.log('Basic user without department -> Opening selector');
+                setShowDepartmentSelector(true);
+                return;
             }
         }
         // -----------------------------
@@ -1344,109 +1501,13 @@ export function App() {
                 <p className="text-lg text-slate-300 max-w-md mx-auto">Il tuo abbonamento è in attesa di rinnovo. Scegli un piano per riattivare immediatamente il servizio.</p>
             </div>
 
-            {/* PIANI ABBONAMENTO */}
-            <div className="w-full max-w-4xl mb-8">
-                <h2 className="text-xl font-black text-center mb-6 text-orange-400">📦 Piani Disponibili</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* PIANO BASIC */}
-                    <div className="bg-slate-800/80 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 text-center hover:border-blue-500/50 transition-all hover:scale-105 flex flex-col">
-                        <div className="w-14 h-14 bg-slate-700 rounded-xl flex items-center justify-center mx-auto mb-4">
-                            <Store size={28} className="text-white" />
-                        </div>
-                        <h3 className="text-xl font-black text-white mb-2">BASIC</h3>
-                        <div className="text-4xl font-black text-white mb-1">€49,90<span className="text-lg text-slate-400">/mese</span></div>
-                        <p className="text-sm text-slate-400 mb-6 font-bold">L'essenziale per il tuo locale</p>
-
-                        <ul className="text-xs text-slate-300 text-left space-y-3 mb-8 flex-1">
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Menu Digitale Illimitato</li>
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Gestione Ordini & Tavoli</li>
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-green-500 shrink-0" /> Statistiche Base</li>
-                            <li className="flex items-center gap-2 opacity-50"><X size={14} className="text-slate-500 shrink-0" /> No WhatsApp Marketing</li>
-                            <li className="flex items-center gap-2 opacity-50"><X size={14} className="text-slate-500 shrink-0" /> No AI Assistant</li>
-                        </ul>
-                        <button
-                            onClick={() => openPaymentInstructions('Basic', '49.90')}
-                            className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl transition-all"
-                        >
-                            Attiva Basic
-                        </button>
-                    </div>
-
-                    {/* PIANO PRO - EVIDENZIATO */}
-                    <div className="bg-gradient-to-b from-purple-900/40 to-slate-900/80 backdrop-blur-sm border-2 border-purple-500 rounded-2xl p-6 text-center relative hover:scale-105 transition-all shadow-lg shadow-purple-900/20 flex flex-col">
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-gradient-to-r from-purple-600 to-pink-600 text-white text-xs font-black px-4 py-1 rounded-full uppercase tracking-wider shadow-lg">CONSIGLIATO</div>
-                        <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center mx-auto mb-4 mt-2">
-                            <Sparkles size={28} className="text-white" />
-                        </div>
-                        <h3 className="text-xl font-black text-white mb-2">PRO AI</h3>
-                        <div className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-1">€99,90<span className="text-lg text-slate-400 font-normal">/mese</span></div>
-                        <p className="text-sm text-purple-200 mb-6 font-bold">La suite completa con AI</p>
-
-                        <ul className="text-xs text-white text-left space-y-3 mb-8 flex-1">
-                            <li className="flex items-center gap-2 font-bold"><CheckCircle size={14} className="text-purple-400 shrink-0" /> Tutto incluso nel Basic</li>
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-purple-400 shrink-0" /> WhatsApp Marketing Auto</li>
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-purple-400 shrink-0" /> Menu Intelligence AI</li>
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-purple-400 shrink-0" /> Analisi Food Cost</li>
-                            <li className="flex items-center gap-2"><CheckCircle size={14} className="text-purple-400 shrink-0" /> Supporto Prioritario VIP</li>
-                        </ul>
-                        <button
-                            onClick={() => openPaymentInstructions('Pro', '99.90')}
-                            className="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold rounded-xl transition-all shadow-lg text-lg"
-                        >
-                            Attiva Pro AI
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* PAGAMENTO */}
-            <div className="bg-slate-900/80 backdrop-blur-sm p-6 rounded-2xl border border-slate-700 w-full max-w-xl mb-6">
-                <h3 className="font-bold text-lg text-white mb-4 flex items-center gap-2"><CreditCard size={20} className="text-green-500" /> Modalità di Pagamento</h3>
-                <p className="text-sm text-slate-300 mb-4">Effettua il bonifico bancario con la causale "Abbonamento RistoSync - {restaurantName}"</p>
-
-                <div className="flex flex-col md:flex-row gap-6 items-center">
-                    <div className="flex-1 w-full bg-slate-950 p-4 rounded-xl border border-slate-800">
-                        <p className="text-xs text-slate-500 uppercase mb-1">IBAN</p>
-                        <p className="font-mono text-white text-lg select-all break-all">{adminIban}</p>
-                        <button
-                            onClick={() => { navigator.clipboard.writeText(adminIban); showToast('IBAN copiato!', 'success'); }}
-                            className="text-xs flex items-center gap-1 text-blue-400 hover:text-blue-300 mt-1 font-bold"
-                        >
-                            <Copy size={12} /> Copia IBAN
-                        </button>
-                        <p className="text-xs text-slate-500 uppercase mt-3 mb-1">Intestatario</p>
-                        <p className="font-bold text-white">{adminHolder}</p>
-                    </div>
-
-                    <div className="bg-white p-4 rounded-xl shadow-lg border-2 border-slate-200 shrink-0 flex flex-col items-center">
-                        <QRCodeGenerator
-                            value={`BCD\n002\n2\nSCT\n\n${adminHolder}\n${adminIban}\nEUR\n\n\nAbbonamento ${new Date().toLocaleString('it-IT', { month: 'long' })} ${restaurantName}`}
-                            size={120}
-                            style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                            level="M"
-                        />
-                        <p className="text-center text-[10px] font-bold text-slate-900 mt-2 uppercase flex items-center gap-1"><QrCode size={10} /> Paga con App</p>
-                    </div>
-                </div>
-
-                {/* PayPal Option */}
-                <div className="mt-6 border-t border-slate-800 pt-6">
-                    <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
-                        <div className="text-center md:text-left">
-                            <p className="font-bold text-white flex items-center justify-center md:justify-start gap-2 mb-1">
-                                <span className="bg-[#003087] text-white px-2 py-0.5 rounded italic font-black text-sm">Pay</span><span className="text-[#009cde] font-black text-sm italic -ml-2">Pal</span>
-                                <span className="text-slate-300 text-sm font-normal">Disponibile</span>
-                            </p>
-                            <p className="text-xs text-slate-400">Invia il pagamento a <span className="text-white font-mono">{adminContactEmail}</span></p>
-                        </div>
-                        <button
-                            onClick={() => window.open('https://paypal.me/ristosync', '_blank')}
-                            className="bg-[#003087] hover:bg-[#00256b] text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 transition-all shadow-lg text-sm"
-                        >
-                            Paga con PayPal <ExternalLink size={14} />
-                        </button>
-                    </div>
-                </div>
+            {/* GESTORE ABBONAMENTI INTEGRATO */}
+            <div className="w-full max-w-6xl mx-auto mb-8 relative z-10">
+                <SubscriptionManager
+                    onClose={() => { }}
+                    showToast={showToast}
+                    mode="embedded"
+                />
             </div>
 
             {/* CONTATTI */}
@@ -1498,6 +1559,7 @@ export function App() {
                         restaurantName={restaurantName}
                     />
                 )}
+
                 <div className="min-h-screen bg-slate-900 text-white p-6 flex flex-col font-sans relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-800 to-slate-950 pointer-events-none"></div>
                     <div className="absolute top-[-10%] right-[-5%] w-96 h-96 bg-orange-600/10 rounded-full blur-3xl"></div>
@@ -1524,39 +1586,109 @@ export function App() {
                     </div>
                     {subscriptionExpired && (<div className="relative z-10 mb-8 bg-red-600/10 border border-red-500/30 p-4 rounded-2xl flex items-center justify-between animate-pulse"><div className="flex items-center gap-3 text-red-400 font-bold"><AlertTriangle size={24} /><span>Abbonamento Scaduto! Rinnova per continuare a usare tutte le funzioni.</span></div><button onClick={() => setShowSubscriptionManager(true)} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-500">Rinnova</button></div>)}
                     {daysRemaining !== null && daysRemaining <= 5 && !subscriptionExpired && (<div className="relative z-10 mb-8 bg-orange-600/10 border border-orange-500/30 p-4 rounded-2xl flex items-center justify-between"><div className="flex items-center gap-3 text-orange-400 font-bold"><Clock size={24} /><span>Abbonamento in scadenza tra {daysRemaining} giorni.</span></div><button onClick={() => setShowSubscriptionManager(true)} className="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-orange-500">Gestisci</button></div>)}
-                    <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-7xl mx-auto px-4">
-                        <div className="flex flex-col gap-5 md:row-span-2">
-                            <button onClick={() => checkRoleAccess('waiter')} className="group relative flex-1 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-500/50 overflow-hidden min-h-[160px]">
-                                <div className="absolute inset-0 bg-gradient-to-b from-blue-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center border-4 border-slate-700 group-hover:border-blue-500 group-hover:scale-105 transition-all shadow-inner">
-                                    <Smartphone size={28} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
-                                </div>
-                                <div className="text-center relative z-10">
-                                    <h2 className="text-xl font-black text-white mb-0.5 group-hover:text-blue-400 transition-colors">SALA</h2>
-                                    <p className="text-slate-500 text-xs font-medium">Gestione Comande</p>
-                                </div>
-                            </button>
 
-                            <button onClick={() => {
-                                setShowMonitor(true);
-                                setRole(null); // Ensure no role is active
-                                window.history.pushState({}, '', '?monitor=true');
-                            }} className="group relative flex-1 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-purple-500/10 hover:border-purple-500/50 overflow-hidden min-h-[160px]">
-                                <div className="absolute inset-0 bg-gradient-to-b from-purple-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                                <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center border-4 border-slate-700 group-hover:border-purple-500 group-hover:scale-105 transition-all shadow-inner">
-                                    <Users size={28} className="text-slate-400 group-hover:text-purple-500 transition-colors" />
+                    {/* Logica Restrizioni Basic per Rendering Dashboard */}
+                    {(() => {
+                        const currentPlan = (appSettings.restaurantProfile?.planType || 'Trial').toLowerCase();
+                        const isBasicPlan = currentPlan.includes('basic');
+                        const allowed = appSettings.restaurantProfile?.allowedDepartment;
+
+                        return (
+                            <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-7xl mx-auto px-4">
+                                <div className="flex flex-col gap-5 md:row-span-2">
+                                    <button onClick={() => checkRoleAccess('waiter')} className="group relative flex-1 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-500/50 overflow-hidden min-h-[160px]">
+                                        <div className="absolute inset-0 bg-gradient-to-b from-blue-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                        <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center border-4 border-slate-700 group-hover:border-blue-500 group-hover:scale-105 transition-all shadow-inner">
+                                            <Smartphone size={28} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
+                                        </div>
+                                        <div className="text-center relative z-10">
+                                            <h2 className="text-xl font-black text-white mb-0.5 group-hover:text-blue-400 transition-colors">SALA</h2>
+                                            <p className="text-slate-500 text-xs font-medium">Gestione Comande</p>
+                                        </div>
+                                    </button>
+
+                                    <button onClick={() => {
+                                        setShowMonitor(true);
+                                        setRole(null); // Ensure no role is active
+                                        window.history.pushState({}, '', '?monitor=true');
+                                    }} className="group relative flex-1 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-purple-500/10 hover:border-purple-500/50 overflow-hidden min-h-[160px]">
+                                        <div className="absolute inset-0 bg-gradient-to-b from-purple-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                        <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center border-4 border-slate-700 group-hover:border-purple-500 group-hover:scale-105 transition-all shadow-inner">
+                                            <Users size={28} className="text-slate-400 group-hover:text-purple-500 transition-colors" />
+                                        </div>
+                                        <div className="text-center relative z-10">
+                                            <h2 className="text-xl font-black text-white mb-0.5 group-hover:text-purple-400 transition-colors">MONITOR</h2>
+                                            <p className="text-slate-500 text-xs font-medium">Stato Tavoli</p>
+                                        </div>
+                                    </button>
                                 </div>
-                                <div className="text-center relative z-10">
-                                    <h2 className="text-xl font-black text-white mb-0.5 group-hover:text-purple-400 transition-colors">MONITOR</h2>
-                                    <p className="text-slate-500 text-xs font-medium">Stato Tavoli</p>
-                                </div>
-                            </button>
-                        </div>
-                        <button onClick={() => checkRoleAccess('kitchen')} className="group relative h-48 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-orange-500/10 hover:border-orange-500/50 overflow-hidden"><div className="absolute inset-0 bg-gradient-to-b from-orange-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div><div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center border-2 border-slate-700 group-hover:border-orange-500 group-hover:scale-105 transition-all shadow-inner"><ChefHat size={28} className="text-slate-400 group-hover:text-orange-500 transition-colors" /></div><div className="text-center relative z-10"><h2 className="text-lg font-black text-white mb-0.5 group-hover:text-orange-400 transition-colors">CUCINA</h2><p className="text-slate-500 text-xs font-medium">Ordini food</p></div></button>
-                        <button onClick={() => checkRoleAccess('pizzeria')} className="group relative h-48 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-red-500/10 hover:border-red-500/50 overflow-hidden"><div className="absolute inset-0 bg-gradient-to-b from-red-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div><div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center border-2 border-slate-700 group-hover:border-red-500 group-hover:scale-105 transition-all shadow-inner"><Pizza size={28} className="text-slate-400 group-hover:text-red-500 transition-colors" /></div><div className="text-center relative z-10"><h2 className="text-lg font-black text-white mb-0.5 group-hover:text-red-400 transition-colors">PIZZERIA</h2><p className="text-slate-500 text-xs font-medium">Forno</p></div></button>
-                        <button onClick={() => checkRoleAccess('pub')} className="group relative h-48 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-amber-500/10 hover:border-amber-500/50 overflow-hidden"><div className="absolute inset-0 bg-gradient-to-b from-amber-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div><div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center border-2 border-slate-700 group-hover:border-amber-500 group-hover:scale-105 transition-all shadow-inner"><Sandwich size={28} className="text-slate-400 group-hover:text-amber-500 transition-colors" /></div><div className="text-center relative z-10"><h2 className="text-lg font-black text-white mb-0.5 group-hover:text-amber-400 transition-colors">PUB/BAR</h2><p className="text-slate-500 text-xs font-medium">Bevande</p></div></button>
-                        <button onClick={() => checkRoleAccess('delivery')} className="group relative h-48 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-green-500/10 hover:border-green-500/50 overflow-hidden"><div className="absolute inset-0 bg-gradient-to-b from-green-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div><div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center border-2 border-slate-700 group-hover:border-green-500 group-hover:scale-105 transition-all shadow-inner"><Bike size={28} className="text-slate-400 group-hover:text-green-500 transition-colors" /></div><div className="text-center relative z-10"><h2 className="text-lg font-black text-white mb-0.5 group-hover:text-green-400 transition-colors">DELIVERY</h2><p className="text-slate-500 text-xs font-medium">Asporto</p></div></button>
-                    </div>
+
+                                {/* CUCINA */}
+                                <button
+                                    onClick={() => checkRoleAccess('kitchen')}
+                                    className={`group relative h-48 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-orange-500/10 hover:border-orange-500/50 overflow-hidden ${isBasicPlan && allowed && allowed !== 'kitchen' ? 'opacity-40 grayscale' : ''}`}
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-b from-orange-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                    <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center border-2 border-slate-700 group-hover:border-orange-500 group-hover:scale-105 transition-all shadow-inner">
+                                        <ChefHat size={28} className="text-slate-400 group-hover:text-orange-500 transition-colors" />
+                                    </div>
+                                    <div className="text-center relative z-10">
+                                        <h2 className="text-lg font-black text-white mb-0.5 group-hover:text-orange-400 transition-colors">CUCINA</h2>
+                                        <p className="text-slate-500 text-xs font-medium">Ordini food</p>
+                                        {isBasicPlan && allowed && allowed !== 'kitchen' && <div className="mt-1 flex items-center justify-center gap-1 text-[10px] text-orange-500 font-bold uppercase tracking-widest"><Lock size={10} /> Pro Only</div>}
+                                    </div>
+                                </button>
+
+                                {/* PIZZERIA */}
+                                <button
+                                    onClick={() => checkRoleAccess('pizzeria')}
+                                    className={`group relative h-48 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-red-500/10 hover:border-red-500/50 overflow-hidden ${isBasicPlan && allowed && allowed !== 'pizzeria' ? 'opacity-40 grayscale' : ''}`}
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-b from-red-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                    <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center border-2 border-slate-700 group-hover:border-red-500 group-hover:scale-105 transition-all shadow-inner">
+                                        <Pizza size={28} className="text-slate-400 group-hover:text-red-500 transition-colors" />
+                                    </div>
+                                    <div className="text-center relative z-10">
+                                        <h2 className="text-lg font-black text-white mb-0.5 group-hover:text-red-400 transition-colors">PIZZERIA</h2>
+                                        <p className="text-slate-500 text-xs font-medium">Forno</p>
+                                        {isBasicPlan && allowed && allowed !== 'pizzeria' && <div className="mt-1 flex items-center justify-center gap-1 text-[10px] text-red-500 font-bold uppercase tracking-widest"><Lock size={10} /> Pro Only</div>}
+                                    </div>
+                                </button>
+
+                                {/* PUB/BAR */}
+                                <button
+                                    onClick={() => checkRoleAccess('pub')}
+                                    className={`group relative h-48 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-amber-500/10 hover:border-amber-500/50 overflow-hidden ${isBasicPlan && allowed && allowed !== 'pub' ? 'opacity-40 grayscale' : ''}`}
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-b from-amber-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                    <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center border-2 border-slate-700 group-hover:border-amber-500 group-hover:scale-105 transition-all shadow-inner">
+                                        <Sandwich size={28} className="text-slate-400 group-hover:text-amber-500 transition-colors" />
+                                    </div>
+                                    <div className="text-center relative z-10">
+                                        <h2 className="text-lg font-black text-white mb-0.5 group-hover:text-amber-400 transition-colors">PUB/BAR</h2>
+                                        <p className="text-slate-500 text-xs font-medium">Bevande</p>
+                                        {isBasicPlan && allowed && allowed !== 'pub' && <div className="mt-1 flex items-center justify-center gap-1 text-[10px] text-amber-500 font-bold uppercase tracking-widest"><Lock size={10} /> Pro Only</div>}
+                                    </div>
+                                </button>
+
+                                {/* DELIVERY */}
+                                <button
+                                    onClick={() => checkRoleAccess('delivery')}
+                                    className="group relative h-48 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-green-500/10 hover:border-green-500/50 overflow-hidden"
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-b from-green-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                    <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center border-2 border-slate-700 group-hover:border-green-500 group-hover:scale-105 transition-all shadow-inner">
+                                        <Bike size={28} className="text-slate-400 group-hover:text-green-500 transition-colors" />
+                                    </div>
+                                    <div className="text-center relative z-10">
+                                        <h2 className="text-lg font-black text-white mb-0.5 group-hover:text-green-400 transition-colors">DELIVERY</h2>
+                                        <p className="text-slate-500 text-xs font-medium">Asporto</p>
+                                        {/* Delivery è sempre accessibile, anche per Basic */}
+                                    </div>
+                                </button>
+                            </div>
+                        );
+                    })()}
 
                     {/* PULSANTE PRENOTAZIONI - Rettangolare Allungato */}
                     <div className="relative z-10 w-full max-w-7xl mx-auto px-4 mt-5">
@@ -1574,6 +1706,15 @@ export function App() {
 
                     {showLogin && (<div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"><div className="bg-slate-900 border border-slate-700 p-8 rounded-[2rem] shadow-2xl w-full max-w-sm relative animate-slide-up"><button onClick={() => setShowLogin(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"><X size={24} /></button><div className="text-center mb-6"><div className="w-16 h-16 bg-blue-600/20 rounded-full flex items-center justify-center mx-auto mb-4"><User size={32} className="text-blue-500" /></div><h2 className="text-2xl font-bold text-white">Chi sei?</h2><p className="text-slate-400 text-sm mt-1">Inserisci il tuo nome per iniziare</p></div><input type="text" value={waiterNameInput} onChange={(e) => setWaiterNameInput(e.target.value)} placeholder="Es. Marco" className="w-full bg-slate-950 border border-slate-700 text-white px-4 py-4 rounded-xl mb-4 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all font-bold text-center text-lg" autoFocus /><button onClick={handleLoginWaiter} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20">Inizia Turno <ArrowRight size={20} /></button></div></div>)}
                 </div>
+
+                {/* MODALE ABBONAMENTO (Dashboard) */}
+                {showSubscriptionManager && (
+                    <SubscriptionManager
+                        onClose={() => setShowSubscriptionManager(false)}
+                        showToast={showToast}
+                        mode="modal"
+                    />
+                )}
             </>
         );
     }
@@ -1595,6 +1736,7 @@ export function App() {
                         restaurantName={restaurantName}
                     />
                 )}
+
                 {showPrintableMenu && (
                     <PrintableMenu
                         menuItems={menuItems}
@@ -1620,18 +1762,10 @@ export function App() {
                             <button onClick={() => setAdminTab('analytics')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'analytics' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><BarChart3 size={18} /> Statistiche</button>
                             <button onClick={() => setAdminTab('receipts')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'receipts' ? 'bg-yellow-600 text-white shadow-lg shadow-yellow-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Receipt size={18} /> Scontrini Cassa</button>
                             <button
-                                onClick={() => {
-                                    const plan = (profileForm?.planType || '').toLowerCase();
-                                    if (plan.includes('basic')) {
-                                        showToast('Questa funzione richiede il piano PRO', 'error');
-                                        return;
-                                    }
-                                    setAdminTab('ai');
-                                }}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'ai' ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/20' : (profileForm?.planType || '').toLowerCase().includes('basic') ? 'text-slate-600 cursor-not-allowed opacity-50' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
+                                onClick={() => setAdminTab('ai')}
+                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'ai' ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
                             >
                                 <Bot size={18} /> AI Intelligence
-                                {(profileForm?.planType || '').toLowerCase().includes('basic') && <Lock size={14} className="ml-auto" />}
                             </button>
 
                             <button
@@ -3675,27 +3809,31 @@ export function App() {
                     isOpen={showDepartmentSelector}
                     onClose={() => setShowDepartmentSelector(false)}
                     currentDepartment={appSettings.restaurantProfile?.allowedDepartment}
-                    onSelect={(dept) => {
-                        const current = getAppSettings();
-                        if (current.restaurantProfile) {
-                            const updated = {
-                                ...current,
-                                restaurantProfile: {
-                                    ...current.restaurantProfile,
-                                    allowedDepartment: dept
-                                }
-                            };
-                            saveAppSettings(updated);
-                            setAppSettingsState(updated);
-                            setProfileForm(updated.restaurantProfile);
-                            setShowDepartmentSelector(false);
-                            showToast(`✅ Reparto ${dept} impostato correttamente!`, 'success');
+                    onSelectDepartment={async (dept) => {
+                        console.log('🎯 Admin: Selected department for Basic plan:', dept);
+                        // Salva il department selezionato
+                        const updatedProfile = { ...appSettings.restaurantProfile, allowedDepartment: dept };
+                        const newSettings = { ...appSettings, restaurantProfile: updatedProfile };
 
-                            // Reload to apply restrictive changes cleanly
-                            setTimeout(() => {
-                                window.location.href = '/?landing=false';
-                            }, 1500);
+                        setAppSettingsState(newSettings);
+                        await saveAppSettings(newSettings);
+
+                        // Aggiorna anche su Supabase
+                        if (session?.user?.id && supabase) {
+                            await supabase
+                                .from('profiles')
+                                .update({ settings: newSettings })
+                                .eq('id', session.user.id);
                         }
+
+                        setShowDepartmentSelector(false);
+                        showToast(`✅ Reparto ${dept.toUpperCase()} selezionato con successo!`, 'success');
+
+                        // Entra automaticamente nel reparto se selezionato
+                        if (dept === 'kitchen') setRole('kitchen');
+                        else if (dept === 'pizzeria') setRole('pizzeria');
+                        else if (dept === 'pub') setRole('pub');
+                        // else if (dept === 'delivery') setRole('delivery'); // RIMOSSO (incluso in Basic)
                     }}
                 />
             </>
@@ -3762,6 +3900,7 @@ export function App() {
                     planType={paymentSuccessData.planType}
                     endDate={paymentSuccessData.endDate}
                     price={paymentSuccessData.price}
+                    restaurantName={paymentSuccessData.restaurantName || restaurantName}
                 />
             )}
             {showDepartmentSelector && (
@@ -3793,7 +3932,7 @@ export function App() {
                         if (department === 'kitchen') setRole('kitchen');
                         else if (department === 'pizzeria') setRole('pizzeria');
                         else if (department === 'pub') setRole('pub');
-                        else if (department === 'delivery') setRole('delivery');
+                        // else if (department === 'delivery') setRole('delivery'); // RIMOSSO (incluso in Basic)
                     }}
                 />
             )}
