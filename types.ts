@@ -126,6 +126,16 @@ export interface DeliveryPlatform {
   notes?: string;
 }
 
+// Standalone Exported Interface
+export interface Subscription {
+  planId: 'trial' | 'basic' | 'pro';
+  status: 'active' | 'pending' | 'expired' | 'cancelled';
+  startDate: number;
+  endDate: number;
+  paymentMethod?: 'stripe' | 'paypal' | 'bonifico' | 'manual_override';
+  paymentReference?: string;
+}
+
 export interface AppSettings {
   categoryDestinations: Record<Category, Department>;
   // Updated: Record<string, boolean> to allow 'Cassa' key alongside departments
@@ -137,14 +147,7 @@ export interface AppSettings {
   sharedTables?: Record<string, string[]>; // tableNum -> [waiterName1, waiterName2]
   activeCollaborations?: any[]; // For syncing request/accept flows
   // Subscription data
-  subscription?: {
-    planId: 'trial' | 'basic' | 'pro';
-    status: 'active' | 'pending' | 'expired' | 'cancelled';
-    startDate: number;
-    endDate: number;
-    paymentMethod?: 'stripe' | 'paypal' | 'bonifico';
-    paymentReference?: string;
-  };
+  subscription?: Subscription;
 }
 
 export interface MenuItem {

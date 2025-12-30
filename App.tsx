@@ -33,6 +33,7 @@ import Tesseract from 'tesseract.js';
 import Papa from 'papaparse';
 import PaymentSuccessModal from './components/PaymentSuccessModal';
 import DepartmentSelectorModal from './components/DepartmentSelectorModal';
+import StripeSuccessHandler from './components/StripeSuccessHandler';
 
 // Promo Timer Component
 const PromoTimer = ({ deadlineHours, lastUpdated }: { deadlineHours: string, lastUpdated: string }) => {
@@ -449,72 +450,48 @@ export function App() {
         }
     }, [showAdmin]);
 
-    // Handle Stripe Redirect Return
+    // --- MANUAL OVERRIDE FOR EMERGENCY ---
     useEffect(() => {
-        const urlParams = new URLSearchParams(window.location.search);
-        // SUPPORTA ENTRAMBI I PARAMETRI (Legacy fix)
-        const subscriptionStatus = urlParams.get('subscription') || urlParams.get('subscription_checkout');
-        const planParam = urlParams.get('plan');
-
-        if (subscriptionStatus === 'success') {
-            setShowPaymentSuccess(true);
-
-            // Determine Plan Details from URL or Default
-            const isYearly = planParam?.includes('yearly');
-            const isBasic = planParam?.includes('basic');
-
-            const newPlan = isBasic ? 'Basic' : 'Pro';
-
-            // Trigger Department Selector for Basic Plan
-            if (isBasic) {
-                setShowDepartmentSelector(true);
-            }
-
-            const price = isBasic
-                ? (isYearly ? '€499.00' : '€49.90')
-                : (isYearly ? '€999.00' : '€99.90');
-
-            const duration = isYearly ? 365 : 30;
-            const endDate = new Date(Date.now() + duration * 24 * 60 * 60 * 1000).toISOString();
-
-            setSuccessPlanInfo({
-                plan: newPlan,
-                price: price,
-                endDate: endDate
-            });
-
-            // UPDATE SUBSCRIPTION LOCALLY (Client-side simulation/fix)
-            const currentSettings = getAppSettings();
-            if (currentSettings.restaurantProfile) {
-                const updatedSettings = {
-                    ...currentSettings,
-                    restaurantProfile: {
-                        ...currentSettings.restaurantProfile,
-                        planType: newPlan as any,
-                        subscriptionEndDate: endDate
-                    },
-                    subscription: {
-                        planId: newPlan.toLowerCase() as any,
-                        status: 'active',
-                        startDate: Date.now(),
-                        endDate: new Date(endDate).getTime(),
-                        paymentMethod: 'stripe'
-                    }
-                };
-                saveAppSettings(updatedSettings);
-                setAppSettingsState(updatedSettings);
-                // Also update profile form state
-                setProfileForm(updatedSettings.restaurantProfile);
-            }
-
-            // Clean URL
-            window.history.replaceState({}, '', window.location.pathname);
-            showToast('✅ Pagamento confermato! Abbonamento attivato.', 'success');
-        } else if (subscriptionStatus === 'cancelled') {
-            showToast('⚠️ Pagamento annullato.', 'info');
-            window.history.replaceState({}, '', window.location.pathname);
-        }
+        // @ts-ignore
+        window.unlockPremium = (type: 'Basic' | 'Pro' = 'Pro') => {
+            const current = getAppSettings();
+            const endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+            const updated = {
+                ...current,
+                restaurantProfile: { ...current.restaurantProfile, planType: type, subscriptionEndDate: endDate },
+                subscription: { planId: type.toLowerCase(), status: 'active', startDate: Date.now(), endDate: new Date(endDate).getTime(), paymentMethod: 'manual_override' }
+            };
+            saveAppSettings(updated);
+            setAppSettingsState(updated);
+            showToast(`✅ SOS: Piano ${type} sbloccato manualmente!`, 'success');
+            setTimeout(() => window.location.href = '/', 1000);
+        };
     }, []);
+
+    // Handle Stripe Success Callback via Component (Logic moved to StripeSuccessHandler)
+    const handleStripeSuccess = (plan: 'Basic' | 'Pro', isYearly: boolean) => {
+        // This callback is triggered by StripeSuccessHandler after it saves data
+        const newPlan = plan;
+
+        // Trigger UI Success State
+        setSuccessPlanInfo({
+            plan: newPlan,
+            price: isYearly ? (newPlan === 'Basic' ? '€499.00' : '€999.00') : (newPlan === 'Basic' ? '€49.90' : '€99.90'),
+            endDate: new Date(Date.now() + (isYearly ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString()
+        });
+        setShowPaymentSuccess(true);
+
+        // Trigger Department Selector if Basic
+        if (newPlan === 'Basic') {
+            setShowDepartmentSelector(true);
+        }
+
+        // Clean URL is handled by the component or reload
+        // Force state refresh
+        const freshSettings = getAppSettings();
+        setAppSettingsState(freshSettings);
+        setProfileForm(freshSettings.restaurantProfile);
+    };
 
     // --- ACTIONS ---
 
@@ -3546,6 +3523,8 @@ export function App() {
                         showToast={showToast}
                     />
                 )}
+
+                <StripeSuccessHandler onSuccess={handleStripeSuccess} />
 
                 <DepartmentSelectorModal
                     isOpen={showDepartmentSelector}
