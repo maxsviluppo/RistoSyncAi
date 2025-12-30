@@ -31,6 +31,7 @@ import { useDialog } from './hooks/useDialog';
 import QRCodeGenerator from 'react-qr-code';
 import Tesseract from 'tesseract.js';
 import Papa from 'papaparse';
+import PaymentSuccessModal from './components/PaymentSuccessModal';
 
 // Promo Timer Component
 const PromoTimer = ({ deadlineHours, lastUpdated }: { deadlineHours: string, lastUpdated: string }) => {
@@ -227,6 +228,11 @@ export function App() {
         setShowPaymentModal({ isOpen: true, plan, price });
         document.getElementById('bank-details')?.scrollIntoView({ behavior: 'smooth' });
     };
+
+    // --- PAYMENT SUCCESS STATE ---
+    const [showPaymentSuccess, setShowPaymentSuccess] = useState(false);
+    const [successPlanInfo, setSuccessPlanInfo] = useState({ plan: 'Pro', price: '€99.90', endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() });
+
 
     // --- USE EFFECTS ---
 
@@ -441,7 +447,68 @@ export function App() {
         }
     }, [showAdmin]);
 
+    // Handle Stripe Redirect Return
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const subscriptionStatus = urlParams.get('subscription');
+        const planParam = urlParams.get('plan');
+
+        if (subscriptionStatus === 'success') {
+            setShowPaymentSuccess(true);
+
+            // Determine Plan Details from URL or Default
+            const isYearly = planParam?.includes('yearly');
+            const isBasic = planParam?.includes('basic');
+
+            const newPlan = isBasic ? 'Basic' : 'Pro';
+            const price = isBasic
+                ? (isYearly ? '€499.00' : '€49.90')
+                : (isYearly ? '€999.00' : '€99.90');
+
+            const duration = isYearly ? 365 : 30;
+            const endDate = new Date(Date.now() + duration * 24 * 60 * 60 * 1000).toISOString();
+
+            setSuccessPlanInfo({
+                plan: newPlan,
+                price: price,
+                endDate: endDate
+            });
+
+            // UPDATE SUBSCRIPTION LOCALLY (Client-side simulation/fix)
+            const currentSettings = getAppSettings();
+            if (currentSettings.restaurantProfile) {
+                const updatedSettings = {
+                    ...currentSettings,
+                    restaurantProfile: {
+                        ...currentSettings.restaurantProfile,
+                        planType: newPlan as any,
+                        subscriptionEndDate: endDate
+                    },
+                    subscription: {
+                        planId: newPlan.toLowerCase() as any,
+                        status: 'active',
+                        startDate: Date.now(),
+                        endDate: new Date(endDate).getTime(),
+                        paymentMethod: 'stripe'
+                    }
+                };
+                saveAppSettings(updatedSettings);
+                setAppSettingsState(updatedSettings);
+                // Also update profile form state
+                setProfileForm(updatedSettings.restaurantProfile);
+            }
+
+            // Clean URL
+            window.history.replaceState({}, '', window.location.pathname);
+            showToast('✅ Pagamento confermato! Abbonamento attivato.', 'success');
+        } else if (subscriptionStatus === 'cancelled') {
+            showToast('⚠️ Pagamento annullato.', 'info');
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+    }, []);
+
     // --- ACTIONS ---
+
 
 
     const checkRoleAccess = async (selectedRole: string) => {
@@ -1917,10 +1984,10 @@ export function App() {
 
                                             return (
                                                 <div className={`relative p-8 rounded-3xl transition-all flex flex-col ${isCurrentPlan
-                                                        ? 'bg-gradient-to-br from-blue-600 to-blue-800 border-4 border-blue-400 shadow-2xl shadow-blue-900/50 scale-105'
-                                                        : isDisabled
-                                                            ? 'bg-slate-900/50 border-2 border-slate-800 opacity-50 cursor-not-allowed'
-                                                            : 'bg-slate-900 border-3 border-slate-700 hover:border-blue-500 hover:shadow-xl'
+                                                    ? 'bg-gradient-to-br from-blue-600 to-blue-800 border-4 border-blue-400 shadow-2xl shadow-blue-900/50 scale-105'
+                                                    : isDisabled
+                                                        ? 'bg-slate-900/50 border-2 border-slate-800 opacity-50 cursor-not-allowed'
+                                                        : 'bg-slate-900 border-3 border-slate-700 hover:border-blue-500 hover:shadow-xl'
                                                     }`}>
                                                     {isCurrentPlan && (
                                                         <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-yellow-400 text-black text-xs font-black px-4 py-2 rounded-full uppercase tracking-wider shadow-lg animate-pulse">
@@ -1965,10 +2032,10 @@ export function App() {
 
                                             return (
                                                 <div className={`relative p-8 rounded-3xl transition-all flex flex-col ${isCurrentPlan
-                                                        ? 'bg-gradient-to-br from-cyan-600 to-cyan-800 border-4 border-cyan-400 shadow-2xl shadow-cyan-900/50 scale-105'
-                                                        : isDisabled
-                                                            ? 'bg-slate-900/50 border-2 border-slate-800 opacity-50 cursor-not-allowed'
-                                                            : 'bg-slate-900 border-3 border-slate-700 hover:border-cyan-500 hover:shadow-xl'
+                                                    ? 'bg-gradient-to-br from-cyan-600 to-cyan-800 border-4 border-cyan-400 shadow-2xl shadow-cyan-900/50 scale-105'
+                                                    : isDisabled
+                                                        ? 'bg-slate-900/50 border-2 border-slate-800 opacity-50 cursor-not-allowed'
+                                                        : 'bg-slate-900 border-3 border-slate-700 hover:border-cyan-500 hover:shadow-xl'
                                                     }`}>
                                                     {isCurrentPlan && (
                                                         <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-yellow-400 text-black text-xs font-black px-4 py-2 rounded-full uppercase tracking-wider shadow-lg animate-pulse">
@@ -2040,8 +2107,8 @@ export function App() {
 
                                             return (
                                                 <div className={`relative p-8 rounded-3xl transition-all flex flex-col transform lg:-translate-y-4 ${isCurrentPlan
-                                                        ? 'bg-gradient-to-br from-orange-600 to-red-600 border-4 border-orange-400 shadow-2xl shadow-orange-900/50 scale-110'
-                                                        : 'bg-gradient-to-br from-orange-600 to-red-600 border-3 border-orange-500 hover:border-orange-400 hover:shadow-2xl shadow-xl shadow-orange-900/30'
+                                                    ? 'bg-gradient-to-br from-orange-600 to-red-600 border-4 border-orange-400 shadow-2xl shadow-orange-900/50 scale-110'
+                                                    : 'bg-gradient-to-br from-orange-600 to-red-600 border-3 border-orange-500 hover:border-orange-400 hover:shadow-2xl shadow-xl shadow-orange-900/30'
                                                     }`}>
                                                     {isCurrentPlan ? (
                                                         <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-yellow-400 text-black text-xs font-black px-4 py-2 rounded-full uppercase tracking-wider shadow-lg animate-pulse">
@@ -2083,8 +2150,8 @@ export function App() {
                                                             onClick={() => openPaymentInstructions('Pro Annuale', (parseFloat(globalDefaultCost) * 10).toFixed(2).replace('.', ','))}
                                                             disabled={!canUpgrade}
                                                             className={`w-full py-5 text-lg font-black rounded-xl shadow-xl transition-all transform ${canUpgrade
-                                                                    ? 'bg-white hover:bg-yellow-400 text-orange-600 border-2 border-yellow-400 hover:scale-105 active:scale-95'
-                                                                    : 'bg-slate-800/50 text-slate-600 border-2 border-dashed border-slate-700 cursor-not-allowed'
+                                                                ? 'bg-white hover:bg-yellow-400 text-orange-600 border-2 border-yellow-400 hover:scale-105 active:scale-95'
+                                                                : 'bg-slate-800/50 text-slate-600 border-2 border-dashed border-slate-700 cursor-not-allowed'
                                                                 }`}
                                                         >
                                                             {canUpgrade ? (currentPlan === 'basic' ? '⬆ UPGRADE A PRO' : subscriptionExpired ? '♻ RINNOVA PRO' : '🚀 ATTIVA PRO') : 'Non Disponibile'}

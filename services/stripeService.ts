@@ -17,60 +17,23 @@ export const getStripe = () => {
 // Create Checkout Session and redirect
 // NOTE: For production, this should call a Supabase Edge Function
 // that creates the session using the SECRET key
-export const redirectToCheckout = async (
-    priceId: string,
-    userId: string,
-    userEmail: string,
-    successUrl?: string,
-    cancelUrl?: string
+// Simple checkout redirect using Stripe Payment Links (Robust & No-Backend)
+// Standardizes all checkout attempts to use Payment Links
+export const simpleCheckout = async (
+    plan: 'basic' | 'pro',
+    billingCycle: 'monthly' | 'yearly',
+    userEmail?: string
 ): Promise<{ success: boolean; error?: string }> => {
     try {
-        const stripe = await getStripe();
+        const priceId = getPriceId(plan, billingCycle);
 
-        if (!stripe) {
-            return { success: false, error: 'Stripe non inizializzato' };
-        }
+        // DIRECT REDIRECT TO PAYMENT LINK
+        // This avoids "stripe.redirectToCheckout" deprecation issues
+        return await redirectToPaymentLink(priceId);
 
-        // For now, we'll use Stripe's Payment Links feature
-        // This is the simplest approach that doesn't require backend
-        // Generate the checkout URL based on price
-        const baseUrl = window.location.origin;
-        const success = successUrl || `${baseUrl}?subscription=success`;
-        const cancel = cancelUrl || `${baseUrl}?subscription=cancelled`;
-
-        // Create checkout session via Supabase Edge Function
-        const response = await fetch('/api/create-checkout-session', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                priceId,
-                userId,
-                userEmail,
-                successUrl: success,
-                cancelUrl: cancel,
-            }),
-        });
-
-        if (!response.ok) {
-            // Fallback to Payment Link if Edge Function not available
-            console.warn('Edge Function not available, using Payment Link fallback');
-            return redirectToPaymentLink(priceId);
-        }
-
-        const { sessionId } = await response.json();
-
-        const { error } = await stripe.redirectToCheckout({ sessionId });
-
-        if (error) {
-            return { success: false, error: error.message };
-        }
-
-        return { success: true };
-    } catch (err) {
-        console.error('Stripe checkout error:', err);
-        return { success: false, error: 'Errore durante il checkout' };
+    } catch (err: any) {
+        console.error('Simple checkout error:', err);
+        return { success: false, error: err.message || 'Errore checkout' };
     }
 };
 
@@ -81,71 +44,29 @@ export const redirectToPaymentLink = async (
 ): Promise<{ success: boolean; error?: string }> => {
     try {
         // Payment Links are pre-created in Stripe Dashboard
-        // We'll construct the billing portal URL or use direct checkout
-
-        // For Stripe Checkout without backend, we use the billing portal
-        // or pre-created payment links
-
-        // Map price IDs to payment link URLs (you create these in Stripe Dashboard)
+        // MAP YOUR REAL STRIPE PAYMENT LINKS HERE
         const paymentLinks: Record<string, string> = {
-            [STRIPE_CONFIG.prices.basic.monthly]: '', // Add payment link URL here
-            [STRIPE_CONFIG.prices.basic.yearly]: '',
-            [STRIPE_CONFIG.prices.pro.monthly]: '',
-            [STRIPE_CONFIG.prices.pro.yearly]: '',
+            [STRIPE_CONFIG.prices.basic.monthly]: 'https://buy.stripe.com/test_...', // INSERISCI QUI IL LINK BASIC MENSILE
+            [STRIPE_CONFIG.prices.basic.yearly]: 'https://buy.stripe.com/test_...',  // INSERISCI QUI IL LINK BASIC ANNUALE
+            [STRIPE_CONFIG.prices.pro.monthly]: 'https://buy.stripe.com/test_...',   // INSERISCI QUI IL LINK PRO MENSILE
+            [STRIPE_CONFIG.prices.pro.yearly]: 'https://buy.stripe.com/test_...',    // INSERISCI QUI IL LINK PRO ANNUALE
         };
 
         const paymentLinkUrl = paymentLinks[priceId];
 
-        if (paymentLinkUrl) {
+        if (paymentLinkUrl && paymentLinkUrl.startsWith('http')) {
             window.location.href = paymentLinkUrl;
             return { success: true };
         }
 
         // If no payment link, show instructions
+        console.error('Payment Link non trovato per priceId:', priceId);
         return {
             success: false,
-            error: 'Payment Link non configurato. Contatta l\'assistenza o usa il bonifico bancario.'
+            error: 'Link di pagamento non configurato. Contatta l\'assistenza.'
         };
     } catch (err) {
         return { success: false, error: 'Errore reindirizzamento pagamento' };
-    }
-};
-
-// Simple checkout redirect using Stripe's hosted checkout
-// This creates a checkout session client-side (limited features)
-export const simpleCheckout = async (
-    plan: 'basic' | 'pro',
-    billingCycle: 'monthly' | 'yearly',
-    userEmail?: string
-): Promise<{ success: boolean; error?: string }> => {
-    try {
-        const stripe = await getStripe();
-        if (!stripe) {
-            return { success: false, error: 'Stripe non disponibile' };
-        }
-
-        const priceId = getPriceId(plan, billingCycle);
-
-        // Note: This approach requires backend for full functionality
-        // For now, we'll use a simpler redirect approach
-
-        const { error } = await stripe.redirectToCheckout({
-            lineItems: [{ price: priceId, quantity: 1 }],
-            mode: 'subscription',
-            successUrl: `${window.location.origin}?subscription=success&session_id={CHECKOUT_SESSION_ID}`,
-            cancelUrl: `${window.location.origin}?subscription=cancelled`,
-            customerEmail: userEmail,
-        });
-
-        if (error) {
-            console.error('Checkout error:', error);
-            return { success: false, error: error.message };
-        }
-
-        return { success: true };
-    } catch (err: any) {
-        console.error('Simple checkout error:', err);
-        return { success: false, error: err.message || 'Errore checkout' };
     }
 };
 
@@ -162,14 +83,12 @@ export const verifySubscription = async (sessionId: string): Promise<{
 }> => {
     try {
         // This should call your backend to verify the session
-        const response = await fetch(`/api/verify-subscription?session_id=${sessionId}`);
+        // For now, in client-only mode, this function is a placeholder
+        // or could check parameters in the URL
 
-        if (!response.ok) {
-            return { success: false, error: 'Verifica fallita' };
-        }
+        // Mock verification for now
+        return { success: true };
 
-        const data = await response.json();
-        return { success: true, subscription: data };
     } catch (err) {
         return { success: false, error: 'Errore verifica abbonamento' };
     }
