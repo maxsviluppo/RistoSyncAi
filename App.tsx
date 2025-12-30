@@ -109,8 +109,15 @@ export function App() {
     // Check for Monitor Mode
     const showMonitorParam = queryParams.get('monitor');
 
-    // Check for Stripe Return - MUST bypass landing page!
+    // Check for Stripe Return - MUST bypass landing page AND force login!
     const subscriptionParam = queryParams.get('subscription') || queryParams.get('subscription_checkout');
+
+    // Se c'è subscription=success, forza landing=false e rimuovi il parametro landing dall'URL
+    if (subscriptionParam === 'success' && showLandingParam !== 'false') {
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set('landing', 'false');
+        window.history.replaceState({}, '', newUrl.toString());
+    }
 
     // Landing Page State
     // Default to Landing Page (true) unless accessing a public menu, monitor mode, subscription return, or explicitly disabled
@@ -576,16 +583,19 @@ export function App() {
                 setAdminTab('profile'); // Vai al profilo
                 setShowAdmin(true);     // Assicurati di vedere l'admin panel
                 setShowSubscriptionManager(false); // Chiudi manager abbonamenti
+                setShowLandingPage(false); // Assicurati che la landing page sia chiusa
 
-                // 3. SHOW SUCCESS MODAL (Congratulazioni!)
-                setPaymentSuccessData({
-                    planType: planType,
-                    endDate: endDateISO,
-                    price: billingCycle === 'yearly'
-                        ? (planType === 'Basic' ? '499.00' : '999.00')
-                        : (planType === 'Basic' ? '49.90' : '99.90')
-                });
-                setShowPaymentSuccessModal(true);
+                // 3. SHOW SUCCESS MODAL (Congratulazioni!) - CON DELAY per dare tempo all'UI
+                setTimeout(() => {
+                    setPaymentSuccessData({
+                        planType: planType,
+                        endDate: endDateISO,
+                        price: billingCycle === 'yearly'
+                            ? (planType === 'Basic' ? '499.00' : '999.00')
+                            : (planType === 'Basic' ? '49.90' : '99.90')
+                    });
+                    setShowPaymentSuccessModal(true);
+                }, 500); // Aspetta 500ms per dare tempo all'UI di caricare
 
                 // 4. Se piano Basic, mostra il selettore reparto dopo il modal di successo
                 if (planType === 'Basic' && !updatedSettings.restaurantProfile?.allowedDepartment) {

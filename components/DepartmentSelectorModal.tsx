@@ -4,7 +4,7 @@ import { ChefHat, Pizza, Wine, Bike, X, Lock, Sparkles, CheckCircle, AlertTriang
 interface DepartmentSelectorModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onSelect: (department: 'kitchen' | 'pizzeria' | 'pub' | 'delivery') => void;
+    onSelectDepartment: (department: 'kitchen' | 'pizzeria' | 'pub' | 'delivery') => void;
     currentDepartment?: string;
 }
 
@@ -50,7 +50,7 @@ const DEPARTMENTS = [
 const DepartmentSelectorModal: React.FC<DepartmentSelectorModalProps> = ({
     isOpen,
     onClose,
-    onSelect,
+    onSelectDepartment,
     currentDepartment
 }) => {
     const [selectedDept, setSelectedDept] = useState<string | null>(null);
@@ -61,7 +61,7 @@ const DepartmentSelectorModal: React.FC<DepartmentSelectorModalProps> = ({
     const handleSelect = (deptId: 'kitchen' | 'pizzeria' | 'pub' | 'delivery') => {
         if (isConfirming && selectedDept === deptId) {
             // Conferma finale
-            onSelect(deptId);
+            onSelectDepartment(deptId);
         } else {
             // Prima selezione - mostra conferma
             setSelectedDept(deptId);
