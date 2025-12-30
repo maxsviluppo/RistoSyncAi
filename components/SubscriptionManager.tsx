@@ -150,6 +150,30 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, show
         const settings = getAppSettings();
         if (settings.subscription) {
             setCurrentSubscription(settings.subscription as Subscription);
+        } else if (settings.restaurantProfile?.planType) {
+            // Fallback: Construct subscription from legacy planType
+            const legacyPlan = settings.restaurantProfile.planType.toLowerCase();
+            let mappedPlanId: PlanType = 'trial';
+
+            // FIX: Check for Trial/Prova FIRST because "Prova" contains "Pro"
+            if (['trial', 'free', 'demo', 'promo', 'prova'].some(p => legacyPlan.includes(p))) {
+                mappedPlanId = 'trial';
+            } else if (legacyPlan.includes('basic')) {
+                mappedPlanId = 'basic';
+            } else if (legacyPlan.includes('pro')) {
+                mappedPlanId = 'pro';
+            }
+
+            // Create a synthetic subscription object for UI logic
+            const syntheticSub: Subscription = {
+                planId: mappedPlanId,
+                status: 'active', // Assume active if present in profile
+                startDate: Date.now(),
+                endDate: settings.restaurantProfile.subscriptionEndDate
+                    ? new Date(settings.restaurantProfile.subscriptionEndDate).getTime()
+                    : Date.now() + (30 * 24 * 60 * 60 * 1000) // Default 30 days if unknown
+            };
+            setCurrentSubscription(syntheticSub);
         }
     };
 
@@ -427,14 +451,14 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, show
                                         <div
                                             key={plan.id}
                                             className={`relative bg-slate-950 rounded-3xl border-2 overflow-hidden transition-all duration-300 flex flex-col ${isCurrentPlan
-                                                    ? 'border-green-500 shadow-[0_0_40px_rgba(34,197,94,0.3)] scale-[1.02]'
-                                                    : isDisabled
-                                                        ? 'border-slate-800 opacity-75'
-                                                        : plan.popular
-                                                            ? 'border-purple-500 shadow-[0_0_30px_rgba(168,85,247,0.2)] hover:scale-[1.02]'
-                                                            : plan.id === 'trial'
-                                                                ? 'border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.2)]'
-                                                                : 'border-slate-800 hover:border-slate-600'
+                                                ? 'border-green-500 shadow-[0_0_40px_rgba(34,197,94,0.3)] scale-[1.02]'
+                                                : isDisabled
+                                                    ? 'border-slate-800 opacity-75'
+                                                    : plan.popular
+                                                        ? 'border-purple-500 shadow-[0_0_30px_rgba(168,85,247,0.2)] hover:scale-[1.02]'
+                                                        : plan.id === 'trial'
+                                                            ? 'border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.2)]'
+                                                            : 'border-slate-800 hover:border-slate-600'
                                                 }`}
                                         >
                                             {isCurrentPlan && (
@@ -498,12 +522,12 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, show
                                                     onClick={() => handleSelectPlan(plan.id)}
                                                     disabled={isDisabled}
                                                     className={`w-full py-4 rounded-xl font-bold transition-all transform active:scale-95 shadow-xl flex items-center justify-center gap-2 ${isDisabled
-                                                            ? 'bg-slate-800 text-slate-500 cursor-not-allowed shadow-none border border-slate-700'
-                                                            : plan.id === 'trial'
-                                                                ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-900/20'
-                                                                : plan.popular
-                                                                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-purple-900/20'
-                                                                    : 'bg-slate-800 hover:bg-slate-700 text-white border-2 border-slate-700 hover:border-slate-600'
+                                                        ? 'bg-slate-800 text-slate-500 cursor-not-allowed shadow-none border border-slate-700'
+                                                        : plan.id === 'trial'
+                                                            ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-900/20'
+                                                            : plan.popular
+                                                                ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-purple-900/20'
+                                                                : 'bg-slate-800 hover:bg-slate-700 text-white border-2 border-slate-700 hover:border-slate-600'
                                                         }`}
                                                 >
                                                     {isDisabled ? (
