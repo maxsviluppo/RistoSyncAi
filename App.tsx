@@ -32,6 +32,7 @@ import QRCodeGenerator from 'react-qr-code';
 import Tesseract from 'tesseract.js';
 import Papa from 'papaparse';
 import PaymentSuccessModal from './components/PaymentSuccessModal';
+import DepartmentSelectorModal from './components/DepartmentSelectorModal';
 
 // Promo Timer Component
 const PromoTimer = ({ deadlineHours, lastUpdated }: { deadlineHours: string, lastUpdated: string }) => {
@@ -135,6 +136,7 @@ export function App() {
     const [adminTab, setAdminTab] = useState<'profile' | 'subscription' | 'menu' | 'notif' | 'info' | 'ai' | 'analytics' | 'share' | 'receipts' | 'messages' | 'marketing' | 'delivery' | 'customers' | 'whatsapp'>('menu');
     const [showWhatsAppManager, setShowWhatsAppManager] = useState(false);
     const [showSubscriptionManager, setShowSubscriptionManager] = useState(false);
+    const [showDepartmentSelector, setShowDepartmentSelector] = useState(false);
     const [adminViewMode, setAdminViewMode] = useState<'dashboard' | 'app'>('dashboard');
 
     const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
@@ -450,7 +452,8 @@ export function App() {
     // Handle Stripe Redirect Return
     useEffect(() => {
         const urlParams = new URLSearchParams(window.location.search);
-        const subscriptionStatus = urlParams.get('subscription');
+        // SUPPORTA ENTRAMBI I PARAMETRI (Legacy fix)
+        const subscriptionStatus = urlParams.get('subscription') || urlParams.get('subscription_checkout');
         const planParam = urlParams.get('plan');
 
         if (subscriptionStatus === 'success') {
@@ -461,6 +464,12 @@ export function App() {
             const isBasic = planParam?.includes('basic');
 
             const newPlan = isBasic ? 'Basic' : 'Pro';
+
+            // Trigger Department Selector for Basic Plan
+            if (isBasic) {
+                setShowDepartmentSelector(true);
+            }
+
             const price = isBasic
                 ? (isYearly ? '€499.00' : '€49.90')
                 : (isYearly ? '€999.00' : '€99.90');
@@ -3537,6 +3546,34 @@ export function App() {
                         showToast={showToast}
                     />
                 )}
+
+                <DepartmentSelectorModal
+                    isOpen={showDepartmentSelector}
+                    onClose={() => setShowDepartmentSelector(false)}
+                    currentDepartment={appSettings.restaurantProfile?.allowedDepartment}
+                    onSelect={(dept) => {
+                        const current = getAppSettings();
+                        if (current.restaurantProfile) {
+                            const updated = {
+                                ...current,
+                                restaurantProfile: {
+                                    ...current.restaurantProfile,
+                                    allowedDepartment: dept
+                                }
+                            };
+                            saveAppSettings(updated);
+                            setAppSettingsState(updated);
+                            setProfileForm(updated.restaurantProfile);
+                            setShowDepartmentSelector(false);
+                            showToast(`✅ Reparto ${dept} impostato correttamente!`, 'success');
+
+                            // Reload to apply restrictive changes cleanly
+                            setTimeout(() => {
+                                window.location.href = '/?landing=false';
+                            }, 1500);
+                        }
+                    }}
+                />
             </>
         );
     }
