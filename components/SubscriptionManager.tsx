@@ -387,82 +387,136 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, show
 
                             {/* Plans Grid */}
                             <div className="grid md:grid-cols-3 gap-6">
-                                {PLANS.map((plan) => (
-                                    <div
-                                        key={plan.id}
-                                        className={`relative bg-slate-950 rounded-3xl border-2 overflow-hidden transition-all duration-300 hover:scale-[1.02] flex flex-col ${plan.popular
-                                            ? 'border-purple-500 shadow-[0_0_30px_rgba(168,85,247,0.2)]'
-                                            : plan.id === 'trial'
-                                                ? 'border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.2)]'
-                                                : 'border-slate-800 hover:border-slate-600'
-                                            }`}
-                                    >
-                                        {plan.popular && (
-                                            <div className="absolute top-0 right-0 bg-gradient-to-l from-purple-600 to-pink-600 text-white text-[10px] font-black px-4 py-1.5 rounded-bl-xl uppercase tracking-wider z-20">
-                                                Consigliato
-                                            </div>
-                                        )}
+                                {PLANS.map((plan) => {
+                                    const isCurrentPlan = currentSubscription?.planId === plan.id && currentSubscription.status === 'active';
 
-                                        <div className={`p-8 bg-gradient-to-b ${plan.gradient} bg-opacity-10 relative`}>
-                                            <div className="absolute inset-0 bg-black/20"></div>
-                                            <div className="relative z-10 flex flex-col items-center text-center">
-                                                <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-sm border border-white/20 shadow-lg">
-                                                    {plan.icon}
+                                    // Logic for Trial Availability:
+                                    // Trial is disabled if user has ANY active subscription or history (simplified check: if currentSubscription exists)
+                                    const isTrial = plan.id === 'trial';
+                                    const hasActiveSubscription = currentSubscription && currentSubscription.status === 'active';
+                                    const isTrialAvailable = isTrial && !currentSubscription; // Only for fresh users
+
+                                    // Button Logic
+                                    let buttonText = isTrial ? 'Inizia Prova Gratuita' : `Attiva Piano ${plan.name}`;
+                                    let isDisabled = false;
+
+                                    if (isCurrentPlan) {
+                                        buttonText = 'Piano Attuale';
+                                        isDisabled = true;
+                                    } else if (isTrial) {
+                                        if (!isTrialAvailable) {
+                                            buttonText = 'Già Usufruito';
+                                            isDisabled = true;
+                                        }
+                                    } else {
+                                        // Basic/Pro Logic
+                                        if (hasActiveSubscription) {
+                                            if (currentSubscription?.planId === 'pro' && plan.id === 'basic') {
+                                                buttonText = 'Downgrade (a scadenza)';
+                                                isDisabled = true;
+                                            } else if (currentSubscription?.planId === 'basic' && plan.id === 'pro') {
+                                                buttonText = 'Passa a Pro';
+                                                // Enable upgrade
+                                            } else if (currentSubscription?.planId === 'trial') {
+                                                buttonText = 'Attiva Ora';
+                                            }
+                                        }
+                                    }
+
+                                    return (
+                                        <div
+                                            key={plan.id}
+                                            className={`relative bg-slate-950 rounded-3xl border-2 overflow-hidden transition-all duration-300 flex flex-col ${isCurrentPlan
+                                                    ? 'border-green-500 shadow-[0_0_40px_rgba(34,197,94,0.3)] scale-[1.02]'
+                                                    : isDisabled
+                                                        ? 'border-slate-800 opacity-75'
+                                                        : plan.popular
+                                                            ? 'border-purple-500 shadow-[0_0_30px_rgba(168,85,247,0.2)] hover:scale-[1.02]'
+                                                            : plan.id === 'trial'
+                                                                ? 'border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.2)]'
+                                                                : 'border-slate-800 hover:border-slate-600'
+                                                }`}
+                                        >
+                                            {isCurrentPlan && (
+                                                <div className="absolute top-0 right-0 left-0 bg-green-600 text-white text-xs font-black py-1.5 uppercase tracking-widest text-center z-20">
+                                                    Piano Attivo
                                                 </div>
-                                                <h3 className="text-3xl font-black text-white tracking-tight mb-2">{plan.name}</h3>
-                                                <p className="text-white/80 text-sm font-medium">{plan.description}</p>
-                                            </div>
-                                        </div>
+                                            )}
 
-                                        <div className="p-8 flex-1 flex flex-col">
-                                            <div className="mb-8 text-center">
-                                                <p className="flex items-baseline justify-center gap-1">
-                                                    <span className="text-5xl font-black text-white tracking-tighter shadow-black drop-shadow-lg">
-                                                        {formatPrice(billingCycle === 'yearly' ? plan.priceYearly / 12 : plan.price)}
-                                                    </span>
-                                                    <span className="text-lg text-slate-500 font-bold">/mese</span>
-                                                </p>
-                                                {billingCycle === 'yearly' && plan.price > 0 && (
-                                                    <p className="text-xs font-bold text-green-400 mt-2 bg-green-500/10 py-1 px-3 rounded-full inline-block">
-                                                        Risparmi {formatPrice((plan.price * 12) - plan.priceYearly)} l'anno
+                                            {!isCurrentPlan && plan.popular && (
+                                                <div className="absolute top-0 right-0 bg-gradient-to-l from-purple-600 to-pink-600 text-white text-[10px] font-black px-4 py-1.5 rounded-bl-xl uppercase tracking-wider z-20">
+                                                    Consigliato
+                                                </div>
+                                            )}
+
+                                            <div className={`p-8 bg-gradient-to-b ${plan.gradient} bg-opacity-10 relative ${isCurrentPlan ? 'pt-12' : ''}`}>
+                                                <div className="absolute inset-0 bg-black/20"></div>
+                                                <div className="relative z-10 flex flex-col items-center text-center">
+                                                    <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center mb-4 backdrop-blur-sm border border-white/20 shadow-lg">
+                                                        {plan.icon}
+                                                    </div>
+                                                    <h3 className="text-3xl font-black text-white tracking-tight mb-2">{plan.name}</h3>
+                                                    <p className="text-white/80 text-sm font-medium">{plan.description}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="p-8 flex-1 flex flex-col">
+                                                <div className="mb-8 text-center">
+                                                    <p className="flex items-baseline justify-center gap-1">
+                                                        <span className="text-5xl font-black text-white tracking-tighter shadow-black drop-shadow-lg">
+                                                            {formatPrice(billingCycle === 'yearly' ? plan.priceYearly / 12 : plan.price)}
+                                                        </span>
+                                                        <span className="text-lg text-slate-500 font-bold">/mese</span>
                                                     </p>
-                                                )}
-                                            </div>
+                                                    {billingCycle === 'yearly' && plan.price > 0 && (
+                                                        <p className="text-xs font-bold text-green-400 mt-2 bg-green-500/10 py-1 px-3 rounded-full inline-block">
+                                                            Risparmi {formatPrice((plan.price * 12) - plan.priceYearly)} l'anno
+                                                        </p>
+                                                    )}
+                                                </div>
 
-                                            <div className="space-y-4 mb-8 flex-1">
-                                                {plan.features.map((feature, idx) => (
-                                                    <div key={idx} className="flex items-start gap-3 text-sm group">
-                                                        <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${plan.id === 'trial' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-green-500/20 text-green-400'}`}>
-                                                            <CheckCircle size={12} strokeWidth={3} />
+                                                <div className="space-y-4 mb-8 flex-1">
+                                                    {plan.features.map((feature, idx) => (
+                                                        <div key={idx} className="flex items-start gap-3 text-sm group">
+                                                            <div className={`mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${plan.id === 'trial' ? 'bg-indigo-500/20 text-indigo-400' : 'bg-green-500/20 text-green-400'}`}>
+                                                                <CheckCircle size={12} strokeWidth={3} />
+                                                            </div>
+                                                            <span className="text-slate-300 font-medium group-hover:text-white transition-colors">{feature}</span>
                                                         </div>
-                                                        <span className="text-slate-300 font-medium group-hover:text-white transition-colors">{feature}</span>
-                                                    </div>
-                                                ))}
-                                                {plan.excludedFeatures?.map((feature, idx) => (
-                                                    <div key={idx} className="flex items-start gap-3 text-sm opacity-50">
-                                                        <div className="mt-0.5 w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center shrink-0">
-                                                            <X size={12} className="text-slate-500" />
+                                                    ))}
+                                                    {plan.excludedFeatures?.map((feature, idx) => (
+                                                        <div key={idx} className="flex items-start gap-3 text-sm opacity-50">
+                                                            <div className="mt-0.5 w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center shrink-0">
+                                                                <X size={12} className="text-slate-500" />
+                                                            </div>
+                                                            <span className="text-slate-500 line-through">{feature}</span>
                                                         </div>
-                                                        <span className="text-slate-500 line-through">{feature}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                                    ))}
+                                                </div>
 
-                                            <button
-                                                onClick={() => handleSelectPlan(plan.id)}
-                                                className={`w-full py-4 rounded-xl font-bold transition-all transform active:scale-95 shadow-xl flex items-center justify-center gap-2 ${plan.id === 'trial'
-                                                    ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-900/20'
-                                                    : plan.popular
-                                                        ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-purple-900/20'
-                                                        : 'bg-slate-800 hover:bg-slate-700 text-white border-2 border-slate-700 hover:border-slate-600'
-                                                    }`}
-                                            >
-                                                {plan.id === 'trial' ? 'Inizia Prova Gratuita' : `Attiva Piano ${plan.name}`}
-                                                <ArrowRight size={18} />
-                                            </button>
+                                                <button
+                                                    onClick={() => handleSelectPlan(plan.id)}
+                                                    disabled={isDisabled}
+                                                    className={`w-full py-4 rounded-xl font-bold transition-all transform active:scale-95 shadow-xl flex items-center justify-center gap-2 ${isDisabled
+                                                            ? 'bg-slate-800 text-slate-500 cursor-not-allowed shadow-none border border-slate-700'
+                                                            : plan.id === 'trial'
+                                                                ? 'bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-900/20'
+                                                                : plan.popular
+                                                                    ? 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white shadow-purple-900/20'
+                                                                    : 'bg-slate-800 hover:bg-slate-700 text-white border-2 border-slate-700 hover:border-slate-600'
+                                                        }`}
+                                                >
+                                                    {isDisabled ? (
+                                                        isCurrentPlan ? <CheckCircle size={20} /> : <X size={20} />
+                                                    ) : plan.id === 'trial' && <Zap size={20} />}
+
+                                                    {buttonText}
+                                                    {!isDisabled && <ArrowRight size={18} />}
+                                                </button>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
 
                         </>
@@ -553,7 +607,6 @@ const SubscriptionManager: React.FC<SubscriptionManagerProps> = ({ onClose, show
                         </div>
                     )}
 
-                    {/* Step: Bonifico Details */}
                     {/* Step: PayPal Details */}
                     {step === 'paypal' && (
                         <div className="max-w-lg mx-auto">
