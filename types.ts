@@ -103,6 +103,7 @@ export interface RestaurantProfile {
     privacyAccepted?: boolean;
     welcomeModalShown?: boolean;
     dontShowWelcomeAgain?: boolean;
+    subscriptionUpgradeAcknowledged?: boolean;
   };
 
   adminNotes?: string; // Note interne Super Admin
