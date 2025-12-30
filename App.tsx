@@ -806,7 +806,7 @@ export function App() {
 
         if (plan.includes('basic') && hasNoDept) {
             // console.log("⚡ Auto-triggering Department Selector for Basic plan");
-            // setShowDepartmentSelector(true);
+            setShowDepartmentSelector(true);
         }
     }, [session, appSettings.restaurantProfile?.planType, appSettings.restaurantProfile?.allowedDepartment, appSettings.restaurantProfile?.showPlanChangeModal, showPaymentSuccessModal, showDepartmentSelector]);
 
@@ -3903,48 +3903,50 @@ export function App() {
                     restaurantName={paymentSuccessData.restaurantName || restaurantName}
                 />
             )}
-            {showDepartmentSelector && (
-                <DepartmentSelectorModal
-                    isOpen={showDepartmentSelector}
-                    onClose={() => setShowDepartmentSelector(false)}
-                    onSelectDepartment={async (department) => {
-                        // Salva il department selezionato
-                        const updatedProfile = { ...appSettings.restaurantProfile, allowedDepartment: department as any };
-                        const newSettings = { ...appSettings, restaurantProfile: updatedProfile };
 
-                        setAppSettingsState(newSettings);
-                        await saveAppSettings(newSettings);
-
-                        // Aggiorna anche su Supabase
-                        if (session?.user?.id && supabase) {
-                            await supabase
-                                .from('profiles')
-                                .update({
-                                    settings: newSettings
-                                })
-                                .eq('id', session.user.id);
-                        }
-
-                        setShowDepartmentSelector(false);
-                        showToast(`✅ Reparto ${department.toUpperCase()} selezionato con successo!`, 'success');
-
-                        // *** ENTRA AUTOMATICAMENTE NEL REPARTO SELEZIONATO ***
-                        if (department === 'kitchen') setRole('kitchen');
-                        else if (department === 'pizzeria') setRole('pizzeria');
-                        else if (department === 'pub') setRole('pub');
-                        // else if (department === 'delivery') setRole('delivery'); // RIMOSSO (incluso in Basic)
-                    }}
-                />
-            )}
             {showSubscriptionManager && (
                 <SubscriptionManager
                     onClose={() => setShowSubscriptionManager(false)}
                     showToast={showToast}
                 />
             )}
+
+            <DepartmentSelectorModal
+                isOpen={showDepartmentSelector}
+                onClose={() => setShowDepartmentSelector(false)}
+                currentDepartment={appSettings.restaurantProfile?.allowedDepartment}
+                onSelectDepartment={async (dept) => {
+                    console.log('🎯 Admin: Selected department for Basic plan:', dept);
+                    // Salva il department selezionato
+                    const updatedProfile = { ...appSettings.restaurantProfile, allowedDepartment: dept };
+                    const newSettings = { ...appSettings, restaurantProfile: updatedProfile };
+
+                    setAppSettingsState(newSettings);
+                    await saveAppSettings(newSettings);
+
+                    // Aggiorna anche su Supabase
+                    if (session?.user?.id && supabase) {
+                        await supabase
+                            .from('profiles')
+                            .update({ settings: newSettings })
+                            .eq('id', session.user.id);
+                    }
+
+                    setShowDepartmentSelector(false);
+                    showToast(`✅ Reparto ${dept.toUpperCase()} selezionato con successo!`, 'success');
+
+                    // Entra automaticamente nel reparto se selezionato
+                    if (dept === 'kitchen') setRole('kitchen');
+                    else if (dept === 'pizzeria') setRole('pizzeria');
+                    else if (dept === 'pub') setRole('pub');
+                    // else if (dept === 'delivery') setRole('delivery'); // RIMOSSO (incluso in Basic)
+                }}
+            />
         </>
     );
 }
+
+
 
 // Wrapper for Provider
 export default function AppWrapper() {

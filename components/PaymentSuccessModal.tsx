@@ -49,13 +49,10 @@ const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
 
     return (
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
-            {/* Backdrop with blur */}
-            <div
-                className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-                onClick={onClose}
-            />
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/95 backdrop-blur-md" onClick={onClose} />
 
-            {/* Confetti Animation */}
+            {/* Confetti */}
             {showConfetti && (
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
                     {[...Array(50)].map((_, i) => (
@@ -81,120 +78,46 @@ const PaymentSuccessModal: React.FC<PaymentSuccessModalProps> = ({
                 </div>
             )}
 
-            {/* Modal Content */}
-            <div className="relative bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-purple-500/30 animate-scale-in">
+            {/* Modal */}
+            <div className="relative bg-slate-900 rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-700 flex flex-col items-center p-8 animate-scale-in">
 
-                {/* Glow effect */}
-                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 via-pink-500/20 to-orange-500/20 blur-3xl" />
+                {/* Close */}
+                <button onClick={onClose} className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"><X size={24} /></button>
 
-                {/* Close button */}
-                <button
-                    onClick={onClose}
-                    className="absolute top-4 right-4 p-2 text-white/60 hover:text-white hover:bg-white/10 rounded-full transition-all z-10"
-                >
-                    <X size={24} />
+                {/* Icon Hero */}
+                <div className="w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center shadow-xl shadow-orange-500/20 mb-6 animate-bounce-slow">
+                    <Crown size={48} className="text-white" />
+                </div>
+
+                <h2 className="text-3xl font-black text-white mb-2 text-center">Congratulazioni!</h2>
+
+                {restaurantName && <h3 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-orange-300 mb-6">{restaurantName}</h3>}
+
+                <div className="bg-slate-800/50 rounded-xl p-6 w-full mb-8 border border-slate-700">
+                    <div className="flex justify-between items-center mb-4 pb-4 border-b border-slate-700">
+                        <span className="text-slate-400">Piano Attivato</span>
+                        <span className="text-xl font-black text-white px-3 py-1 bg-white/10 rounded-lg">{planType}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                        <span className="text-slate-400">Scadenza</span>
+                        <span className="text-white font-mono">{new Date(endDate).toLocaleDateString('it-IT')}</span>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 w-full mb-8">
+                    {features.map((feature, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs text-slate-300 bg-slate-800 p-2 rounded-lg border border-slate-700">
+                            <div className="text-green-400">{feature.icon}</div>
+                            <span>{feature.text}</span>
+                        </div>
+                    ))}
+                </div>
+
+                <button onClick={onClose} className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold py-4 rounded-xl shadow-lg transition-all transform hover:scale-105 flex items-center justify-center gap-2">
+                    <Rocket size={20} />
+                    Inizia Subito
                 </button>
 
-                {/* Content */}
-                <div className="relative p-8 text-center">
-
-                    {/* Crown Icon with animation */}
-                    <div className="relative inline-block mb-6">
-                        <div className="absolute inset-0 bg-yellow-400/30 blur-2xl rounded-full animate-pulse" />
-                        <div className="relative bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 p-6 rounded-full shadow-lg animate-bounce-slow">
-                            <Crown size={48} className="text-white" />
-                        </div>
-                        <div className="absolute -top-2 -right-2">
-                            <Sparkles size={28} className="text-yellow-300 animate-spin-slow" />
-                        </div>
-                    </div>
-
-                    {/* Title */}
-                    <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-orange-400 to-pink-500 mb-4 animate-gradient">
-                        🎉 CONGRATULAZIONI! 🎉
-                    </h1>
-
-                    {/* Plan Badge */}
-                    <div className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full shadow-lg mb-6">
-                        <Star className="text-yellow-300" size={20} />
-                        <span className="text-white font-bold text-xl">Piano {planType} Attivato!</span>
-                        <Star className="text-yellow-300" size={20} />
-                    </div>
-
-                    {/* Motivational Text */}
-                    <div className="space-y-4 mb-8">
-                        {restaurantName && (
-                            <p className="text-2xl text-white font-bold leading-relaxed">
-                                🎊 <span className="text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 via-orange-400 to-pink-500">{restaurantName}</span> 🎊
-                            </p>
-                        )}
-                        <p className="text-xl text-white/90 font-medium leading-relaxed">
-                            Benvenuto nel <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400 font-bold">futuro della ristorazione!</span>
-                        </p>
-                        <p className="text-lg text-white/70 leading-relaxed">
-                            Ora puoi gestire il tuo ristorante con la <strong className="text-purple-300">tecnologia del futuro</strong>.
-                            Grazie all'<strong className="text-cyan-300">Intelligenza Artificiale</strong> potrai migliorare
-                            la tua attività, aumentare i profitti e stupire i tuoi clienti!
-                        </p>
-
-                        {/* Indicatore Prossimo Step per Basic */}
-                        {!isPro && (
-                            <div className="mt-4 p-3 bg-blue-500/20 border border-blue-500/50 rounded-xl">
-                                <p className="text-blue-200 text-sm font-semibold flex items-center gap-2">
-                                    <span>🎯</span>
-                                    <span>Prossimo: Scegli il tuo reparto →</span>
-                                </p>
-                            </div>
-                        )}
-                    </div>
-
-                    {/* Features Grid */}
-                    <div className="grid grid-cols-2 gap-4 mb-8">
-                        {features.map((feature, index) => (
-                            <div
-                                key={index}
-                                className="flex items-center gap-3 p-3 bg-white/10 rounded-xl border border-white/10 backdrop-blur-sm hover:bg-white/20 transition-all"
-                                style={{ animationDelay: `${index * 0.1}s` }}
-                            >
-                                <div className="p-2 bg-gradient-to-br from-green-400 to-emerald-600 rounded-lg text-white">
-                                    {feature.icon}
-                                </div>
-                                <span className="text-white/90 font-medium text-sm text-left">{feature.text}</span>
-                            </div>
-                        ))}
-                    </div>
-
-                    {/* Subscription Details */}
-                    <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20 mb-6">
-                        <div className="flex justify-between items-center mb-3">
-                            <span className="text-white/70">Piano attivato:</span>
-                            <span className="text-white font-bold text-lg">{planType}</span>
-                        </div>
-                        <div className="flex justify-between items-center mb-3">
-                            <span className="text-white/70">Valido fino al:</span>
-                            <span className="text-emerald-400 font-bold text-lg">{new Date(endDate).toLocaleDateString('it-IT', { day: '2-digit', month: 'long', year: 'numeric' })}</span>
-                        </div>
-                        <div className="flex justify-between items-center">
-                            <span className="text-white/70">Importo pagato:</span>
-                            <span className="text-yellow-400 font-bold text-lg">{price}</span>
-                        </div>
-                    </div>
-
-                    {/* CTA Button */}
-                    <button
-                        onClick={onClose}
-                        className="w-full py-4 px-8 bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 hover:from-green-400 hover:via-emerald-400 hover:to-teal-400 text-white font-bold text-xl rounded-2xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all flex items-center justify-center gap-3"
-                    >
-                        <Rocket size={24} />
-                        Inizia Subito!
-                        <Sparkles size={24} />
-                    </button>
-
-                    {/* Footer Note */}
-                    <p className="mt-6 text-white/50 text-sm">
-                        Riceverai una email di conferma con i dettagli del tuo abbonamento.
-                    </p>
-                </div>
             </div>
 
             {/* CSS for animations */}

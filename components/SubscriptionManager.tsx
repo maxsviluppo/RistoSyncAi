@@ -79,12 +79,13 @@ const PLANS: Plan[] = [
             'Sistema Prenotazioni',
             'Anagrafica Clienti',
             'Report Base',
-            'Supporto Email'
+            'Supporto Email',
+            'AI Intelligence'
         ],
         excludedFeatures: [
             'Multi-reparto',
             'WhatsApp Marketing',
-            'AI Assistente'
+            'Campagne Marketing'
         ]
     },
     {
