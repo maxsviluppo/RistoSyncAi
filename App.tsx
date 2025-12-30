@@ -34,6 +34,7 @@ import Tesseract from 'tesseract.js';
 import Papa from 'papaparse';
 import PaymentSuccessModal from './components/PaymentSuccessModal';
 import DepartmentSelectorModal from './components/DepartmentSelectorModal';
+import { handleStripeSuccess } from './services/stripeSuccessHandler';
 
 // Promo Timer Component
 const PromoTimer = ({ deadlineHours, lastUpdated }: { deadlineHours: string, lastUpdated: string }) => {
@@ -248,6 +249,7 @@ export function App() {
         planType: string;
         endDate: string;
         price: string;
+        restaurantName?: string;
     } | null>(null);
 
 
@@ -809,6 +811,49 @@ export function App() {
             setShowDepartmentSelector(true);
         }
     }, [session, appSettings.restaurantProfile?.planType, appSettings.restaurantProfile?.allowedDepartment, appSettings.restaurantProfile?.showPlanChangeModal, showPaymentSuccessModal, showDepartmentSelector]);
+
+    // --- STRIPE SUCCESS HANDLER ---
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const subscriptionParam = urlParams.get('subscription');
+        const planParam = urlParams.get('plan');
+        const sessionIdParam = urlParams.get('session_id');
+
+        if (subscriptionParam === 'success' && session?.user?.id && planParam) {
+            console.log('🎉 Stripe success detected:', { plan: planParam, sessionId: sessionIdParam });
+
+            handleStripeSuccess(
+                sessionIdParam,
+                planParam,
+                session.user.id,
+                session.user.email || '',
+                (successMsg) => {
+                    console.log('✅ Stripe success handled:', successMsg);
+
+                    // Ricarica i settings aggiornati
+                    const settings = getAppSettings();
+                    const profile = settings.restaurantProfile;
+
+                    // Prepara i dati per il modal a slide
+                    setPaymentSuccessData({
+                        planType: profile?.planType || 'Basic',
+                        endDate: profile?.subscriptionEndDate || '',
+                        price: profile?.subscriptionCost || '',
+                        restaurantName: profile?.name || restaurantName
+                    });
+
+                    // Mostra il nuovo modal a slide (con congratulazioni + selezione reparto)
+                    setShowDepartmentSelector(true);
+
+                    showToast(successMsg, 'success');
+                },
+                (errorMsg) => {
+                    console.error('❌ Stripe error:', errorMsg);
+                    showToast(errorMsg, 'error');
+                }
+            );
+        }
+    }, [session, restaurantName]);
 
     // --- ACTIONS ---
 
@@ -3885,7 +3930,8 @@ export function App() {
                     showConfirm={showConfirm}
                 />
             )}
-            {showPaymentSuccessModal && paymentSuccessData && (
+            {/* VECCHIO PAYMENT SUCCESS MODAL - SOSTITUITO DAL SISTEMA A SLIDE */}
+            {/* {showPaymentSuccessModal && paymentSuccessData && (
                 <PaymentSuccessModal
                     isOpen={showPaymentSuccessModal}
                     onClose={() => {
@@ -3902,7 +3948,7 @@ export function App() {
                     price={paymentSuccessData.price}
                     restaurantName={paymentSuccessData.restaurantName || restaurantName}
                 />
-            )}
+            )} */}
 
             {showSubscriptionManager && (
                 <SubscriptionManager
@@ -3916,7 +3962,7 @@ export function App() {
                 onClose={() => setShowDepartmentSelector(false)}
                 currentDepartment={appSettings.restaurantProfile?.allowedDepartment}
                 onSelectDepartment={async (dept) => {
-                    console.log('🎯 Admin: Selected department for Basic plan:', dept);
+                    console.log('🎯 Selected department for Basic plan:', dept);
                     // Salva il department selezionato
                     const updatedProfile = { ...appSettings.restaurantProfile, allowedDepartment: dept };
                     const newSettings = { ...appSettings, restaurantProfile: updatedProfile };
@@ -3939,8 +3985,12 @@ export function App() {
                     if (dept === 'kitchen') setRole('kitchen');
                     else if (dept === 'pizzeria') setRole('pizzeria');
                     else if (dept === 'pub') setRole('pub');
-                    // else if (dept === 'delivery') setRole('delivery'); // RIMOSSO (incluso in Basic)
                 }}
+                // NUOVE PROPS per il sistema a slide
+                planType={paymentSuccessData?.planType as any}
+                endDate={paymentSuccessData?.endDate ? new Date(paymentSuccessData.endDate).getTime() : undefined}
+                price={paymentSuccessData?.price}
+                restaurantName={paymentSuccessData?.restaurantName || restaurantName}
             />
         </>
     );
