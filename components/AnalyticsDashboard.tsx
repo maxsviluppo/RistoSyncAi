@@ -661,10 +661,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
                                                             orderType = 'Ordine Asporto';
                                                         }
 
-                                                        // Se il tavolo è vuoto, mostra ID ordine
+                                                        // Se il tavolo è vuoto, mostra solo "Ordine"
                                                         const description = cleanTableNumber
                                                             ? `${orderType} ${cleanTableNumber}`
-                                                            : `Ordine #${o.id.slice(-4)}`;
+                                                            : 'Ordine';
 
                                                         return {
                                                             id: o.id,

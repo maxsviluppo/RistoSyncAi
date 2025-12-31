@@ -107,6 +107,13 @@ export interface RestaurantProfile {
 
   adminNotes?: string; // Note interne Super Admin
 
+  // Closure Report Recipients (WhatsApp)
+  closureReportRecipients?: Array<{
+    name: string;
+    phone: string; // Formato internazionale: +39...
+    role?: string; // es. "Titolare", "Socio", "Commercialista"
+  }>;
+
   // Plan Change Sync (Internal)
   showPlanChangeModal?: boolean;
   planChangeData?: {

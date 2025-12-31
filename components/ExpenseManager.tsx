@@ -4,9 +4,10 @@ import { Expense, ExpenseCategory, PaymentMethod } from '../types';
 import {
     CreditCard, Wallet, Calendar, Plus, Trash2, Save,
     FileText, Filter, ChevronLeft, ChevronRight, TrendingDown,
-    Calculator
+    Calculator, Users
 } from 'lucide-react';
 import { DailyClosureManager } from './DailyClosureManager';
+import { ClosureRecipientsManager } from './ClosureRecipientsManager';
 
 interface ExpenseManagerProps {
     showToast: (msg: string, type: 'success' | 'error' | 'info') => void;
@@ -18,6 +19,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ showToast }) => 
     const [loading, setLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
     const [showClosure, setShowClosure] = useState(false);
+    const [showRecipients, setShowRecipients] = useState(false);
 
     // Filter State
     const [selectedDate, setSelectedDate] = useState(new Date());
@@ -69,7 +71,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ showToast }) => 
 
         if (error) {
             console.error('Error fetching expenses:', error);
-            showToast('Errore caricamento spese', 'error');
+            showToast('Errore caricamento: ' + error.message, 'error');
         } else if (data) {
             const mappedExpenses: Expense[] = data.map((row: any) => ({
                 id: row.id,
@@ -98,22 +100,22 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ showToast }) => 
         if (!supabase) return;
 
         const expensePayload = {
-            category_id: newExpense.category,
-            description: newExpense.description,
-            amount: newExpense.amount,
+            category_id: newExpense.category || null,
+            description: newExpense.description || 'Spesa',
+            amount: isNaN(Number(newExpense.amount)) ? 0 : Number(newExpense.amount),
             expense_date: newExpense.date,
-            payment_method: newExpense.paymentMethod,
-            deduct_from: newExpense.deductFrom,
-            notes: newExpense.notes
+            payment_method: newExpense.paymentMethod || 'cash',
+            deduct_from: newExpense.deductFrom || 'cassa',
+            notes: newExpense.notes || null
         };
 
         const { error } = await supabase.from('expenses').insert(expensePayload);
 
         if (error) {
             console.error('Error saving expense:', error);
-            showToast('Errore salvataggio', 'error');
+            showToast('ERRORE DATABASE SU SERVER: ' + (error.message || JSON.stringify(error)), 'error');
         } else {
-            showToast('Spesa salvata', 'success');
+            showToast('Spesa salvata con successo!', 'success');
             setIsAdding(false);
             setNewExpense({
                 date: new Date().toISOString().split('T')[0],
@@ -128,7 +130,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ showToast }) => 
         if (!supabase) return;
         const { error } = await supabase.from('expenses').delete().eq('id', id);
         if (error) {
-            showToast('Errore eliminazione', 'error');
+            showToast('Errore eliminazione: ' + error.message, 'error');
         } else {
             showToast('Spesa eliminata', 'success');
             setExpenses(prev => prev.filter(e => e.id !== id));
@@ -140,6 +142,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ showToast }) => 
     return (
         <div className="max-w-7xl mx-auto space-y-8 pb-20 animate-fade-in">
             {showClosure && <DailyClosureManager onClose={() => setShowClosure(false)} showToast={showToast} />}
+            {showRecipients && <ClosureRecipientsManager onClose={() => setShowRecipients(false)} showToast={showToast} />}
 
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
@@ -156,6 +159,13 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ showToast }) => 
                         className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-indigo-900/20"
                     >
                         <Calculator size={20} /> Chiusura Cassa
+                    </button>
+
+                    <button
+                        onClick={() => setShowRecipients(true)}
+                        className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-purple-900/20"
+                    >
+                        <Users size={20} /> Destinatari Report
                     </button>
 
                     <div className="flex items-center gap-4 bg-slate-900 px-4 py-2 rounded-xl border border-slate-800 shadow-lg">

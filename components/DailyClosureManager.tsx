@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { DailyClosure, PaymentMethod, Order, Deposit, Expense } from '../types';
-import { getOrders } from '../services/storageService';
-import { Calculator, Save, AlertTriangle, CheckCircle, Banknote, Coins, X } from 'lucide-react';
+import { getOrders, getAppSettings } from '../services/storageService';
+import { Calculator, Save, AlertTriangle, CheckCircle, Banknote, Coins, X, MessageCircle } from 'lucide-react';
 
 interface DailyClosureManagerProps {
     onClose: () => void;
@@ -154,6 +154,53 @@ export const DailyClosureManager: React.FC<DailyClosureManagerProps> = ({ onClos
         }
     };
 
+    const handleSendWhatsApp = async () => {
+        const settings = getAppSettings();
+        const recipients = settings.restaurantProfile?.closureReportRecipients || [];
+        const wpConfig = settings.restaurantProfile?.whatsappApiConfig;
+
+        if (recipients.length === 0) {
+            showToast('Nessun destinatario configurato. Vai in Gestione Spese > Destinatari Report', 'error');
+            return;
+        }
+
+        if (!wpConfig?.phoneNumberId || !wpConfig?.accessToken) {
+            showToast('API WhatsApp non configurate in Admin', 'error');
+            return;
+        }
+
+        const config = {
+            phoneNumberId: wpConfig.phoneNumberId,
+            accessToken: wpConfig.accessToken,
+            businessAccountId: wpConfig.businessAccountId,
+            apiVersion: wpConfig.apiVersion
+        };
+
+        const message = `📊 *Chiusura Cassa ${new Date().toLocaleDateString('it-IT')}*\n\n` +
+            `💰 Vendite: € ${totalSales.toFixed(2)}\n` +
+            `💸 Spese: € ${totalExpenses.toFixed(2)}\n` +
+            `💵 Cassa Iniziale: € ${startCash.toFixed(2)}\n` +
+            `✅ Cassa Attesa: € ${expectedEndCash.toFixed(2)}\n` +
+            `🔢 Cassa Reale: € ${actualCash.toFixed(2)}\n` +
+            `${difference >= 0 ? '✅' : '⚠️'} Differenza: € ${difference.toFixed(2)}\n\n` +
+            (notes ? `📝 Note: ${notes}` : '');
+
+        try {
+            const { sendTextMessage } = await import('../services/whatsappService');
+            let successCount = 0;
+            for (const recipient of recipients) {
+                const res = await sendTextMessage(config as any, recipient.phone, message);
+                if (res.success) successCount++;
+                else console.error(`WhatsApp Error for ${recipient.name}:`, res.error);
+            }
+            if (successCount > 0) showToast(`Inviato a ${successCount} destinatari`, 'success');
+            else showToast('Errore invio messaggi', 'error');
+        } catch (error) {
+            console.error(error);
+            showToast('Errore sistema WhatsApp', 'error');
+        }
+    };
+
     if (loading) return <div className="p-8 text-center text-white">Caricamento dati...</div>;
 
     return (
@@ -267,6 +314,12 @@ export const DailyClosureManager: React.FC<DailyClosureManagerProps> = ({ onClos
                 <div className="p-6 border-t border-slate-800 bg-slate-950 flex justify-end gap-3">
                     <button onClick={onClose} className="px-6 py-3 rounded-xl font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
                         Annulla
+                    </button>
+                    <button
+                        onClick={handleSendWhatsApp}
+                        className="bg-green-600 hover:bg-green-500 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-green-900/20 flex items-center gap-2"
+                    >
+                        <MessageCircle size={20} /> Invia su WhatsApp
                     </button>
                     <button
                         onClick={handleSaveClosure}
