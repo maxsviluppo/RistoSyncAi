@@ -430,12 +430,54 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
                         showNotification(`Tavolo ${newOrder.tableNumber} è PRONTO!`, 'success');
                     }
                 }
+
                 // NEW: Detect completion logic (DELIVERED)
                 if (oldOrder && oldOrder.status !== OrderStatus.DELIVERED && newOrder.status === OrderStatus.DELIVERED) {
                     setLingerOrders(prev => [...prev, newOrder.id]);
                     setTimeout(() => {
                         setLingerOrders(prev => prev.filter(id => id !== newOrder.id));
-                    }, 5000);
+                    }, 300000); // 5 minuti = 300000ms
+                }
+
+                // NEW: Detect when ALL department items become completed (even if order not DELIVERED)
+                if (oldOrder && newOrder.status !== OrderStatus.DELIVERED) {
+                    const relevantItems = newOrder.items.filter(item => isItemRelevantForDept(item));
+
+                    if (relevantItems.length > 0) {
+                        const allCompleted = relevantItems.every(item => {
+                            if (item.menuItem.category === Category.MENU_COMPLETO && item.menuItem.comboItems) {
+                                const relevantSubItems = getSubItemsForCombo(item).filter(sub => {
+                                    const dest = sub.specificDepartment || appSettings.categoryDestinations[sub.category];
+                                    return dest === department;
+                                });
+                                if (relevantSubItems.length === 0) return true;
+                                return relevantSubItems.every(sub => item.comboCompletedParts?.includes(sub.id));
+                            }
+                            return item.completed;
+                        });
+
+                        // Check if it JUST became all completed (wasn't before)
+                        const oldRelevantItems = oldOrder.items.filter(item => isItemRelevantForDept(item));
+                        const wasAllCompleted = oldRelevantItems.every(item => {
+                            if (item.menuItem.category === Category.MENU_COMPLETO && item.menuItem.comboItems) {
+                                const relevantSubItems = getSubItemsForCombo(item).filter(sub => {
+                                    const dest = sub.specificDepartment || appSettings.categoryDestinations[sub.category];
+                                    return dest === department;
+                                });
+                                if (relevantSubItems.length === 0) return true;
+                                return relevantSubItems.every(sub => item.comboCompletedParts?.includes(sub.id));
+                            }
+                            return item.completed;
+                        });
+
+                        // If just completed, add to linger
+                        if (allCompleted && !wasAllCompleted && !lingerOrders.includes(newOrder.id)) {
+                            setLingerOrders(prev => [...prev, newOrder.id]);
+                            setTimeout(() => {
+                                setLingerOrders(prev => prev.filter(id => id !== newOrder.id));
+                            }, 300000); // 5 minuti = 300000ms
+                        }
+                    }
                 }
             });
         }
@@ -507,7 +549,7 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
 
     // LOGICA DI VISUALIZZAZIONE "ATTIVA"
     // Le comande READY restano visibili (verdi) finché non diventano DELIVERED (dal cameriere o dal tasto "Servi")
-    // Le comande DELIVERED restano visibili per 5 secondi se sono in "lingerOrders"
+    // Le comande DELIVERED restano visibili per 5 minuti se sono in "lingerOrders"
     // NUOVO: Nascondi ordini dove TUTTI gli item del reparto sono completati
     const displayedOrders = orders.filter(o => {
         // Always show lingering orders (being archived)
@@ -537,6 +579,16 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
 
         // Hide if all items are completed (department work is done)
         return !allCompleted;
+    }).sort((a, b) => {
+        // Sposta le comande in archiviazione (lingering) in fondo
+        const aIsLingering = lingerOrders.includes(a.id);
+        const bIsLingering = lingerOrders.includes(b.id);
+
+        if (aIsLingering && !bIsLingering) return 1;  // a va dopo b
+        if (!aIsLingering && bIsLingering) return -1; // a va prima di b
+
+        // Se entrambe lingering o entrambe attive, mantieni ordine cronologico
+        return a.timestamp - b.timestamp;
     });
 
     const isAutoPrintActive = appSettings.printEnabled && appSettings.printEnabled[department];
