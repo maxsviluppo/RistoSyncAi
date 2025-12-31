@@ -36,6 +36,7 @@ import PaymentSuccessModal from './components/PaymentSuccessModal';
 import DepartmentSelectorModal from './components/DepartmentSelectorModal';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import { ExpenseManager } from './components/ExpenseManager';
+import { InvoiceManager } from './components/InvoiceManager';
 
 // Promo Timer Component
 const PromoTimer = ({ deadlineHours, lastUpdated }: { deadlineHours: string, lastUpdated: string }) => {
@@ -146,7 +147,7 @@ export function App() {
 
     // Admin State
     const [showAdmin, setShowAdmin] = useState(false);
-    const [adminTab, setAdminTab] = useState<'profile' | 'subscription' | 'menu' | 'notif' | 'info' | 'ai' | 'analytics' | 'share' | 'receipts' | 'messages' | 'marketing' | 'delivery' | 'customers' | 'whatsapp' | 'expenses'>('menu');
+    const [adminTab, setAdminTab] = useState<'profile' | 'subscription' | 'menu' | 'notif' | 'info' | 'ai' | 'analytics' | 'share' | 'receipts' | 'messages' | 'marketing' | 'delivery' | 'customers' | 'whatsapp' | 'expenses' | 'invoices' | 'administration'>('menu');
     const [showWhatsAppManager, setShowWhatsAppManager] = useState(false);
     const [showSubscriptionManager, setShowSubscriptionManager] = useState(false);
     const [showDepartmentSelector, setShowDepartmentSelector] = useState(false);
@@ -1765,6 +1766,7 @@ export function App() {
                             <button onClick={() => setAdminTab('analytics')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'analytics' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><BarChart3 size={18} /> Statistiche Tavoli</button>
                             <button onClick={() => setAdminTab('administration')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'administration' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Wallet size={18} /> Amministrazione</button>
                             <button onClick={() => setAdminTab('expenses')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'expenses' ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><CreditCard size={18} /> Gestione Spese</button>
+                            <button onClick={() => setAdminTab('invoices')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'invoices' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><FileText size={18} /> Fatture Cliente</button>
                             <button onClick={() => setAdminTab('receipts')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'receipts' ? 'bg-yellow-600 text-white shadow-lg shadow-yellow-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Receipt size={18} /> Scontrini Cassa</button>
                             <button
                                 onClick={() => setAdminTab('ai')}
@@ -3063,6 +3065,15 @@ export function App() {
                         )}
                         {adminTab === 'expenses' && (
                             <ExpenseManager showToast={showToast} />
+                        )}
+                        {adminTab === 'invoices' && (
+                            <div className="max-w-7xl mx-auto pb-24">
+                                <InvoiceManager
+                                    showToast={showToast}
+                                    restaurantProfile={profileForm}
+                                    onUpdateProfile={(p) => setProfileForm(p)}
+                                />
+                            </div>
                         )}
                         {adminTab === 'receipts' && (
                             <div className="max-w-7xl mx-auto space-y-8 animate-fade-in pb-24">

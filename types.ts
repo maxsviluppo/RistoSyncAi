@@ -114,6 +114,14 @@ export interface RestaurantProfile {
     role?: string; // es. "Titolare", "Socio", "Commercialista"
   }>;
 
+  // Accountant Email Recipients (for invoices)
+  accountantEmails?: Array<{
+    email: string;
+    name: string;
+    role?: string; // es. "Commercialista", "Studio Fiscale"
+    isDefault?: boolean;
+  }>;
+
   // Plan Change Sync (Internal)
   showPlanChangeModal?: boolean;
   planChangeData?: {
@@ -123,6 +131,51 @@ export interface RestaurantProfile {
     restaurantName: string;
     changedAt: string;
   };
+}
+
+// Invoice System Types
+export interface InvoiceItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  vatRate: number; // es. 22, 10, 4
+  total: number;
+}
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string; // es. "2024/001"
+  date: string; // YYYY-MM-DD
+  dueDate?: string;
+
+  // Customer Info
+  customerId?: string; // Link to Customer if exists
+  customerName: string;
+  customerAddress?: string;
+  customerVat?: string; // Partita IVA
+  customerFiscalCode?: string; // Codice Fiscale
+  customerEmail?: string;
+  customerPec?: string; // PEC for electronic invoicing
+  customerSdi?: string; // Codice SDI
+
+  // Items
+  items: InvoiceItem[];
+
+  // Totals
+  subtotal: number;
+  vatTotal: number;
+  total: number;
+
+  // Payment
+  paymentMethod?: PaymentMethod;
+  paymentStatus: 'pending' | 'paid' | 'overdue' | 'cancelled';
+  paidAt?: number;
+
+  // Metadata
+  notes?: string;
+  createdAt: number;
+  sentAt?: number;
+  sentTo?: string[]; // Email addresses sent to
 }
 
 // Delivery Platform Configuration
