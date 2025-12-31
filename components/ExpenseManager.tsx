@@ -104,8 +104,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ showToast }) => 
             expense_date: newExpense.date,
             payment_method: newExpense.paymentMethod,
             deduct_from: newExpense.deductFrom,
-            notes: newExpense.notes,
-            created_at: new Date().toISOString()
+            notes: newExpense.notes
         };
 
         const { error } = await supabase.from('expenses').insert(expensePayload);
