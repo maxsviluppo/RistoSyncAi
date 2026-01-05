@@ -4,7 +4,7 @@ import {
     Check, X, Mail, ChevronDown, Calendar, AlertCircle
 } from 'lucide-react';
 import { Invoice, InvoiceItem, Customer, RestaurantProfile, Reservation } from '../types';
-import { sendInvoiceToAccountant } from '../services/emailService';
+// import { sendInvoiceToAccountant } from '../services/emailService'; // Temporarily disabled
 import { supabase } from '../services/supabase';
 
 interface InvoiceManagerProps {
@@ -200,12 +200,14 @@ export const InvoiceManager: React.FC<InvoiceManagerProps> = ({ restaurantProfil
 
         // Send Email
         if (sendEmail) {
-            const sent = await sendInvoiceToAccountant(accountantEmail, newInvoice, restaurantProfile?.name || 'Ristorante');
-            if (sent) {
-                showToast("Fattura inviata al commercialista!", 'success');
-            } else {
-                showToast("Errore invio email (controlla console)", 'error');
-            }
+            // Temporarily disabled - email service needs to be fixed
+            // const sent = await sendInvoiceToAccountant(accountantEmail, newInvoice, restaurantProfile?.name || 'Ristorante');
+            // if (sent) {
+            //     showToast("Fattura inviata al commercialista!", 'success');
+            // } else {
+            //     showToast("Errore invio email (controlla console)", 'error');
+            // }
+            showToast("Fattura salvata (invio email temporaneamente disabilitato)", 'info');
         } else {
             showToast("Bozza salvata", 'success');
         }
