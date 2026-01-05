@@ -501,6 +501,15 @@ export const deleteOrder = (orderId: string) => {
     syncOrderToCloud(orderToDelete, true);
 };
 
+export const updateOrder = (updatedOrder: Order) => {
+    const orders = getOrders();
+    const newOrders = orders.map(o => o.id === updatedOrder.id ? updatedOrder : o);
+
+    saveLocallyAndNotify(newOrders);
+    syncOrderToCloud(updatedOrder);
+};
+
+
 export const updateOrderItems = async (orderId: string, newItems: OrderItem[]) => {
     const orders = getOrders();
     const order = orders.find(o => o.id === orderId);

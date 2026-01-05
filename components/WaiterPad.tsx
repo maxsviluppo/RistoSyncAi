@@ -3,8 +3,8 @@ import {
     Order, OrderStatus, Category, MenuItem, OrderItem, Reservation, ReservationStatus
 } from '../types';
 import {
-    getOrders, addOrder, updateOrderStatus, updateOrderItems,
-    toggleOrderItemCompletion, serveItem,
+    getOrders, addOrder, updateOrderStatus, updateOrderItems, updateOrder,
+    toggleOrderItemCompletion, serveItem, saveOrders,
     getWaiterName, logoutWaiter, getMenuItems,
     freeTable, getAppSettings, getAutomations, getTableCount,
     fetchSettingsFromCloud, getTodayReservations, getTableReservation, markCustomerArrived
@@ -175,13 +175,16 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
 
     const addToCart = (item: MenuItem) => {
         setCart(prev => {
-            const existing = prev.find(i => i.menuItem.id === item.id && !i.notes);
-            if (existing) {
-                return prev.map(i => i.menuItem.id === item.id && !i.notes
+            // Cerca se il piatto esiste già nel carrello (indipendentemente dalle note)
+            const existingIndex = prev.findIndex(i => i.menuItem.id === item.id);
+            if (existingIndex !== -1) {
+                // Se esiste, aumenta solo la quantità
+                return prev.map((i, idx) => idx === existingIndex
                     ? { ...i, quantity: i.quantity + 1 }
                     : i
                 );
             }
+            // Se non esiste, aggiungilo come nuovo item
             return [...prev, { menuItem: item, quantity: 1, served: false, completed: false }];
         });
     };
@@ -293,15 +296,44 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
         });
     };
 
-    const editNoteInItem = (itemIndex: number, noteIndex: number, newText: string) => {
-        setCart(prev => {
-            const newCart = [...prev];
-            const currentNotes = newCart[itemIndex].notes || '';
+    const editNoteInItem = async (itemIndex: number, noteIndex: number, newText: string) => {
+        // Check if we're editing an active order or the cart
+        if (activeTableOrder) {
+            // Editing an active order - update directly
+            const currentOrders = getOrders();
+            const orderToUpdate = currentOrders.find(o => o.id === activeTableOrder.id);
+            if (!orderToUpdate) return;
+
+            const currentNotes = orderToUpdate.items[itemIndex].notes || '';
             const notesArray = currentNotes.split('|||');
             notesArray[noteIndex] = newText;
-            newCart[itemIndex] = { ...newCart[itemIndex], notes: notesArray.join('|||') };
-            return newCart;
-        });
+
+            // Create updated items array
+            const updatedItems = [...orderToUpdate.items];
+            updatedItems[itemIndex] = { ...updatedItems[itemIndex], notes: notesArray.join('|||') };
+
+            // Update the order directly
+            const updatedOrder = {
+                ...orderToUpdate,
+                items: updatedItems,
+                timestamp: Date.now()
+            };
+
+            // Use updateOrder instead of saveOrders to sync with cloud
+            updateOrder(updatedOrder);
+
+            setTimeout(loadData, 100);
+        } else {
+            // Editing the cart
+            setCart(prev => {
+                const newCart = [...prev];
+                const currentNotes = newCart[itemIndex].notes || '';
+                const notesArray = currentNotes.split('|||');
+                notesArray[noteIndex] = newText;
+                newCart[itemIndex] = { ...newCart[itemIndex], notes: notesArray.join('|||') };
+                return newCart;
+            });
+        }
     };
 
     // COLLABORATION FUNCTIONS REMOVED
@@ -674,24 +706,187 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                                                             activeTableOrder.items.map((item, idx) => {
                                                                 const isReadyToServe = item.completed && !item.served;
                                                                 const isServed = item.served;
+                                                                const notesArray = item.notes ? item.notes.split('|||') : [];
                                                                 return (
-                                                                    <div key={idx} className={`flex justify-between items-center text-sm p-3 rounded-lg border transition-all ${isReadyToServe ? 'bg-green-900/30 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.2)]' : 'bg-slate-800/50 border-slate-700'}`}>
-                                                                        <div className="flex gap-3 items-center flex-1">
-                                                                            <span className="font-bold text-white bg-slate-700 px-2 py-1 rounded text-xs">x{item.quantity}</span>
-                                                                            <div className="flex flex-col">
-                                                                                <span className={`font-bold text-base ${isServed ? 'line-through text-slate-500' : isReadyToServe ? 'text-white' : 'text-slate-300'}`}>{item.menuItem?.name || 'Item'}</span>
-                                                                                {item.notes && <span className="text-xs text-orange-400 italic">{item.notes}</span>}
-                                                                                {isReadyToServe && <span className="text-[10px] font-black text-green-400 uppercase tracking-wider animate-pulse flex items-center gap-1 mt-1"><BellRing size={10} /> DA SERVIRE</span>}
+                                                                    <div key={idx} className={`flex flex-col text-sm p-3 rounded-lg border transition-all ${isReadyToServe ? 'bg-green-900/30 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.2)]' : 'bg-slate-800/50 border-slate-700'}`}>
+                                                                        <div className="flex justify-between items-start">
+                                                                            <div className="flex gap-3 items-start flex-1">
+                                                                                <span className="font-bold text-white bg-slate-700 px-2 py-1 rounded text-xs">x{item.quantity}</span>
+                                                                                <div className="flex flex-col flex-1">
+                                                                                    <span className={`font-bold text-base ${isServed ? 'line-through text-slate-500' : isReadyToServe ? 'text-white' : 'text-slate-300'}`}>{item.menuItem?.name || 'Item'}</span>
+                                                                                    {isReadyToServe && <span className="text-[10px] font-black text-green-400 uppercase tracking-wider animate-pulse flex items-center gap-1 mt-1"><BellRing size={10} /> DA SERVIRE</span>}
+
+                                                                                    {/* Display existing notes */}
+                                                                                    {notesArray.length > 0 && (
+                                                                                        <div className="mt-2 space-y-1">
+                                                                                            {notesArray.map((note, noteIdx) => (
+                                                                                                <div key={noteIdx} className="flex items-center gap-2 bg-orange-900/20 px-2 py-1 rounded border border-orange-900/30">
+                                                                                                    <span className="text-xs text-orange-300 flex-1">⚠️ {note.trim()}</span>
+                                                                                                    <button
+                                                                                                        onClick={() => {
+                                                                                                            setEditingNote({ itemIndex: idx, noteIndex: noteIdx, currentText: note.trim() });
+                                                                                                        }}
+                                                                                                        className="text-blue-400 hover:text-blue-300 p-1"
+                                                                                                        title="Modifica nota"
+                                                                                                    >
+                                                                                                        <Edit3 size={12} />
+                                                                                                    </button>
+                                                                                                    <button
+                                                                                                        onClick={async () => {
+                                                                                                            // Get current orders
+                                                                                                            const currentOrders = getOrders();
+                                                                                                            const orderToUpdate = currentOrders.find(o => o.id === activeTableOrder.id);
+                                                                                                            if (!orderToUpdate) return;
+
+                                                                                                            const newNotesArray = [...notesArray];
+                                                                                                            newNotesArray.splice(noteIdx, 1);
+                                                                                                            const newNotes = newNotesArray.length > 0 ? newNotesArray.join('|||') : undefined;
+
+                                                                                                            // Create updated items array
+                                                                                                            const updatedItems = [...orderToUpdate.items];
+                                                                                                            updatedItems[idx] = { ...updatedItems[idx], notes: newNotes };
+
+                                                                                                            // Update the order directly
+                                                                                                            const updatedOrder = {
+                                                                                                                ...orderToUpdate,
+                                                                                                                items: updatedItems,
+                                                                                                                timestamp: Date.now()
+                                                                                                            };
+
+                                                                                                            // Use updateOrder instead of saveOrders to sync with cloud
+                                                                                                            updateOrder(updatedOrder);
+
+                                                                                                            setTimeout(loadData, 100);
+                                                                                                        }}
+                                                                                                        className="text-red-400 hover:text-red-300 p-1"
+                                                                                                        title="Elimina nota"
+                                                                                                    >
+                                                                                                        <X size={12} />
+                                                                                                    </button>
+                                                                                                </div>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="flex items-center gap-2 ml-2">
+                                                                                {/* Add note button */}
+                                                                                <button
+                                                                                    onClick={() => {
+                                                                                        setCurrentNoteItemIndex(idx);
+                                                                                        setTempNote('');
+                                                                                    }}
+                                                                                    className="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg shadow-lg active:scale-95 transition-all"
+                                                                                    title="Aggiungi nota"
+                                                                                >
+                                                                                    <Edit3 size={16} />
+                                                                                </button>
+
+                                                                                {isReadyToServe ? (
+                                                                                    <button onClick={() => handleServeItem(activeTableOrder.id, idx)} className="bg-green-500 hover:bg-green-400 text-white p-2 rounded-lg shadow-lg active:scale-95 transition-all">
+                                                                                        <Square size={20} className="fill-current text-green-700" />
+                                                                                    </button>
+                                                                                ) : isServed ? (
+                                                                                    <CheckSquare size={20} className="text-slate-600" />
+                                                                                ) : (
+                                                                                    <span className="font-mono text-slate-500 text-xs">Cooking</span>
+                                                                                )}
                                                                             </div>
                                                                         </div>
-                                                                        {isReadyToServe ? (
-                                                                            <button onClick={() => handleServeItem(activeTableOrder.id, idx)} className="ml-2 bg-green-500 hover:bg-green-400 text-white p-2 rounded-lg shadow-lg active:scale-95 transition-all">
-                                                                                <Square size={20} className="fill-current text-green-700" />
-                                                                            </button>
-                                                                        ) : isServed ? (
-                                                                            <CheckSquare size={20} className="text-slate-600 ml-2" />
-                                                                        ) : (
-                                                                            <span className="font-mono text-slate-500 ml-2 text-xs">Cooking</span>
+
+                                                                        {/* Note input modal inline */}
+                                                                        {currentNoteItemIndex === idx && (
+                                                                            <div className="mt-3 pt-3 border-t border-slate-700 space-y-2">
+                                                                                <label className="text-xs font-bold text-slate-400 uppercase">Aggiungi Nota (es. allergia, preferenza)</label>
+                                                                                <div className="flex items-center gap-2">
+                                                                                    <input
+                                                                                        type="text"
+                                                                                        placeholder="Scrivi o detta una nota..."
+                                                                                        value={tempNote}
+                                                                                        onChange={(e) => setTempNote(e.target.value)}
+                                                                                        className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 outline-none"
+                                                                                        autoFocus
+                                                                                    />
+                                                                                    <button
+                                                                                        onClick={() => toggleRecording(idx)}
+                                                                                        className={`p-2 rounded-lg transition-all ${isRecording && currentNoteItemIndex === idx ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-700 text-slate-300 hover:bg-blue-600 hover:text-white'}`}
+                                                                                        title={isRecording && currentNoteItemIndex === idx ? 'Stop Recording' : 'Start Voice Input'}
+                                                                                    >
+                                                                                        {isRecording && currentNoteItemIndex === idx ? <MicOff size={20} /> : <Mic size={20} />}
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={async () => {
+                                                                                            try {
+                                                                                                if (!tempNote.trim()) {
+                                                                                                    alert('La nota è vuota!');
+                                                                                                    return;
+                                                                                                }
+
+                                                                                                if (!activeTableOrder) {
+                                                                                                    alert('Errore: ordine non trovato. Ricarica la pagina.');
+                                                                                                    return;
+                                                                                                }
+
+                                                                                                // Get current orders
+                                                                                                const currentOrders = getOrders();
+                                                                                                const orderToUpdate = currentOrders.find(o => o.id === activeTableOrder.id);
+                                                                                                if (!orderToUpdate) {
+                                                                                                    alert('Errore: impossibile trovare l\'ordine da aggiornare.');
+                                                                                                    return;
+                                                                                                }
+
+                                                                                                // Update the specific item's notes
+                                                                                                const currentNotes = orderToUpdate.items[idx].notes || '';
+                                                                                                const newNotesArray = currentNotes ? currentNotes.split('|||') : [];
+                                                                                                newNotesArray.push(tempNote.trim());
+
+                                                                                                // Create updated items array
+                                                                                                const updatedItems = [...orderToUpdate.items];
+                                                                                                updatedItems[idx] = {
+                                                                                                    ...updatedItems[idx],
+                                                                                                    notes: newNotesArray.join('|||')
+                                                                                                };
+
+                                                                                                // Update the order directly
+                                                                                                const updatedOrder = {
+                                                                                                    ...orderToUpdate,
+                                                                                                    items: updatedItems,
+                                                                                                    timestamp: Date.now()
+                                                                                                };
+
+                                                                                                // Save to storage
+                                                                                                const newOrders = currentOrders.map(o =>
+                                                                                                    o.id === activeTableOrder.id ? updatedOrder : o
+                                                                                                );
+                                                                                                // Use updateOrder instead of saveOrders to sync with cloud
+                                                                                                updateOrder(updatedOrder);
+
+                                                                                                setTempNote('');
+                                                                                                setCurrentNoteItemIndex(null);
+                                                                                                setTimeout(loadData, 100);
+                                                                                            } catch (error) {
+                                                                                                console.error('Errore aggiunta nota:', error);
+                                                                                                alert('Errore durante l\'aggiunta della nota: ' + error);
+                                                                                            }
+                                                                                        }}
+                                                                                        disabled={tempNote.trim().length === 0}
+                                                                                        className="p-2 bg-green-600 hover:bg-green-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-lg transition-all"
+                                                                                        title="Aggiungi Nota"
+                                                                                    >
+                                                                                        <Plus size={20} />
+                                                                                    </button>
+                                                                                    <button
+                                                                                        onClick={() => {
+                                                                                            setCurrentNoteItemIndex(null);
+                                                                                            setTempNote('');
+                                                                                        }}
+                                                                                        className="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-all"
+                                                                                        title="Annulla"
+                                                                                    >
+                                                                                        <X size={20} />
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
                                                                         )}
                                                                     </div>
                                                                 );

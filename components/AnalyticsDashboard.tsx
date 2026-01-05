@@ -3,9 +3,9 @@ import {
     BarChart3, TrendingUp, TrendingDown, Calendar, DollarSign,
     Users, Clock, ShoppingBag, Download, ChevronLeft, ChevronRight,
     Filter, PieChart, ArrowUpRight, ArrowDownRight, Printer, Search,
-    Wallet, CreditCard, Banknote, Plus, Trash2, Save, X, FileText, Edit2
+    Wallet, CreditCard, Banknote, Plus, Trash2, Save, X, FileText
 } from 'lucide-react';
-import { Order, OrderStatus, Category, Department, Deposit, PaymentMethod, Expense, ExpenseCategory, Reservation, ReservationStatus } from '../types';
+import { Order, OrderStatus, Category, Department, Deposit, PaymentMethod, Expense, Reservation, ReservationStatus } from '../types';
 import { getOrders } from '../services/storageService';
 import { supabase } from '../services/supabase';
 
@@ -43,16 +43,14 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
     const [orders, setOrders] = useState<Order[]>([]);
     const [deposits, setDeposits] = useState<Deposit[]>([]);
     const [expenses, setExpenses] = useState<Expense[]>([]);
-    const [categories, setCategories] = useState<ExpenseCategory[]>([]);
 
     const [loading, setLoading] = useState(true);
 
     // Expense Form State
     const [isAddingExpense, setIsAddingExpense] = useState(false);
-    const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
 
     const [newExpense, setNewExpense] = useState<Partial<Expense>>({
-        category: '', // Will be set when categories load
+        category: 'Fornitori',
         paymentMethod: 'cash',
         deductFrom: 'cassa',
         date: new Date().toISOString().split('T')[0]
@@ -154,40 +152,15 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
 
             // 3. EXPENSES (Spese)
             if (supabase) {
-                // Fetch Categories
-                const { data: catData, error: catError } = await supabase.from('expense_categories').select('*');
-                console.log('📂 Categories fetch:', catData, catError);
-                if (catData) setCategories(catData);
-
-                // Try fetch Expenses
-                console.log('📅 Fetching expenses from:', startDate.toISOString().split('T')[0], 'to:', endDate.toISOString().split('T')[0]);
-                const { data: expData, error: expError } = await supabase
+                // Try fetch
+                const { data: expData } = await supabase
                     .from('expenses')
                     .select('*')
-                    .gte('expense_date', startDate.toISOString().split('T')[0])
-                    .lte('expense_date', endDate.toISOString().split('T')[0]);
-
-                console.log('💰 Expenses fetch result:', expData, 'Error:', expError);
-
-                if (expError) {
-                    console.error('❌ Expenses fetch error:', expError);
-                    showToast('Errore caricamento spese: ' + expError.message, 'error');
-                }
+                    .gte('date', startDate.toISOString().split('T')[0])
+                    .lte('date', endDate.toISOString().split('T')[0]);
 
                 if (expData) {
-                    // Map DB columns to Frontend Interface
-                    const mappedExpenses = expData.map((row: any) => ({
-                        id: row.id,
-                        category: row.category_id, // Map category_id to category
-                        description: row.description,
-                        amount: row.amount,
-                        date: row.expense_date,
-                        paymentMethod: row.payment_method,
-                        deductFrom: row.deduct_from,
-                        notes: row.notes,
-                        createdAt: new Date(row.created_at).getTime()
-                    }));
-                    setExpenses(mappedExpenses);
+                    setExpenses(expData);
                 } else {
                     // Local Storage Fallback
                     const localExp = JSON.parse(localStorage.getItem('expenses') || '[]');
@@ -211,27 +184,6 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
         fetchData();
     }, [timeFilter, customDateStart, customDateEnd]);
 
-    // Fetch categories on mount (needed for expense form)
-    useEffect(() => {
-        const loadCategories = async () => {
-            if (supabase) {
-                const { data, error } = await supabase.from('expense_categories').select('*');
-                if (error) {
-                    console.error('❌ Error loading categories:', error);
-                    showToast('Errore caricamento categorie: ' + error.message, 'error');
-                } else if (data && data.length > 0) {
-                    console.log('✅ Loaded categories:', data);
-                    setCategories(data);
-                    // Set default category to first one
-                    setNewExpense(prev => ({ ...prev, category: data[0].id }));
-                } else {
-                    console.warn('⚠️ No categories found in database');
-                }
-            }
-        };
-        loadCategories();
-    }, []);
-
     // --- AGGREGATION LOGIC ---
 
     const stats = useMemo(() => {
@@ -245,13 +197,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
             'Cucina': 0, 'Pizzeria': 0, 'Pub': 0, 'Sala': 0
         };
 
-        // Table Stats Accumulator
-        const tableStatsMap: Record<string, { revenue: number, count: number }> = {};
-
         orders.forEach(order => {
             const orderTotal = order.items?.reduce((sum, item) => sum + (item.menuItem.price * item.quantity), 0) || 0;
             totalRevenue += orderTotal;
-            // totalCovers += (order.coperti || 0);
+            // totalCovers += (order.coperti || 0); // Coperti not in Order type yet
 
             // Hourly Distribution
             const hour = new Date(order.timestamp).getHours();
@@ -270,28 +219,9 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
                 itemSales[key].count += item.quantity;
                 itemSales[key].revenue += (item.menuItem.price * item.quantity);
             });
-
-            // Table Stats Logic
-            let cleanTableNumber = (order.tableNumber || '')
-                .replace(/_HISTORY/gi, '')
-                .replace(/undefined/gi, '')
-                .trim();
-
-            const lowerTable = cleanTableNumber.toLowerCase();
-            if (lowerTable.includes('delivery') || lowerTable.includes('consegna')) {
-                cleanTableNumber = 'Delivery';
-            } else if (lowerTable.includes('asporto') || lowerTable.includes('takeaway')) {
-                cleanTableNumber = 'Asporto';
-            }
-
-            const tName = cleanTableNumber || 'Altro';
-
-            if (!tableStatsMap[tName]) tableStatsMap[tName] = { revenue: 0, count: 0 };
-            tableStatsMap[tName].revenue += orderTotal;
-            tableStatsMap[tName].count += 1;
         });
 
-        // Add Deposits to Revenue
+        // Add Deposits to Revenue (if confirmed)
         const totalDeposits = deposits.reduce((sum, d) => sum + d.amount, 0);
 
         // Expenses
@@ -300,12 +230,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
         const expensesAcconti = expenses.filter(e => e.deductFrom === 'acconti').reduce((sum, e) => sum + e.amount, 0);
 
         const netCashFlow = totalRevenue + totalDeposits - expensesCassa - expensesAcconti;
+        // Logic for netDepositsFlow can be refined
         const netDepositsFlow = totalDeposits - expensesAcconti;
-
-        // Convert table stats to array and sort
-        const tableStats = Object.entries(tableStatsMap)
-            .map(([name, data]) => ({ name, ...data }))
-            .sort((a, b) => b.revenue - a.revenue);
 
         return {
             totalRevenue,
@@ -319,9 +245,8 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
             totalExpenses,
             expensesCassa,
             expensesAcconti,
-            netCashFlow,
-            netDepositsFlow,
-            tableStats // Exported
+            netCashFlow: netCashFlow,
+            netDepositsFlow
         };
     }, [orders, deposits, expenses]);
 
@@ -333,101 +258,42 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
             return;
         }
 
-        const expensePayload = {
-            category_id: newExpense.category || (categories[0]?.id), // Use ID
-            description: newExpense.description || 'Spesa',
-            amount: isNaN(Number(newExpense.amount)) ? 0 : Number(newExpense.amount),
-            expense_date: newExpense.date || new Date().toISOString().split('T')[0],
-            payment_method: newExpense.paymentMethod || 'cash',
-            deduct_from: newExpense.deductFrom || 'cassa',
-            notes: newExpense.notes || null
+        const expenseToSave: Expense = {
+            id: crypto.randomUUID(),
+            amount: Number(newExpense.amount),
+            description: newExpense.description || '',
+            category: newExpense.category || 'Fornitori',
+            date: newExpense.date || new Date().toISOString().split('T')[0],
+            paymentMethod: newExpense.paymentMethod || 'cash',
+            deductFrom: newExpense.deductFrom || 'cassa',
+            notes: newExpense.notes,
+            createdAt: Date.now() // Added createdAt
         };
 
         // Save to Supabase
         if (supabase) {
-            let data, error;
-
-            if (editingExpenseId) {
-                // UPDATE existing expense
-                const result = await supabase
-                    .from('expenses')
-                    .update(expensePayload)
-                    .eq('id', editingExpenseId)
-                    .select()
-                    .single();
-                data = result.data;
-                error = result.error;
-            } else {
-                // INSERT new expense
-                const result = await supabase.from('expenses').insert(expensePayload).select().single();
-                data = result.data;
-                error = result.error;
-            }
-
+            const { error } = await supabase.from('expenses').insert(expenseToSave);
             if (error) {
                 console.error("Error saving expense:", error);
-                showToast('ERRORE DATABASE: ' + (error.message || JSON.stringify(error)), 'error');
+                showToast("Errore salvataggio spesa", 'error');
                 return;
             }
-
-            if (data) {
-                const savedExp: Expense = {
-                    id: data.id,
-                    amount: data.amount,
-                    description: data.description,
-                    category: data.category_id,
-                    date: data.expense_date,
-                    paymentMethod: data.payment_method as PaymentMethod,
-                    deductFrom: data.deduct_from as any,
-                    notes: data.notes,
-                    createdAt: new Date(data.created_at).getTime()
-                };
-
-                if (editingExpenseId) {
-                    // Update in list
-                    setExpenses(prev => prev.map(e => e.id === editingExpenseId ? savedExp : e));
-                    showToast("Spesa modificata", 'success');
-                } else {
-                    // Add to list
-                    setExpenses(prev => [...prev, savedExp]);
-                    showToast("Spesa registrata", 'success');
-                }
-
-                setIsAddingExpense(false);
-                setEditingExpenseId(null);
-                setNewExpense({
-                    category: categories[0]?.id || '',
-                    paymentMethod: 'cash',
-                    deductFrom: 'cassa',
-                    date: new Date().toISOString().split('T')[0]
-                });
-            }
         } else {
-            // Local Storage Fallback
-            const expenseForLocal: Expense = {
-                id: crypto.randomUUID(),
-                amount: Number(newExpense.amount),
-                description: newExpense.description || 'Spesa',
-                category: newExpense.category || '',
-                date: newExpense.date || new Date().toISOString().split('T')[0],
-                paymentMethod: (newExpense.paymentMethod || 'cash') as PaymentMethod,
-                deductFrom: (newExpense.deductFrom || 'cassa') as any,
-                notes: newExpense.notes,
-                createdAt: Date.now()
-            };
+            // Local Storage
             const localExp = JSON.parse(localStorage.getItem('expenses') || '[]');
-            localExp.push(expenseForLocal);
+            localExp.push(expenseToSave);
             localStorage.setItem('expenses', JSON.stringify(localExp));
-            setExpenses(prev => [...prev, expenseForLocal]);
-            setIsAddingExpense(false);
-            setNewExpense({
-                category: '',
-                paymentMethod: 'cash',
-                deductFrom: 'cassa',
-                date: new Date().toISOString().split('T')[0]
-            });
-            showToast("Spesa registrata (locale)", 'success');
         }
+
+        setExpenses(prev => [...prev, expenseToSave]);
+        setIsAddingExpense(false);
+        setNewExpense({
+            category: 'Fornitori',
+            paymentMethod: 'cash',
+            deductFrom: 'cassa',
+            date: new Date().toISOString().split('T')[0]
+        });
+        showToast("Spesa registrata", 'success');
     };
 
     const handleDeleteExpense = async (id: string) => {
@@ -610,58 +476,6 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
                             </div>
                         )}
 
-                        {/* TAB: TABLES */}
-                        {activeTab === 'tables' && (
-                            <div className="space-y-8">
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                    {stats.tableStats.slice(0, 3).map((t, i) => (
-                                        <div key={t.name} className="bg-slate-900 p-6 rounded-2xl border border-slate-800 relative overflow-hidden group">
-                                            <div className="absolute -right-4 -top-4 p-4 opacity-5 group-hover:opacity-10 transition-opacity font-black text-8xl text-indigo-500">#{i + 1}</div>
-                                            <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                                                <span className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-bold ${i === 0 ? 'bg-yellow-500 text-black' : i === 1 ? 'bg-slate-300 text-black' : 'bg-orange-700 text-white'}`}>
-                                                    #{i + 1}
-                                                </span>
-                                                {t.name}
-                                            </h3>
-                                            <p className="text-3xl font-black text-indigo-400">€ {t.revenue.toFixed(2)}</p>
-                                            <p className="text-slate-500 text-sm mt-1">{t.count} ordini • Media € {(t.revenue / t.count).toFixed(2)}</p>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800">
-                                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                                        <ShoppingBag className="text-indigo-500" />
-                                        Performance Tavoli
-                                    </h3>
-                                    <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2">
-                                        {stats.tableStats.map((t, idx) => {
-                                            const maxRev = stats.tableStats[0]?.revenue || 1;
-                                            const percent = (t.revenue / maxRev) * 100;
-                                            return (
-                                                <div key={t.name} className="flex items-center gap-4 hover:bg-slate-800/30 p-2 rounded-xl transition-colors">
-                                                    <div className="w-8 text-slate-500 font-mono text-sm">#{idx + 1}</div>
-                                                    <div className="w-24 font-bold text-slate-300 truncate" title={t.name}>{t.name}</div>
-                                                    <div className="flex-1 bg-slate-800 rounded-full h-3 overflow-hidden relative">
-                                                        <div className="bg-indigo-600 h-full rounded-full transition-all duration-1000" style={{ width: `${percent}%` }}></div>
-                                                    </div>
-                                                    <div className="w-40 text-right">
-                                                        <span className="block font-bold text-white">€ {t.revenue.toFixed(2)}</span>
-                                                        <div className="flex justify-end gap-2 text-xs text-slate-500">
-                                                            <span>{t.count} ordini</span>
-                                                            <span>•</span>
-                                                            <span>Media € {(t.revenue / t.count).toFixed(0)}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                        {stats.tableStats.length === 0 && <p className="text-slate-500 text-center py-10">Nessun dato disponibile per il periodo selezionato.</p>}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
                         {/* TAB: CASH & EXPENSES */}
                         {activeTab === 'cash' && (
                             <div className="space-y-6">
@@ -719,10 +533,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
                                                         onChange={e => setNewExpense({ ...newExpense, category: e.target.value })}
                                                         className="bg-slate-900 border border-slate-700 rounded-lg p-2 text-white"
                                                     >
-                                                        <option value="">Seleziona Categoria</option>
-                                                        {categories.map(cat => (
-                                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                                        ))}
+                                                        <option value="Fornitori">Fornitori</option>
+                                                        <option value="Personale">Personale</option>
+                                                        <option value="Utenze">Utenze</option>
+                                                        <option value="Altro">Altro</option>
                                                     </select>
                                                     <select
                                                         value={newExpense.deductFrom || 'cassa'}
@@ -760,9 +574,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
                                                         <div>
                                                             <p className="font-bold text-white text-sm">{exp.description}</p>
                                                             <div className="flex items-center gap-2 text-xs text-slate-500">
-                                                                <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">
-                                                                    {categories.find(c => c.id === exp.category)?.name || 'Spesa'}
-                                                                </span>
+                                                                <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">{exp.category}</span>
                                                                 <span className={`px-1.5 py-0.5 rounded text-xs font-bold uppercase ${exp.deductFrom === 'acconti' ? 'bg-purple-900/30 text-purple-400' : 'bg-slate-800 text-slate-500'}`}>
                                                                     {exp.deductFrom === 'acconti' ? 'Da Acconti' : 'Da Cassa'}
                                                                 </span>
@@ -771,21 +583,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
                                                         </div>
                                                         <div className="flex items-center gap-3">
                                                             <span className="font-bold text-red-400">- € {exp.amount.toFixed(2)}</span>
-                                                            <button
-                                                                onClick={() => {
-                                                                    setEditingExpenseId(exp.id);
-                                                                    setNewExpense({
-                                                                        ...exp,
-                                                                        category: exp.category
-                                                                    });
-                                                                    setIsAddingExpense(true);
-                                                                }}
-                                                                className="text-slate-600 hover:text-blue-500"
-                                                                title="Modifica"
-                                                            >
-                                                                <Edit2 size={16} />
-                                                            </button>
-                                                            <button onClick={() => handleDeleteExpense(exp.id)} className="text-slate-600 hover:text-red-500" title="Elimina"><Trash2 size={16} /></button>
+                                                            <button onClick={() => handleDeleteExpense(exp.id)} className="text-slate-600 hover:text-red-500"><Trash2 size={16} /></button>
                                                         </div>
                                                     </div>
                                                 ))
@@ -827,81 +625,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
                         )}
 
                         {activeTab === 'statement' && (
-                            <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 min-h-[500px]" id="statement-container">
-                                <div className="flex justify-between items-center mb-6">
-                                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                                        <FileText className="text-blue-500" />
-                                        Estratto Conto
-                                    </h3>
-                                    <div className="flex items-center gap-4">
-                                        <span className="text-sm text-slate-400">
-                                            {timeFilter === 'today' ? 'Oggi' :
-                                                timeFilter === 'yesterday' ? 'Ieri' :
-                                                    timeFilter === 'week' ? 'Ultimi 7 giorni' :
-                                                        timeFilter === 'month' ? 'Questo mese' :
-                                                            `${customDateStart} - ${customDateEnd}`}
-                                        </span>
-                                        <button
-                                            onClick={() => {
-                                                const printContent = document.getElementById('statement-print-area');
-                                                if (!printContent) return;
+                            <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 min-h-[500px]">
+                                <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                                    <FileText className="text-blue-500" />
+                                    Estratto Conto
+                                </h3>
 
-                                                const printWindow = window.open('', '_blank');
-                                                if (!printWindow) return;
-
-                                                const dateLabel = timeFilter === 'today' ? 'Oggi' :
-                                                    timeFilter === 'yesterday' ? 'Ieri' :
-                                                        timeFilter === 'week' ? 'Ultimi 7 giorni' :
-                                                            timeFilter === 'month' ? 'Questo mese' :
-                                                                `${customDateStart} - ${customDateEnd}`;
-
-                                                printWindow.document.write(`
-                                                    <!DOCTYPE html>
-                                                    <html>
-                                                    <head>
-                                                        <title>Estratto Conto - ${dateLabel}</title>
-                                                        <style>
-                                                            @page { size: A4; margin: 20mm; }
-                                                            body { font-family: Arial, sans-serif; color: #333; }
-                                                            h1 { text-align: center; margin-bottom: 10px; }
-                                                            .date-range { text-align: center; color: #666; margin-bottom: 20px; }
-                                                            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                                                            th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
-                                                            th { background: #f5f5f5; font-weight: bold; text-transform: uppercase; font-size: 12px; }
-                                                            .text-right { text-align: right; }
-                                                            .income { color: #22c55e; font-weight: bold; }
-                                                            .expense { color: #ef4444; font-weight: bold; }
-                                                            .totals { margin-top: 30px; padding: 15px; background: #f5f5f5; border-radius: 8px; }
-                                                            .totals-row { display: flex; justify-content: space-between; margin: 5px 0; }
-                                                        </style>
-                                                    </head>
-                                                    <body>
-                                                        <h1>📊 Estratto Conto</h1>
-                                                        <p class="date-range">Periodo: ${dateLabel}</p>
-                                                        ${printContent.innerHTML}
-                                                        <div class="totals">
-                                                            <div class="totals-row"><strong>Totale Entrate:</strong> <span class="income">€ ${(stats.totalRevenue + stats.totalDeposits).toFixed(2)}</span></div>
-                                                            <div class="totals-row"><strong>Totale Uscite:</strong> <span class="expense">€ ${stats.totalExpenses.toFixed(2)}</span></div>
-                                                            <div class="totals-row"><strong>Saldo Netto:</strong> <strong>€ ${stats.netCashFlow.toFixed(2)}</strong></div>
-                                                        </div>
-                                                        <p style="text-align: center; margin-top: 30px; color: #999; font-size: 12px;">
-                                                            Generato da RistoSync AI - ${new Date().toLocaleString()}
-                                                        </p>
-                                                    </body>
-                                                    </html>
-                                                `);
-                                                printWindow.document.close();
-                                                printWindow.print();
-                                            }}
-                                            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-colors"
-                                        >
-                                            <Printer size={18} />
-                                            Stampa
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="overflow-x-auto" id="statement-print-area">
+                                <div className="overflow-x-auto">
                                     <table className="w-full text-left border-collapse">
                                         <thead>
                                             <tr className="border-b border-slate-700 text-slate-400 text-xs uppercase font-bold">
@@ -959,7 +689,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
                                                         id: e.id,
                                                         date: new Date(e.date).getTime(),
                                                         desc: e.description,
-                                                        category: categories.find(c => c.id === e.category)?.name || 'Spesa',
+                                                        category: e.category,
                                                         in: 0,
                                                         out: e.amount,
                                                         type: 'expense'
