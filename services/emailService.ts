@@ -296,7 +296,95 @@ export const sendAdminPaymentNotification = async (
     });
 };
 
+// Send invoice to accountant
+export const sendInvoiceToAccountant = async (
+    accountantEmail: string,
+    invoice: any,
+    restaurantName: string
+): Promise<boolean> => {
+    const subject = `📄 Nuova Fattura da ${restaurantName} - ${invoice.number}`;
+
+    const html = `
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuova Fattura</title>
+</head>
+<body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f3f4f6;">
+    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f3f4f6; padding: 40px 20px;">
+        <tr>
+            <td align="center">
+                <table width="600" cellpadding="0" cellspacing="0" style="background-color: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                    
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; text-align: center;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 800;">
+                                📄 Nuova Fattura
+                            </h1>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="padding: 30px;">
+                            <p style="margin: 0 0 20px; color: #374151; font-size: 16px;">
+                                Gentile Commercialista,
+                            </p>
+                            <p style="margin: 0 0 30px; color: #374151; font-size: 16px;">
+                                È stata emessa una nuova fattura da <strong>${restaurantName}</strong>.
+                            </p>
+
+                            <table width="100%" cellpadding="12" cellspacing="0" style="background-color: #f9fafb; border-radius: 12px; border: 2px solid #e5e7eb; margin-bottom: 30px;">
+                                <tr>
+                                    <td style="color: #6b7280; font-size: 14px; font-weight: 600;">Numero:</td>
+                                    <td style="color: #111827; font-size: 14px; font-weight: 700; text-align: right;">${invoice.number}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color: #6b7280; font-size: 14px; font-weight: 600;">Data:</td>
+                                    <td style="color: #111827; font-size: 14px; font-weight: 700; text-align: right;">${new Date(invoice.date).toLocaleDateString('it-IT')}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color: #6b7280; font-size: 14px; font-weight: 600;">Cliente:</td>
+                                    <td style="color: #111827; font-size: 14px; font-weight: 700; text-align: right;">${invoice.customerName}</td>
+                                </tr>
+                                <tr>
+                                    <td style="color: #6b7280; font-size: 14px; font-weight: 600;">Totale:</td>
+                                    <td style="color: #10b981; font-size: 20px; font-weight: 800; text-align: right;">€ ${invoice.total.toFixed(2)}</td>
+                                </tr>
+                            </table>
+
+                            <p style="margin: 0; color: #6b7280; font-size: 14px;">
+                                Questa è una notifica automatica da RistoSync.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <td style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
+                            <p style="margin: 0; color: #6b7280; font-size: 12px;">
+                                Email automatica da RistoSync
+                            </p>
+                        </td>
+                    </tr>
+
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
+    `;
+
+    return await sendEmail({
+        to: accountantEmail,
+        subject,
+        html,
+    });
+};
+
 export default {
     sendPaymentConfirmationEmail,
     sendAdminPaymentNotification,
+    sendInvoiceToAccountant,
 };
