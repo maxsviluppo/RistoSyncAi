@@ -353,21 +353,30 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
     };
 
     const isItemRelevantForDept = (item: OrderItem): boolean => {
+        // 0. Separators are always relevant (visible logic handles filtering empty receipts)
+        if (item.isSeparator) return true;
+
+        if (!appSettings || !item.menuItem) return false;
+
+        const destinations = appSettings.categoryDestinations || {};
+
         // 1. If Normal Item -> Check destination directly
         if (item.menuItem.category !== Category.MENU_COMPLETO) {
-            const dest = item.menuItem.specificDepartment || appSettings.categoryDestinations[item.menuItem.category];
+            const dest = item.menuItem.specificDepartment || destinations[item.menuItem.category] || 'Cucina';
             return dest === department;
         }
 
         // 2. If Combo Item -> Check if ANY sub-item belongs to this department
         const subItems = getSubItemsForCombo(item);
         return subItems.some(sub => {
-            const dest = sub.specificDepartment || appSettings.categoryDestinations[sub.category];
+            const dest = sub.specificDepartment || destinations[sub.category] || 'Cucina';
             // Special Case for Sala Visibility: Drinks in combos usually go to Sala. 
             // If department is 'Sala' and item is Drink, return true.
             return dest === department;
         });
     };
+
+
 
     const showNotification = (msg: string, type: 'info' | 'success' | 'alert') => { setNotification({ msg, type }); setTimeout(() => setNotification(null), 5000); };
     const handleCriticalDelay = (tableNum: string) => {
@@ -594,7 +603,7 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
     const isAutoPrintActive = appSettings.printEnabled && appSettings.printEnabled[department];
 
     return (
-        <div className="min-h-screen bg-slate-900 text-white p-6 font-sans flex flex-col relative overflow-hidden">
+        <div className="min-h-screen bg-slate-900 text-white p-6 font-sans flex flex-col relative">
             <style>{`@keyframes wiggle { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } } .animate-wiggle { animation: wiggle 0.3s ease-in-out infinite; } .receipt-edge { clip-path: polygon(0% 0%, 100% 0%, 100% 100%, 95% 95%, 90% 100%, 85% 95%, 80% 100%, 75% 95%, 70% 100%, 65% 95%, 60% 100%, 55% 95%, 50% 100%, 45% 95%, 40% 100%, 35% 95%, 30% 100%, 25% 95%, 20% 100%, 15% 95%, 10% 100%, 5% 95%, 0% 100%); }`}</style>
 
             {notification && (
@@ -661,292 +670,156 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
             </div>
 
             {viewMode === 'active' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 pb-10">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3 pb-10">
                     {displayedOrders.map((order) => {
-                        const currentTime = Date.now();
-                        const timeDiffMinutes = Math.floor((currentTime - order.timestamp) / 60000);
-                        const isCritical = timeDiffMinutes >= THRESHOLD_CRITICAL && order.status !== OrderStatus.READY && order.status !== OrderStatus.DELIVERED;
-                        const isLingering = lingerOrders.includes(order.id);
+                        // PREPARE DATA
+                        const cleanTable = order.tableNumber.replace('_HISTORY', '').replace('DEL_', 'DEL ').replace('ASP_', 'ASP ');
 
-                        // FILTER: Determine visible items
-                        const visibleItems = order.items
-                            .map((item, originalIndex) => ({ item, originalIndex }))
-                            .filter(({ item }) => isItemRelevantForDept(item))
-                            .sort((a, b) => (CATEGORY_PRIORITY[a.item.menuItem.category] || 99) - (CATEGORY_PRIORITY[b.item.menuItem.category] || 99));
+                        // FILTER ITEMS (SAFE)
+                        let visibleItems: { item: OrderItem, originalIndex: number }[] = [];
+                        try {
+                            visibleItems = order.items
+                                .map((item, originalIndex) => ({ item, originalIndex }))
+                                .filter(({ item }) => {
+                                    if (!item || !item.menuItem) return false;
+                                    // SEPARATORS ALWAYS VISIBLE
+                                    if (item.isSeparator) return true;
+
+                                    // RELEVANCE CHECK
+                                    if (item.menuItem.category === Category.MENU_COMPLETO) {
+                                        const sub = getSubItemsForCombo(item);
+                                        return sub.some(s => {
+                                            const d = s.specificDepartment || (appSettings.categoryDestinations ? appSettings.categoryDestinations[s.category] : 'Cucina');
+                                            return d === department;
+                                        });
+                                    }
+
+                                    const dest = item.menuItem.specificDepartment || (appSettings.categoryDestinations ? appSettings.categoryDestinations[item.menuItem.category] : 'Cucina');
+                                    return dest === department;
+                                });
+                        } catch (e) { console.error(e); }
 
                         if (visibleItems.length === 0) return null;
 
-                        // CHECK DEPARTMENT COMPLETION
-                        const isDepartmentComplete = visibleItems.every(({ item }) => {
-                            if (item.menuItem.category === Category.MENU_COMPLETO && item.menuItem.comboItems) {
-                                const relevantSubItems = getSubItemsForCombo(item).filter(sub => {
-                                    const dest = sub.specificDepartment || appSettings.categoryDestinations[sub.category];
-                                    return dest === department;
+                        // STATUS COLORS
+                        const isLingering = lingerOrders.includes(order.id);
+                        let bgColor = 'bg-slate-200'; // Default Receipt Color (from photo)
+                        if (isLingering) bgColor = 'bg-green-100';
+                        else if (order.status === OrderStatus.READY) bgColor = 'bg-green-200';
+
+                        // SYNC DEPARTMENTS CALCULATION
+                        const otherDepts = new Set<string>();
+                        order.items.forEach(i => {
+                            if (i.isSeparator) return;
+                            if (i.menuItem.category === Category.MENU_COMPLETO && i.menuItem.comboItems) {
+                                getSubItemsForCombo(i).forEach(s => {
+                                    const d = s.specificDepartment || (appSettings.categoryDestinations ? appSettings.categoryDestinations[s.category] : 'Cucina');
+                                    if (d && d !== department) otherDepts.add(d);
                                 });
-                                if (relevantSubItems.length === 0) return true;
-                                return relevantSubItems.every(sub => item.comboCompletedParts?.includes(sub.id));
+                            } else {
+                                const d = i.menuItem.specificDepartment || (appSettings.categoryDestinations ? appSettings.categoryDestinations[i.menuItem.category] : 'Cucina');
+                                if (d && d !== department) otherDepts.add(d);
                             }
-                            return item.completed;
                         });
+                        const syncLabels = Array.from(otherDepts);
 
-                        let borderColor = getStatusColor(order.status).replace('text', 'border').replace('bg-', 'border-');
-                        let bgClass = "bg-slate-800/95 bg-gradient-to-br from-slate-800 to-slate-900"; // Default
-
-                        if (isDepartmentComplete && !isLingering) {
-                            borderColor = 'border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.3)]';
-                            bgClass = "bg-emerald-950/80 bg-gradient-to-br from-emerald-950 to-slate-900";
-                        } else if (isCritical) {
-                            borderColor = 'border-red-600 animate-pulse shadow-[0_0_20px_rgba(220,38,38,0.4)]';
-                        } else if (isLingering) {
-                            borderColor = 'border-green-500 shadow-[0_0_30px_rgba(34,197,94,0.4)] bg-green-900/20';
-                        }
-
-                        // COORDINATION LOGIC
-                        const otherDeptItems = order.items.filter(i => !isItemRelevantForDept(i) && i.menuItem.category !== Category.BEVANDE);
-                        const hasCoordinatedItems = otherDeptItems.length > 0;
-
-                        let displayTableNumber = order.tableNumber.replace('_HISTORY', '');
-
-                        // SIMPLIFIED NAMING: Generate simple sequential names for delivery/takeaway
-                        // Extract the numeric part (if any) from the original table number
-                        const numMatch = order.tableNumber.match(/(\d+)/);
-                        const orderNum = numMatch ? numMatch[1] : '1';
-
-                        if (order.tableNumber.includes('JUST-EAT') || order.tableNumber.startsWith('DEL_JUST-EAT')) {
-                            displayTableNumber = `JE ${orderNum}`;
-                        } else if (order.tableNumber.includes('GLOVO') || order.tableNumber.startsWith('DEL_GLOVO')) {
-                            displayTableNumber = `GL ${orderNum}`;
-                        } else if (order.tableNumber.includes('DELIVEROO') || order.tableNumber.startsWith('DEL_DELIVEROO')) {
-                            displayTableNumber = `DE ${orderNum}`;
-                        } else if (order.tableNumber.includes('UBER-EATS') || order.tableNumber.startsWith('DEL_UBER-EATS')) {
-                            displayTableNumber = `UE ${orderNum}`;
-                        } else if (order.tableNumber.includes('PHONE') || order.tableNumber.startsWith('DEL_PHONE')) {
-                            displayTableNumber = `TEL ${orderNum}`;
-                        } else if (order.tableNumber.startsWith('ASP_') || order.tableNumber.includes('TAKEAWAY')) {
-                            displayTableNumber = `ASP ${orderNum}`;
-                        } else if (order.tableNumber.startsWith('DEL_')) {
-                            displayTableNumber = `DEL ${orderNum}`;
-                        } else {
-                            // Regular table - keep as is but clean up
-                            displayTableNumber = displayTableNumber.replace('DEL_', '').replace('ASP_', '');
-                        }
-
-                        // DELIVERY DETECTION & URGENCY
-                        const isDelivery = order.tableNumber.startsWith('DEL_') || order.tableNumber.startsWith('ASP_') ||
-                            ['JE', 'GL', 'DE', 'UE', 'TEL', 'ASP'].some(prefix => displayTableNumber.startsWith(prefix));
-
-                        let urgencyInfo = null;
-
-                        // Parse delivery time from order field OR notes (format "Orario: HH:MM")
-                        let deliveryTimeStr = order.deliveryTime;
-                        if (!deliveryTimeStr && order.notes) {
-                            const timeMatch = order.notes.match(/Orario:\s*(\d{2}:\d{2})/);
-                            if (timeMatch) deliveryTimeStr = timeMatch[1];
-                        }
-
-                        if (isDelivery && deliveryTimeStr) {
-                            const [hours, minutes] = deliveryTimeStr.split(':').map(Number);
-                            const now = new Date();
-                            const deliveryDate = new Date();
-                            deliveryDate.setHours(hours, minutes, 0, 0);
-
-                            // Handle next day delivery (e.g. order at 23:00 for 00:30) - naive check
-                            if (now.getHours() > 22 && hours < 3) {
-                                deliveryDate.setDate(now.getDate() + 1);
-                            }
-
-                            const diffMinutes = (deliveryDate.getTime() - now.getTime()) / 60000;
-
-                            let urgencyColor = 'text-green-400';
-                            let urgencyBg = 'bg-blue-900/60 border-blue-500/40';
-
-                            if (diffMinutes <= 15 && diffMinutes > -60) {
-                                urgencyColor = 'text-red-400 animate-pulse';
-                                urgencyBg = 'bg-red-900/80 border-red-500 animate-pulse';
-                                urgencyInfo = { minutes: Math.ceil(diffMinutes), status: 'URGENTE', color: 'red', bg: urgencyBg };
-                            } else if (diffMinutes <= 30) {
-                                urgencyColor = 'text-orange-400';
-                                urgencyBg = 'bg-orange-900/60 border-orange-500/40';
-                                urgencyInfo = { minutes: Math.ceil(diffMinutes), status: 'ATTENZIONE', color: 'orange', bg: urgencyBg };
-                            } else {
-                                urgencyInfo = { minutes: Math.ceil(diffMinutes), status: 'DELIVERY', color: 'blue', bg: urgencyBg };
-                            }
-                        }
-
-                        // Override colors for delivery
-                        if (isDelivery && !isLingering && !isDepartmentComplete) {
-                            if (urgencyInfo?.status === 'URGENTE') {
-                                borderColor = 'border-red-500 shadow-[0_0_20px_rgba(239,68,68,0.4)]';
-                                bgClass = "bg-red-950 bg-gradient-to-br from-red-950 to-slate-900";
-                            } else {
-                                borderColor = 'border-purple-500 shadow-lg';
-                                bgClass = "bg-slate-800 bg-gradient-to-br from-indigo-950 to-slate-900";
-                            }
-                        }
-
+                        // RENDER CARD
                         return (
-                            <div key={order.id} className={`flex flex-col rounded-xl shadow-2xl border-t-8 ${borderColor} ${bgClass} text-slate-200 overflow-hidden relative ${isLingering || urgencyInfo?.status === 'URGENTE' ? 'animate-pulse' : 'hover:-translate-y-1'} transition-transform`}>
-                                <div className={`p-4 border-b border-white/10 flex justify-between items-start bg-black/20`}>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            {isDelivery && <Bike className="text-white" size={20} />}
-                                            <h2 className="text-xl font-black bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent">{displayTableNumber.startsWith('JE') || displayTableNumber.startsWith('GL') || displayTableNumber.startsWith('DE') || displayTableNumber.startsWith('UE') || displayTableNumber.startsWith('TEL') || displayTableNumber.startsWith('ASP') || displayTableNumber.startsWith('DEL') ? '' : 'Tav. '}{displayTableNumber}</h2>
+                            <div key={order.id} className={`${bgColor} text-slate-900 shadow-xl font-mono text-sm leading-tight pb-2 min-w-[200px] h-full flex flex-col relative transition-transform hover:-translate-y-1`}>
+                                {/* RECEIPT EDGE DECORATION TOP (Optional, simple line) */}
+                                <div className="h-1 bg-slate-800/10 w-full mb-1"></div>
+
+                                {/* HEADER (Compact Left-Right) */}
+                                <div className="px-2 pt-2 pb-1 border-b border-dashed border-slate-400 mx-1">
+                                    <div className="flex justify-between items-end">
+                                        {/* SX: TAVOLO e REPARTO */}
+                                        <div className="flex flex-col items-start leading-none">
+                                            <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">{department}</div>
+                                            <div className="text-2xl font-black text-slate-900 tracking-tighter">
+                                                {/^\d+$/.test(cleanTable) ? `TAV.${cleanTable}` : cleanTable}
+                                            </div>
                                         </div>
-                                        <div className="flex flex-wrap gap-2 mt-1">
-                                            <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold uppercase ${isLingering ? 'bg-green-600 text-white' : getStatusColor(order.status)}`}>
-                                                {isLingering ? 'ARCHIVIAZIONE...' : (order.status === OrderStatus.READY ? 'TAVOLO PRONTO' : order.status)}
-                                            </span>
-                                            {isDepartmentComplete && !isLingering && (
-                                                <span className="inline-block px-2 py-0.5 rounded text-xs font-bold uppercase bg-emerald-500 text-black flex items-center gap-1">
-                                                    <CheckCircle size={10} /> REPARTO OK
-                                                </span>
-                                            )}
-                                        </div>
-                                        {hasCoordinatedItems && (<div className="mt-2 flex items-center gap-1.5 text-[9px] font-black uppercase text-blue-200 bg-blue-900/60 px-2 py-1.5 rounded-lg border border-blue-500/40 animate-pulse w-max shadow-lg shadow-blue-900/20"><ArrowRightLeft size={12} className="text-blue-400" /><span>SYNC: {otherDeptItems.length} ALTRI</span></div>)}
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1.5">
-                                        <div className="flex flex-col items-end gap-1 mb-1">
-                                            <span className="text-[10px] text-slate-400 font-mono bg-slate-800/80 px-1.5 py-0.5 rounded flex items-center gap-1 border border-slate-700">Entrata: <span className="text-white font-bold">{formatTime(order.createdAt || order.timestamp)}</span></span>
-                                            {urgencyInfo && (
-                                                <div className={`flex items-center gap-1.5 text-[10px] font-black uppercase text-white px-2 py-1 rounded border shadow-sm ${urgencyInfo.status === 'URGENTE' ? 'bg-red-600 border-red-400' : 'bg-blue-600 border-blue-400'}`}>
-                                                    <Clock size={10} />
-                                                    <span>OUT: {deliveryTimeStr}</span>
+
+                                        {/* DX: ORA e STAFF */}
+                                        <div className="flex flex-col items-end text-right leading-none pb-0.5">
+                                            {/* SYNC LABELS */}
+                                            {syncLabels.length > 0 && (
+                                                <div className="flex flex-col items-end mb-1 gap-0.5">
+                                                    {syncLabels.map(d => (
+                                                        <span key={d} className="text-[8px] font-black bg-orange-100 text-orange-700 border border-orange-300 px-1 rounded-sm uppercase tracking-tight animate-pulse">
+                                                            SYNC {d}
+                                                        </span>
+                                                    ))}
                                                 </div>
                                             )}
+
+                                            <div className="text-base font-bold text-slate-800 mb-0.5">{formatTime(order.timestamp)}</div>
+                                            <div className="text-[9px] font-bold text-slate-500 uppercase truncate max-w-[80px]">
+                                                {order.waiterName || 'Staff'}
+                                            </div>
                                         </div>
-                                        <OrderTimer timestamp={order.timestamp} status={order.status} onCritical={() => handleCriticalDelay(order.tableNumber)} />
-                                        <div className="flex items-center justify-end gap-1 text-slate-500 text-xs font-bold"><User size={12} /> {order.waiterName || 'Staff'}</div>
                                     </div>
                                 </div>
 
-                                <div className="p-4 flex-1 overflow-y-auto max-h-[300px] bg-black/10">
-                                    <ul className="space-y-4">
-                                        {visibleItems.map(({ item, originalIndex }) => {
-                                            // COMBO LOGIC: If it's a combo, calculate specific display name for THIS department
-                                            const isCombo = item.menuItem.category === Category.MENU_COMPLETO;
-
-                                            if (isCombo) {
-                                                // SUB-ITEMS SPECIFIC TO DEPT
-                                                const subItems = getSubItemsForCombo(item).filter(sub => {
-                                                    const dest = sub.specificDepartment || appSettings.categoryDestinations[sub.category];
-                                                    return dest === department;
-                                                });
-
-                                                return (
-                                                    <li key={`${order.id}-${originalIndex}`} className="flex flex-col border-b border-dashed border-slate-700 pb-3 last:border-0 rounded-lg p-2 bg-slate-800/20">
-                                                        <div className="flex items-center gap-2 mb-2">
-                                                            <p className="text-[10px] font-bold uppercase tracking-wider text-pink-500 flex items-center gap-1"><ListPlus size={10} /> MENU COMBO ({item.menuItem.name})</p>
-                                                            <span className={`font-black text-xs px-2 py-0.5 rounded shadow-inner ${item.completed ? 'bg-green-900/30 text-green-400' : 'bg-slate-700 text-white'}`}>x{item.quantity}</span>
-                                                        </div>
-                                                        <div className="flex flex-col gap-2 pl-2">
-                                                            {subItems.map((sub, idx) => {
-                                                                const isDone = item.comboCompletedParts?.includes(sub.id);
-                                                                return (
-                                                                    <div key={sub.id} onClick={() => order.status !== OrderStatus.DELIVERED && handleToggleItem(order.id, originalIndex, sub.id)} className={`flex items-center justify-between p-2 rounded-lg cursor-pointer transition-all ${isDone ? 'bg-green-900/20 opacity-60' : 'bg-slate-700/50 hover:bg-slate-700 border border-slate-600'}`}>
-                                                                        <div className="flex items-center gap-3">
-                                                                            <div className={`pt-0.5 ${isDone ? 'text-green-500' : 'text-slate-400'}`}>{isDone ? <CheckSquare size={20} /> : <Square size={20} />}</div>
-                                                                            <span className={`font-black text-xl leading-none ${isDone ? 'text-slate-500 line-through' : 'text-orange-400'}`}>{sub.name}</span>
-                                                                        </div>
-                                                                    </div>
-                                                                )
-                                                            })}
-                                                            {subItems.length === 0 && <p className="text-xs text-slate-500 italic px-2">Nessun elemento per questo reparto.</p>}
-                                                        </div>
-                                                        {item.notes && (
-                                                            <div className="mt-2 space-y-1 ml-2">
-                                                                {item.notes.split('|||').map((note, noteIdx) => (
-                                                                    <p key={noteIdx} className="text-red-300 text-xs font-bold bg-red-900/20 px-2 py-1 rounded border border-red-900/30 shadow-sm">⚠️ {note.trim()}</p>
-                                                                ))}
-                                                            </div>
-                                                        )}
-                                                    </li>
-                                                );
-                                            }
-
-                                            // STANDARD ITEM RENDERING
+                                {/* ITEMS LIST */}
+                                <div className="p-3 flex-1 space-y-2 overflow-y-auto max-h-[400px]">
+                                    {visibleItems.map(({ item, originalIndex }) => {
+                                        // SEPARATOR HANDLING (Full width dashed)
+                                        if (item.isSeparator) {
                                             return (
-                                                <li key={`${order.id}-${originalIndex}`} onClick={() => order.status !== OrderStatus.DELIVERED && handleToggleItem(order.id, originalIndex)} className={`flex justify-between items-start border-b border-dashed border-slate-700 pb-3 last:border-0 rounded-lg p-2 transition-colors ${item.completed ? 'bg-green-900/10 opacity-70' : 'hover:bg-slate-800/50 cursor-pointer'}`}>
-                                                    <div className="w-full">
-                                                        {item.isAddedLater && order.status !== OrderStatus.DELIVERED && <div className="flex items-center gap-1 mb-1 bg-blue-600 w-max px-2 py-0.5 rounded-md shadow-sm border border-blue-400"><PlusCircle size={10} className="text-white animate-pulse" /><span className="text-[10px] font-black text-white uppercase tracking-wide">AGGIUNTA</span></div>}
-                                                        <div className="flex gap-4 items-start w-full">
-                                                            <div className={`pt-1 ${item.completed ? 'text-green-500' : 'text-slate-600'}`}>{item.completed ? <CheckSquare size={28} /> : <Square size={28} />}</div>
-                                                            <span className={`font-black text-2xl w-10 h-10 flex items-center justify-center rounded-lg shadow-inner ${item.completed ? 'bg-green-900/30 text-green-400' : 'bg-slate-700 text-white'}`}>{item.quantity}</span>
-                                                            <div className="flex-1 min-w-0">
-                                                                <div className="flex items-center gap-2">
-                                                                    <p className={`text-[10px] font-bold uppercase tracking-wider mb-0.5 ${isPizzeria ? 'text-red-500' : isPub ? 'text-amber-500' : 'text-orange-500'}`}>{item.menuItem.category}</p>
-                                                                </div>
-
-                                                                {/* MAIN NAME DISPLAY */}
-                                                                <p className={`font-black text-2xl leading-none tracking-tight break-words ${item.completed ? 'text-slate-500 line-through decoration-slate-600 decoration-2' : 'bg-gradient-to-br from-white to-slate-400 bg-clip-text text-transparent'}`}>
-                                                                    {item.menuItem.name}
-                                                                </p>
-
-                                                                {item.menuItem.ingredients && <p className="text-[10px] text-slate-500 mt-1 italic">{item.menuItem.ingredients}</p>}
-                                                                {item.notes && (
-                                                                    <div className="mt-2 space-y-1">
-                                                                        {item.notes.split('|||').map((note, noteIdx) => (
-                                                                            <p key={noteIdx} className="text-red-300 text-sm font-bold bg-red-900/20 px-3 py-1 rounded border border-red-900/30 shadow-sm">⚠️ {note.trim()}</p>
-                                                                        ))}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                </li>
-                                            )
-                                        })}
-                                    </ul>
-
-                                    {/* SALA ITEMS FOR DELIVERY ORDERS */}
-                                    {isDelivery && (() => {
-                                        const salaItems = order.items
-                                            .map((item, originalIndex) => ({ item, originalIndex }))
-                                            .filter(({ item }) => {
-                                                const dest = item.menuItem.specificDepartment || appSettings.categoryDestinations[item.menuItem.category];
-                                                return dest === 'Sala';
-                                            });
-
-                                        console.log(`📦 Delivery ${order.tableNumber}: Sala items found:`, salaItems.length, salaItems.map(s => s.item.menuItem.name));
-
-                                        if (salaItems.length === 0) return null;
-
-                                        return (
-                                            <div className="mt-3 pt-3 border-t border-dashed border-blue-500/30">
-                                                <div className="flex items-center gap-2 mb-2 px-2">
-                                                    <Wine size={14} className="text-blue-400" />
-                                                    <span className="text-[10px] font-black uppercase tracking-wider text-blue-400">Prodotti Sala (Bevande)</span>
+                                                <div key={`sep-${originalIndex}`} className="flex items-center gap-2 py-1 my-1 opacity-70 w-full overflow-hidden">
+                                                    <div className="h-px bg-slate-400 flex-1 border-b border-dashed border-slate-500"></div>
+                                                    <span className="text-[10px] font-black uppercase whitespace-nowrap text-slate-600 tracking-widest">A SEGUIRE</span>
+                                                    <div className="h-px bg-slate-400 flex-1 border-b border-dashed border-slate-500"></div>
                                                 </div>
-                                                <ul className="space-y-2">
-                                                    {salaItems.map(({ item, originalIndex }) => (
-                                                        <li
-                                                            key={`sala-${order.id}-${originalIndex}`}
-                                                            onClick={() => {
-                                                                console.log(`🍷 Sala item clicked: Order ${order.id}, Index ${originalIndex}, Current completed: ${item.completed}`);
-                                                                if (order.status !== OrderStatus.DELIVERED) {
-                                                                    handleToggleItem(order.id, originalIndex);
-                                                                }
-                                                            }}
-                                                            className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${item.completed ? 'bg-blue-900/20 border-blue-800/30 opacity-60' : 'bg-blue-900/30 border-blue-500/30 hover:bg-blue-800/40'}`}
-                                                        >
-                                                            <div className={`${item.completed ? 'text-blue-400' : 'text-blue-500'}`}>
-                                                                {item.completed ? <CheckSquare size={20} /> : <Square size={20} />}
-                                                            </div>
-                                                            <span className={`font-bold text-sm px-2 py-0.5 rounded ${item.completed ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-700/50 text-white'}`}>x{item.quantity}</span>
-                                                            <span className={`font-bold ${item.completed ? 'text-blue-400/60 line-through' : 'text-blue-200'}`}>{item.menuItem.name}</span>
-                                                        </li>
-                                                    ))}
-                                                </ul>
+                                            );
+                                        }
+
+                                        // NORMAL ITEM
+                                        const isCompleted = item.completed;
+                                        return (
+                                            <div
+                                                key={`${order.id}-${originalIndex}`}
+                                                onClick={() => order.status !== OrderStatus.DELIVERED && handleToggleItem(order.id, originalIndex)}
+                                                className={`cursor-pointer transition-all ${isCompleted ? 'opacity-40 line-through decoration-2 decoration-slate-500' : 'hover:bg-black/5'}`}
+                                            >
+                                                <div className="flex gap-2 items-start text-sm leading-snug">
+                                                    <span className="font-black w-7 text-right shrink-0 tracking-tighter">{item.quantity}x</span>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-bold uppercase">{item.menuItem.name}</span>
+                                                        {item.notes && item.notes.split('|||').map((note, n) => (
+                                                            <span key={n} className="text-[10px] bg-white border border-slate-400 px-1 font-bold w-max mt-0.5 rounded-sm">{note}</span>
+                                                        ))}
+                                                        {item.isAddedLater && <span className="text-[9px] bg-slate-800 text-white px-1 font-bold w-max mt-0.5 rounded-sm">AGGIUNTA</span>}
+                                                    </div>
+                                                </div>
                                             </div>
                                         );
-                                    })()}
+                                    })}
                                 </div>
 
-                                <button onClick={() => advanceStatus(order.id, order.status)} className={`w-full py-5 text-center font-black text-lg uppercase tracking-wider transition-all flex items-center justify-center gap-2 hover:brightness-110 ${order.status === OrderStatus.READY ? 'bg-green-600 text-white' : (isDepartmentComplete ? 'bg-emerald-600 text-white' : `bg-${themeColor}-500 text-white`)}`}>
-                                    {order.status === OrderStatus.READY ? <><CheckCircle /> COMPLETA (ATTENDI RITIRO)</> : (isDepartmentComplete ? <><CheckCircle /> REPARTO COMPLETO</> : <>AVANZA STATO {order.status === OrderStatus.PENDING && '→ PREPARAZIONE'} {order.status === OrderStatus.COOKING && '→ PRONTO'}</>)}
-                                </button>
+                                {/* BOTTOM ACTIONS (Reduced Size) */}
+                                <div className="p-2 pt-0 mt-auto z-10 relative">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); advanceStatus(order.id, order.status); }}
+                                        className={`w-full py-1.5 font-bold uppercase tracking-wider text-xs border border-slate-400 bg-white/60 hover:bg-white text-slate-900 rounded shadow-sm transition-all flex items-center justify-center gap-1`}
+                                    >
+                                        {order.status === OrderStatus.READY ? <><CheckCircle size={14} /> COMPLETA</> : (order.status === OrderStatus.PENDING ? 'IN PREPARAZIONE' : 'PRONTO PER SALA')}
+                                    </button>
+                                </div>
+
+                                {/* ZIG ZAG BOTTOM (CSS Class from style block) */}
+                                <div className="receipt-edge absolute bottom-[-10px] left-0 right-0 h-[20px] bg-inherit z-0" style={{ backgroundColor: 'inherit' }}></div>
                             </div>
                         );
                     })}
+                    {displayedOrders.length === 0 && (
+                        <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-500">
+                            <UtensilsCrossed size={64} className="opacity-20 mb-4" />
+                            <p className="font-bold text-lg">Nessun ordine in cucina</p>
+                            <p className="text-sm">Le comande appariranno qui quando inviate dai camerieri.</p>
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div className="flex flex-col h-full overflow-hidden animate-fade-in">

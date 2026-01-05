@@ -13,7 +13,7 @@ import {
     LogOut, Plus, Search, Utensils, CheckCircle,
     ChevronLeft, Trash2, User, Clock,
     DoorOpen, ChefHat, Pizza, Sandwich,
-    Wine, CakeSlice, UtensilsCrossed, Send as SendIcon, CheckSquare, Square, BellRing, X, ArrowLeft, AlertTriangle, Home, Lock, Mic, MicOff, Edit3, Calendar, Users, Baby
+    Wine, CakeSlice, UtensilsCrossed, Send as SendIcon, CheckSquare, Square, BellRing, X, ArrowLeft, AlertTriangle, Home, Lock, Mic, MicOff, Edit3, Calendar, Users, Baby, ArrowRightLeft
 } from 'lucide-react';
 
 interface WaiterPadProps {
@@ -188,6 +188,25 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
             return [...prev, { menuItem: item, quantity: 1, served: false, completed: false }];
         });
     };
+
+    const addCourseSeparator = () => {
+        // Crea un item separatore speciale
+        const separator: OrderItem = {
+            menuItem: {
+                id: `separator_${Date.now()}`,
+                name: '→ a seguire →',
+                category: Category.ANTIPASTI, // Categoria fittizia
+                price: 0,
+                available: true
+            },
+            quantity: 1,
+            isSeparator: true,
+            served: false,
+            completed: false
+        };
+        setCart(prev => [...prev, separator]);
+    };
+
 
     const removeFromCart = (index: number) => {
         setCart(prev => prev.filter((_, i) => i !== index));
@@ -704,6 +723,41 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                                                     <div className="space-y-2">
                                                         {activeTableOrder.items && activeTableOrder.items.length > 0 ? (
                                                             activeTableOrder.items.map((item, idx) => {
+                                                                // HANDLING SEPARATORS IN ACTIVE ORDER
+                                                                if (item.isSeparator) {
+                                                                    return (
+                                                                        <div key={idx} className="flex items-center justify-between p-3 bg-purple-900/20 border-2 border-dashed border-purple-500/30 rounded-lg my-1">
+                                                                            <div className="flex items-center gap-2">
+                                                                                <ArrowRightLeft size={20} className="text-purple-400" />
+                                                                                <span className="font-bold text-purple-300 text-sm tracking-widest uppercase">→ A SEGUIRE →</span>
+                                                                            </div>
+                                                                            <button
+                                                                                onClick={async () => {
+                                                                                    if (!confirm('Eliminare la pausa "A Seguire"?')) return;
+                                                                                    const currentOrders = getOrders();
+                                                                                    const orderToUpdate = currentOrders.find(o => o.id === activeTableOrder.id);
+                                                                                    if (!orderToUpdate) return;
+
+                                                                                    const updatedItems = [...orderToUpdate.items];
+                                                                                    updatedItems.splice(idx, 1);
+
+                                                                                    const updatedOrder = {
+                                                                                        ...orderToUpdate,
+                                                                                        items: updatedItems,
+                                                                                        timestamp: Date.now()
+                                                                                    };
+
+                                                                                    await updateOrder(updatedOrder);
+                                                                                    setTimeout(loadData, 100);
+                                                                                }}
+                                                                                className="p-2 bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white rounded-lg transition-colors shadow-sm"
+                                                                            >
+                                                                                <Trash2 size={18} />
+                                                                            </button>
+                                                                        </div>
+                                                                    );
+                                                                }
+
                                                                 const isReadyToServe = item.completed && !item.served;
                                                                 const isServed = item.served;
                                                                 const notesArray = item.notes ? item.notes.split('|||') : [];
@@ -1079,6 +1133,13 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                                         {cart.reduce((a, b) => a + b.quantity, 0)}
                                     </span>
                                 </button>
+                                <button
+                                    onClick={addCourseSeparator}
+                                    className="w-20 bg-purple-600 hover:bg-purple-500 text-white rounded-2xl shadow-lg shadow-purple-600/30 flex items-center justify-center transition-transform active:scale-95 border-2 border-purple-400"
+                                    title="Inserisci separatore 'a seguire'"
+                                >
+                                    <ArrowRightLeft size={24} />
+                                </button>
                                 <button onClick={requestSendOrder} className="w-20 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl shadow-lg shadow-orange-500/30 flex items-center justify-center transition-transform active:scale-95 border-2 border-orange-400">
                                     <SendIcon size={28} className="ml-1" />
                                 </button>
@@ -1097,6 +1158,24 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
 
                         <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
                             {cart.map((item, idx) => {
+                                // SEPARATORE DI PORTATA
+                                if (item.isSeparator) {
+                                    return (
+                                        <div key={idx} className="bg-purple-900/20 p-3 rounded-xl border-2 border-dashed border-purple-500/50 flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <ArrowRightLeft size={24} className="text-purple-400" />
+                                                <span className="font-bold text-purple-300 text-sm italic">→ a seguire →</span>
+                                            </div>
+                                            <button
+                                                onClick={() => removeFromCart(idx)}
+                                                className="p-2 bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white rounded-lg transition-colors"
+                                            >
+                                                <Trash2 size={18} />
+                                            </button>
+                                        </div>
+                                    );
+                                }
+
                                 const notesArray = item.notes ? item.notes.split('|||') : [];
                                 const isCurrentlyEditing = currentNoteItemIndex === idx;
 
