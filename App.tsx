@@ -3267,12 +3267,11 @@ export function App() {
                                                                     <span className="text-3xl font-black text-slate-900">€ {orderTotal.toFixed(2)}</span>
                                                                 </div>
 
-                                                                <div className="grid grid-cols-2 gap-3">
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            const printWindow = window.open('', '', 'width=300,height=600');
-                                                                            if (printWindow) {
-                                                                                printWindow.document.write(`
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const printWindow = window.open('', '', 'width=300,height=600');
+                                                                        if (printWindow) {
+                                                                            printWindow.document.write(`
                                                                                 <html>
                                                                                 <head>
                                                                                     <title>Scontrino Tavolo ${order.tableNumber.replace('_HISTORY', '')}</title>
@@ -3320,23 +3319,13 @@ export function App() {
                                                                                 </body>
                                                                                 </html>
                                                                             `);
-                                                                                printWindow.document.close();
-                                                                            }
-                                                                        }}
-                                                                        className="py-2.5 bg-slate-900 hover:bg-black text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"
-                                                                    >
-                                                                        <Printer size={16} /> Stampa
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={() => {
-                                                                            const receiptText = `${restaurantName}\nTavolo: ${order.tableNumber.replace('_HISTORY', '')}\nData: ${new Date(order.timestamp).toLocaleString('it-IT')}\n--------------------------------\n${order.items.filter(i => !i.isSeparator && !i.menuItem.name.toLowerCase().includes('a seguire')).map(i => `${i.quantity}x ${i.menuItem.name} ... € ${(i.menuItem.price * i.quantity).toFixed(2)}`).join('\n')}\n--------------------------------\nTOTALE: € ${orderTotal.toFixed(2)}`;
-                                                                            alert(receiptText);
-                                                                        }}
-                                                                        className="py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md"
-                                                                    >
-                                                                        <Eye size={16} /> Anteprima
-                                                                    </button>
-                                                                </div>
+                                                                            printWindow.document.close();
+                                                                        }
+                                                                    }}
+                                                                    className="w-full py-3 bg-slate-900 hover:bg-black text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"
+                                                                >
+                                                                    <Printer size={18} /> Stampa Scontrino
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     );
@@ -3851,65 +3840,75 @@ export function App() {
                     onClose={closeToast}
                 />
 
-                {showPrintableMenu && (
-                    <PrintableMenu
-                        menuItems={menuItems}
-                        restaurantProfile={profileForm}
-                        publicUrl={digitalMenuLink}
-                        onClose={() => setShowPrintableMenu(false)}
-                    />
-                )}
+                {
+                    showPrintableMenu && (
+                        <PrintableMenu
+                            menuItems={menuItems}
+                            restaurantProfile={profileForm}
+                            publicUrl={digitalMenuLink}
+                            onClose={() => setShowPrintableMenu(false)}
+                        />
+                    )
+                }
 
-                {showDeliveryFlyer && (
-                    <DeliveryFlyer
-                        restaurantProfile={profileForm}
-                        publicUrl={digitalMenuLink}
-                        onClose={() => setShowDeliveryFlyer(false)}
-                    />
-                )}
+                {
+                    showDeliveryFlyer && (
+                        <DeliveryFlyer
+                            restaurantProfile={profileForm}
+                            publicUrl={digitalMenuLink}
+                            onClose={() => setShowDeliveryFlyer(false)}
+                        />
+                    )
+                }
 
-                {editingPlatform && (
-                    <PlatformEditModal
-                        platform={editingPlatform}
-                        isNew={isNewPlatform}
-                        onClose={() => setEditingPlatform(null)}
-                        onSave={(updatedPlatform) => {
-                            const platforms = appSettings.deliveryPlatforms || [];
-                            let updated;
+                {
+                    editingPlatform && (
+                        <PlatformEditModal
+                            platform={editingPlatform}
+                            isNew={isNewPlatform}
+                            onClose={() => setEditingPlatform(null)}
+                            onSave={(updatedPlatform) => {
+                                const platforms = appSettings.deliveryPlatforms || [];
+                                let updated;
 
-                            if (isNewPlatform) {
-                                updated = [...platforms, updatedPlatform];
-                                showToast(`${updatedPlatform.name} creata!`, 'success');
-                            } else {
-                                updated = platforms.map(p =>
-                                    p.id === updatedPlatform.id ? updatedPlatform : p
-                                );
-                                showToast(`${updatedPlatform.name} aggiornata!`, 'success');
-                            }
+                                if (isNewPlatform) {
+                                    updated = [...platforms, updatedPlatform];
+                                    showToast(`${updatedPlatform.name} creata!`, 'success');
+                                } else {
+                                    updated = platforms.map(p =>
+                                        p.id === updatedPlatform.id ? updatedPlatform : p
+                                    );
+                                    showToast(`${updatedPlatform.name} aggiornata!`, 'success');
+                                }
 
-                            const newSettings = { ...appSettings, deliveryPlatforms: updated };
-                            setAppSettingsState(newSettings);
-                            saveAppSettings(newSettings);
-                            setEditingPlatform(null);
-                        }}
-                    />
-                )}
+                                const newSettings = { ...appSettings, deliveryPlatforms: updated };
+                                setAppSettingsState(newSettings);
+                                saveAppSettings(newSettings);
+                                setEditingPlatform(null);
+                            }}
+                        />
+                    )
+                }
 
 
-                {showWhatsAppManager && (
-                    <WhatsAppManager
-                        onClose={() => setShowWhatsAppManager(false)}
-                        showToast={showToast}
-                        showConfirm={showConfirm}
-                    />
-                )}
+                {
+                    showWhatsAppManager && (
+                        <WhatsAppManager
+                            onClose={() => setShowWhatsAppManager(false)}
+                            showToast={showToast}
+                            showConfirm={showConfirm}
+                        />
+                    )
+                }
 
-                {showSubscriptionManager && (
-                    <SubscriptionManager
-                        onClose={() => setShowSubscriptionManager(false)}
-                        showToast={showToast}
-                    />
-                )}
+                {
+                    showSubscriptionManager && (
+                        <SubscriptionManager
+                            onClose={() => setShowSubscriptionManager(false)}
+                            showToast={showToast}
+                        />
+                    )
+                }
 
                 <DepartmentSelectorModal
                     isOpen={showDepartmentSelector}
