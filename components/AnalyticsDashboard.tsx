@@ -3,7 +3,8 @@ import {
     BarChart3, TrendingUp, TrendingDown, Calendar, DollarSign,
     Users, Clock, ShoppingBag, Download, ChevronLeft, ChevronRight,
     Filter, PieChart, ArrowUpRight, ArrowDownRight, Printer, Search,
-    Wallet, CreditCard, Banknote, Plus, Trash2, Save, X, FileText
+    Wallet, CreditCard, Banknote, Plus, Trash2, Save, X, FileText,
+    UtensilsCrossed, Pizza, Sandwich, Wine, Info, Trophy
 } from 'lucide-react';
 import { Order, OrderStatus, Category, Department, Deposit, PaymentMethod, Expense, Reservation, ReservationStatus } from '../types';
 import { getOrders } from '../services/storageService';
@@ -191,14 +192,23 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
         let totalOrdersCount = orders.length;
         let totalCovers = 0;
         let hourlyDist: Record<number, number> = {};
-        let itemSales: Record<string, { count: number, revenue: number }> = {};
+        let itemSales: Record<string, { count: number, revenue: number, category: string }> = {};
 
         let departmentRevenue: Record<Department, number> = {
             'Cucina': 0, 'Pizzeria': 0, 'Pub': 0, 'Sala': 0
         };
 
         orders.forEach(order => {
-            const orderTotal = order.items?.reduce((sum, item) => sum + (item.menuItem.price * item.quantity), 0) || 0;
+            // Calculate order items total
+            const orderItemsTotal = order.items?.reduce((sum, item) => sum + (item.menuItem.price * item.quantity), 0) || 0;
+
+            // Add cover charge if numberOfGuests is available (will need to be added to Order type)
+            // For now, we'll use a placeholder - this will be properly implemented when Order type is updated
+            const numberOfGuests = (order as any).numberOfGuests || 0;
+            const coverCharge = 0; // Will be fetched from appSettings.restaurantProfile.coverCharge
+            const coverTotal = numberOfGuests > 0 && coverCharge > 0 ? numberOfGuests * coverCharge : 0;
+
+            const orderTotal = orderItemsTotal + coverTotal;
             totalRevenue += orderTotal;
             // totalCovers += (order.coperti || 0); // Coperti not in Order type yet
 
@@ -208,6 +218,10 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
 
             // Department Revenue
             order.items?.forEach(item => {
+                // SKIP SEPARATORS and Technical Items (case insensitive check)
+                const iName = item.menuItem.name.toLowerCase();
+                if (item.isSeparator || iName.includes('a seguire') || iName.includes('separator')) return;
+
                 const dept = getDepartmentByCategory(item.menuItem.category);
                 if (departmentRevenue[dept] !== undefined) {
                     departmentRevenue[dept] += (item.menuItem.price * item.quantity);
@@ -215,7 +229,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
 
                 // Item Sales
                 const key = item.menuItem.name;
-                if (!itemSales[key]) itemSales[key] = { count: 0, revenue: 0 };
+                if (!itemSales[key]) itemSales[key] = { count: 0, revenue: 0, category: item.menuItem.category };
                 itemSales[key].count += item.quantity;
                 itemSales[key].revenue += (item.menuItem.price * item.quantity);
             });
@@ -362,7 +376,6 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
                             { id: 'departments', label: 'Reparti', icon: PieChart },
                             { id: 'cash', label: 'Cassa & Spese', icon: Wallet },
                             { id: 'statement', label: 'Estratto Conto', icon: FileText },
-                            { id: 'tables', label: 'Tavoli', icon: ShoppingBag },
                             { id: 'finance', label: 'Finanze', icon: DollarSign },
                             //{ id: 'staff', label: 'Staff', icon: Users },
                         ].map(tab => (
@@ -465,12 +478,109 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
                                     </div>
                                 </div>
                                 {activeTab === 'departments' && (
-                                    <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800">
-                                        <h3 className="text-xl font-bold text-white mb-6">Dettagli Reparti</h3>
-                                        <p className="text-slate-400">
-                                            Ogni categoria di prodotto è mappata al reparto di produzione corrispondente.
-                                            Cucina (Primi, Secondi), Pizzeria (Pizze), Pub (Panini, Bevande).
-                                        </p>
+                                    <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800" id="printable-report">
+                                        {/* Stili per la stampa */}
+                                        <style>{`
+                                            @media print {
+                                                body * { visibility: hidden; }
+                                                #printable-report, #printable-report * { visibility: visible; }
+                                                #printable-report { position: absolute; left: 0; top: 0; width: 100%; background: white !important; color: black !important; border: none !important; }
+                                                #printable-report h3, #printable-report h4 { color: black !important; }
+                                                #printable-report .no-print { display: none !important; }
+                                                #printable-report .bg-slate-900, #printable-report .bg-slate-950\\/30 { background: transparent !important; border-color: #ddd !important; }
+                                                #printable-report .text-white, #printable-report .text-slate-200, #printable-report .text-slate-300 { color: black !important; }
+                                                #printable-report .text-slate-500 { color: #666 !important; }
+                                                /* Nascondi scrollbar in stampa ma mostra tutto il contenuto */
+                                                #printable-report .custom-scrollbar { overflow: visible !important; max-height: none !important; }
+                                            }
+                                        `}</style>
+
+                                        <div className="flex justify-between items-center mb-6">
+                                            <div>
+                                                <h3 className="text-xl font-bold text-white">Dettaglio Vendite Piatti</h3>
+                                                <span className="text-xs text-slate-500 font-mono">Vendite Sala & Reparti</span>
+                                            </div>
+                                            <button
+                                                onClick={() => window.print()}
+                                                className="no-print flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white font-bold transition-colors shadow-lg shadow-indigo-500/20"
+                                            >
+                                                <Printer size={18} />
+                                                <span>Stampa</span>
+                                            </button>
+                                        </div>
+
+                                        <div className="space-y-8 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                                            {(() => {
+                                                // Group items by category
+                                                const itemsByCategory: Record<string, typeof stats.itemSales[string][]> = {};
+
+                                                Object.entries(stats.itemSales).forEach(([name, data]) => {
+                                                    // FILTER: Escludi separatori e "A SEGUIRE"
+                                                    if (name === 'A SEGUIRE' || name.startsWith('---') || (data as any).isSeparator) return;
+
+                                                    const cat = data.category || 'Altro';
+                                                    if (!itemsByCategory[cat]) itemsByCategory[cat] = [];
+                                                    itemsByCategory[cat].push({ name, ...data } as any);
+                                                });
+
+                                                // Define sort order
+                                                const catOrder = ['Menu Completo', 'Antipasti', 'Primi Piatti', 'Secondi Piatti', 'Contorni', 'Pizze', 'Panini', 'Burger', 'Dolci', 'Bevande', 'Vini', 'Amari', 'Caffetteria'];
+
+                                                const sortedCategories = Object.keys(itemsByCategory).sort((a, b) => {
+                                                    const idxA = catOrder.indexOf(a);
+                                                    const idxB = catOrder.indexOf(b);
+                                                    if (idxA === -1 && idxB === -1) return a.localeCompare(b);
+                                                    if (idxA === -1) return 1;
+                                                    if (idxB === -1) return -1;
+                                                    return idxA - idxB;
+                                                });
+
+                                                if (sortedCategories.length === 0) {
+                                                    return <p className="text-slate-500 italic py-10 text-center">Nessun piatto venduto nel periodo selezionato.</p>;
+                                                }
+
+                                                return sortedCategories.map(cat => {
+                                                    // Calculate category totals
+                                                    const catTotal = itemsByCategory[cat].reduce((sum, item) => sum + item.revenue, 0);
+
+                                                    return (
+                                                        <div key={cat} className="animate-fade-in group break-inside-avoid">
+                                                            <div className="sticky top-0 bg-slate-900 z-10 py-2 mb-2 border-b border-slate-800 flex justify-between items-end print:static print:bg-white print:border-gray-300">
+                                                                <h4 className="text-sm font-black text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                                                                    {cat === 'Bevande' || cat === 'Vini' ? <Wine size={16} className="text-blue-400 print:text-black" /> :
+                                                                        cat === 'Pizze' ? <Pizza size={16} className="text-red-400 print:text-black" /> :
+                                                                            cat === 'Primi Piatti' || cat === 'Secondi Piatti' ? <UtensilsCrossed size={16} className="text-orange-400 print:text-black" /> :
+                                                                                cat === 'Panini' || cat === 'Burger' ? <Sandwich size={16} className="text-yellow-400 print:text-black" /> :
+                                                                                    <UtensilsCrossed size={16} className="text-slate-400 print:text-black" />}
+                                                                    {cat}
+                                                                </h4>
+                                                                <span className="text-xs font-mono text-slate-500">
+                                                                    Tot: <span className="text-white font-bold">€ {catTotal.toFixed(2)}</span>
+                                                                </span>
+                                                            </div>
+
+                                                            <div className="grid grid-cols-1 gap-1.5">
+                                                                {itemsByCategory[cat]
+                                                                    .sort((a, b) => b.count - a.count)
+                                                                    .map((item: any) => (
+                                                                        <div key={item.name} className="flex justify-between items-center p-2.5 rounded-lg bg-slate-950/30 border border-slate-800/50 hover:border-slate-700/80 hover:bg-slate-800/20 transition-all print:border-gray-200">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <span className="bg-slate-800 text-slate-200 font-mono font-bold text-xs w-7 h-7 flex items-center justify-center rounded shadow-sm border border-slate-700 print:bg-gray-200 print:text-black print:border-gray-300">
+                                                                                    {item.count}
+                                                                                </span>
+                                                                                <span className="font-medium text-slate-300 text-sm">{item.name}</span>
+                                                                            </div>
+                                                                            <span className="font-mono font-bold text-emerald-400 text-sm print:text-black">
+                                                                                € {item.revenue.toFixed(2)}
+                                                                            </span>
+                                                                        </div>
+                                                                    ))}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                });
+                                            })()}
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -748,6 +858,145 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
                             <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 text-center">
                                 <h3 className="text-xl font-bold text-white mb-4">Finanze Avanzate</h3>
                                 <p className="text-slate-400">Implementazione futura: connessione bancaria e report fiscali.</p>
+                            </div>
+                        )}
+
+                        {activeTab === 'tables' && (
+                            <div className="space-y-6">
+                                {/* Aggregation Logic for Tables */}
+                                {(() => {
+                                    const tableStats: Record<string, { revenue: number, count: number, average: number }> = {};
+
+                                    orders.forEach(order => {
+                                        // Clean table number logic
+                                        let tNum = (order.tableNumber || 'N/D')
+                                            .replace(/_HISTORY/gi, '')
+                                            .replace(/undefined/gi, '')
+                                            .trim();
+
+                                        if (!tNum) tNum = 'Altro';
+
+                                        // Group Delivery/Takeaway separately if needed, or keep number
+                                        if (tNum.toLowerCase().includes('delivery') || tNum.toLowerCase().includes('consegna')) tNum = 'Delivery';
+                                        if (tNum.toLowerCase().includes('asporto') || tNum.toLowerCase().includes('takeaway')) tNum = 'Asporto';
+
+                                        if (!tableStats[tNum]) {
+                                            tableStats[tNum] = { revenue: 0, count: 0, average: 0 };
+                                        }
+
+                                        const orderTotal = order.items?.reduce((sum, item) => sum + (item.menuItem.price * item.quantity), 0) || 0;
+                                        tableStats[tNum].revenue += orderTotal;
+                                        tableStats[tNum].count += 1;
+                                    });
+
+                                    // Conversion to Array and Sorting
+                                    const sortedTables = Object.entries(tableStats).map(([name, data]) => ({
+                                        name,
+                                        ...data,
+                                        average: data.count > 0 ? data.revenue / data.count : 0
+                                    })).sort((a, b) => b.revenue - a.revenue);
+
+                                    const topTable = sortedTables[0];
+
+                                    return (
+                                        <>
+                                            {/* Top Performer Highlight */}
+                                            {topTable && (
+                                                <div className="bg-gradient-to-br from-indigo-900/50 to-slate-900 border border-indigo-500/30 p-6 rounded-3xl relative overflow-hidden">
+                                                    <div className="relative z-10 flex justify-between items-center">
+                                                        <div>
+                                                            <div className="flex items-center gap-2 mb-2">
+                                                                <Trophy className="text-yellow-400" size={24} />
+                                                                <h3 className="text-lg font-bold text-indigo-200 uppercase tracking-wider">Top Performer</h3>
+                                                            </div>
+                                                            <p className="text-4xl font-black text-white mb-1">Tavolo {topTable.name}</p>
+                                                            <p className="text-indigo-300">
+                                                                Ha generato <span className="text-white font-bold">€ {topTable.revenue.toFixed(2)}</span> con {topTable.count} ordini.
+                                                            </p>
+                                                        </div>
+                                                        <div className="hidden md:block opacity-20 transform scale-150">
+                                                            <ShoppingBag size={120} className="text-indigo-400" />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                                {/* Chart / List Container */}
+                                                <div className="lg:col-span-2 bg-slate-900 p-6 rounded-3xl border border-slate-800">
+                                                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                                                        <BarChart3 className="text-blue-500" />
+                                                        Classifica Tavoli per Fatturato
+                                                    </h3>
+
+                                                    <div className="space-y-4">
+                                                        {sortedTables.map((table, idx) => {
+                                                            const maxRev = sortedTables[0]?.revenue || 1;
+                                                            const percent = (table.revenue / maxRev) * 100;
+
+                                                            return (
+                                                                <div key={table.name} className="relative">
+                                                                    <div className="flex justify-between items-end mb-1 text-sm">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <span className={`font-mono font-bold w-6 text-center ${idx < 3 ? 'text-yellow-400' : 'text-slate-500'}`}>#{idx + 1}</span>
+                                                                            <span className="font-bold text-white">{table.name === 'Delivery' || table.name === 'Asporto' ? table.name : `Tavolo ${table.name}`}</span>
+                                                                        </div>
+                                                                        <div className="text-right">
+                                                                            <span className="font-bold text-white">€ {table.revenue.toFixed(2)}</span>
+                                                                            <span className="text-slate-500 text-xs ml-2">({table.count} ordini)</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden">
+                                                                        <div
+                                                                            className={`h-full rounded-full ${idx === 0 ? 'bg-yellow-500' : idx === 1 ? 'bg-slate-300' : idx === 2 ? 'bg-amber-700' : 'bg-blue-600'}`}
+                                                                            style={{ width: `${percent}%` }}
+                                                                        ></div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+
+                                                        {sortedTables.length === 0 && (
+                                                            <p className="text-slate-500 text-center py-10">Nessun dato per i tavoli nel periodo selezionato.</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+
+                                                {/* Details / Insights */}
+                                                <div className="space-y-6">
+                                                    <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800">
+                                                        <h3 className="text-lg font-bold text-white mb-4">Dettagli Rapidi</h3>
+                                                        <div className="space-y-4 text-sm">
+                                                            <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                                                                <span className="text-slate-400">Tavoli Attivi</span>
+                                                                <span className="font-bold text-white">{sortedTables.length}</span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                                                                <span className="text-slate-400">Media x Tavolo</span>
+                                                                <span className="font-bold text-green-400">
+                                                                    € {sortedTables.length > 0 ? (stats.totalRevenue / sortedTables.length).toFixed(2) : '0.00'}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                                                                <span className="text-slate-400">Ordini Totali</span>
+                                                                <span className="font-bold text-white">{stats.totalOrdersCount}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 bg-opacity-50">
+                                                        <div className="flex gap-3">
+                                                            <Info className="text-blue-400 shrink-0" size={20} />
+                                                            <p className="text-xs text-slate-400">
+                                                                Le statistiche includono solo gli ordini completati e pagati. I tavoli "attivi" ma non chiusi non compaiono in questo conteggio.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </>
+                                    );
+                                })()}
                             </div>
                         )}
                     </div>

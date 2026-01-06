@@ -20,7 +20,7 @@ import ReservationManager from './components/ReservationManager';
 import CustomerManager from './components/CustomerManager';
 import SubscriptionManager from './components/SubscriptionManager';
 import { LandingPage } from './components/LandingPage';
-import { ChefHat, Smartphone, User, Settings, Bell, Utensils, X, Save, Plus, Trash2, Edit2, Wheat, Milk, Egg, Nut, Fish, Bean, Flame, Leaf, Info, LogOut, Bot, Key, Database, ShieldCheck, Lock, AlertTriangle, Mail, RefreshCw, Send, Printer, Mic, MicOff, TrendingUp, BarChart3, Calendar, ChevronLeft, ChevronRight, DollarSign, History, Receipt, UtensilsCrossed, Eye, ArrowRight, QrCode, Share2, Copy, MapPin, Store, Phone, Globe, Star, Pizza, CakeSlice, Wine, Sandwich, MessageCircle, FileText, PhoneCall, Sparkles, Loader, Facebook, Instagram, Youtube, Linkedin, Music, Compass, FileSpreadsheet, Image as ImageIcon, Upload, FileImage, ExternalLink, CreditCard, Banknote, Briefcase, Clock, Check, ListPlus, ArrowRightLeft, Code2, Cookie, Shield, Wrench, Download, CloudUpload, BookOpen, EyeOff, LayoutGrid, ArrowLeft, PlayCircle, ChevronDown, FileJson, Wallet, Crown, Zap, ShieldCheck as ShieldIcon, Trophy, Timer, LifeBuoy, Minus, Hash, Euro, TrendingDown, Package, Factory, Users, Lightbulb, Headphones, Cloud, BarChart, Camera, CheckCircle, Scan, Megaphone, Bike } from 'lucide-react';
+import { ChefHat, Smartphone, User, Settings, Bell, Utensils, X, Save, Plus, Trash2, Edit2, Wheat, Milk, Egg, Nut, Fish, Bean, Flame, Leaf, Info, LogOut, Bot, Key, Database, ShieldCheck, Lock, AlertTriangle, Mail, RefreshCw, Send, Printer, Mic, MicOff, TrendingUp, BarChart3, Calendar, ChevronLeft, ChevronRight, DollarSign, History, Receipt, UtensilsCrossed, Eye, ArrowRight, QrCode, Share2, Copy, MapPin, Store, Phone, Globe, Star, Pizza, CakeSlice, Wine, Sandwich, MessageCircle, FileText, PhoneCall, Sparkles, Loader, Facebook, Instagram, Youtube, Linkedin, Music, Compass, FileSpreadsheet, Image as ImageIcon, Upload, FileImage, ExternalLink, CreditCard, Banknote, Briefcase, Clock, Check, ListPlus, ArrowRightLeft, Code2, Cookie, Shield, Wrench, Download, CloudUpload, BookOpen, EyeOff, LayoutGrid, ArrowLeft, PlayCircle, ChevronDown, FileJson, Wallet, Crown, Zap, ShieldCheck as ShieldIcon, Trophy, Timer, LifeBuoy, Minus, Hash, Euro, Coins, TrendingDown, Package, Factory, Users, Lightbulb, Headphones, Cloud, BarChart, Camera, CheckCircle, Scan, Megaphone, Bike } from 'lucide-react';
 import { getWaiterName, saveWaiterName, getMenuItems, addMenuItem, updateMenuItem, deleteMenuItem, getNotificationSettings, saveNotificationSettings, initSupabaseSync, getGoogleApiKey, saveGoogleApiKey, removeGoogleApiKey, getAppSettings, saveAppSettings, getOrders, deleteHistoryByDate, performFactoryReset, deleteAllMenuItems, importDemoMenu } from './services/storageService';
 import { supabase, signOut, isSupabaseConfigured, SUPER_ADMIN_EMAIL } from './services/supabase';
 import { ToastProvider, useToast } from './components/ToastProvider';
@@ -37,6 +37,7 @@ import DepartmentSelectorModal from './components/DepartmentSelectorModal';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import { ExpenseManager } from './components/ExpenseManager';
 import { InvoiceManager } from './components/InvoiceManager';
+import { ReceiptText } from 'lucide-react';
 
 // Promo Timer Component
 const PromoTimer = ({ deadlineHours, lastUpdated }: { deadlineHours: string, lastUpdated: string }) => {
@@ -147,7 +148,7 @@ export function App() {
 
     // Admin State
     const [showAdmin, setShowAdmin] = useState(false);
-    const [adminTab, setAdminTab] = useState<'profile' | 'subscription' | 'menu' | 'notif' | 'info' | 'ai' | 'analytics' | 'share' | 'receipts' | 'messages' | 'marketing' | 'delivery' | 'customers' | 'whatsapp' | 'expenses' | 'invoices' | 'administration'>('menu');
+    const [adminTab, setAdminTab] = useState<'profile' | 'subscription' | 'menu' | 'notif' | 'info' | 'ai' | 'analytics' | 'share' | 'receipts' | 'messages' | 'marketing' | 'delivery' | 'customers' | 'whatsapp' | 'expenses'>('menu');
     const [showWhatsAppManager, setShowWhatsAppManager] = useState(false);
     const [showSubscriptionManager, setShowSubscriptionManager] = useState(false);
     const [showDepartmentSelector, setShowDepartmentSelector] = useState(false);
@@ -1329,6 +1330,14 @@ export function App() {
         await saveAppSettings(newSettings);
     };
 
+    const handleUpdateCoverCharge = async (amount: number) => {
+        const val = isNaN(amount) ? 0 : amount;
+        const newSettings = { ...appSettings, restaurantProfile: { ...appSettings.restaurantProfile, coverCharge: val } as RestaurantProfile };
+        setAppSettingsState(newSettings);
+        setProfileForm((prev: RestaurantProfile) => ({ ...prev, coverCharge: val }));
+        await saveAppSettings(newSettings);
+    };
+
     // --- ANALYTICS METRICS ---
     const handleGenerateAnalysis = async () => {
         if (ordersForAnalytics.length === 0) { setAiAnalysisResult("Nessun dato disponibile per questa data."); return; }
@@ -1766,8 +1775,8 @@ export function App() {
                             <button onClick={() => setAdminTab('analytics')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'analytics' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><BarChart3 size={18} /> Statistiche Tavoli</button>
                             <button onClick={() => setAdminTab('administration')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'administration' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Wallet size={18} /> Amministrazione</button>
                             <button onClick={() => setAdminTab('expenses')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'expenses' ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><CreditCard size={18} /> Gestione Spese</button>
-                            <button onClick={() => setAdminTab('invoices')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'invoices' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><FileText size={18} /> Fatture Cliente</button>
                             <button onClick={() => setAdminTab('receipts')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'receipts' ? 'bg-yellow-600 text-white shadow-lg shadow-yellow-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Receipt size={18} /> Scontrini Cassa</button>
+                            <button onClick={() => setAdminTab('invoices')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'invoices' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><ReceiptText size={18} /> Fattura Clienti</button>
                             <button
                                 onClick={() => setAdminTab('ai')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'ai' ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
@@ -1998,6 +2007,31 @@ export function App() {
                             <div className="max-w-6xl mx-auto animate-fade-in">
                                 <div className="flex justify-between items-center mb-8"><div><h2 className="text-3xl font-black text-white mb-2">Gestione Menu</h2><p className="text-slate-400">Aggiungi, modifica o rimuovi piatti dal tuo menu digitale.</p></div><div className="flex gap-3"><button onClick={() => { setEditingItem({}); setIsEditingItem(!isEditingItem); mainContentRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); }} className={`px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg transition-transform active:scale-95 ${isEditingItem ? 'bg-slate-700 text-white' : 'bg-green-600 hover:bg-green-500 text-white shadow-green-600/20'}`}>{isEditingItem ? <X size={20} /> : <Plus size={20} />} {isEditingItem ? 'Chiudi Editor' : 'NUOVO PIATTO'}</button></div></div>
                                 <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg"><div className="flex items-center gap-4"><div className="p-3 bg-blue-600/20 text-blue-400 rounded-xl"><LayoutGrid size={24} /></div><div><h3 className="font-bold text-white text-lg">Configurazione Sala</h3><p className="text-xs text-slate-400 font-medium">Imposta il numero di tavoli attivi nel ristorante.</p></div></div><div className="flex items-center gap-3 bg-slate-950 p-1.5 rounded-xl border border-slate-700"><button onClick={() => handleUpdateTableCount(-1)} className="w-10 h-10 flex items-center justify-center bg-slate-800 hover:bg-slate-700 rounded-lg text-slate-300 hover:text-white transition-colors"><Minus size={18} strokeWidth={3} /></button><span className="font-black text-3xl w-16 text-center text-white">{appSettings.restaurantProfile?.tableCount || 12}</span><button onClick={() => handleUpdateTableCount(1)} className="w-10 h-10 flex items-center justify-center bg-blue-600 hover:bg-blue-500 rounded-lg text-white shadow-lg shadow-blue-600/20 transition-colors"><Plus size={18} strokeWidth={3} /></button></div></div>
+
+                                {/* COPERTO SETTING */}
+                                <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 mb-8 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg">
+                                    <div className="flex items-center gap-4">
+                                        <div className="p-3 bg-indigo-600/20 text-indigo-400 rounded-xl">
+                                            <Coins size={24} />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-white text-lg">Costo Coperto</h3>
+                                            <p className="text-xs text-slate-400 font-medium">Imposta il costo del servizio per persona adulta.</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2 bg-slate-950 p-2 rounded-xl border border-slate-700 w-40 focus-within:border-indigo-500 transition-colors">
+                                        <span className="text-slate-500 font-bold ml-2">€</span>
+                                        <input
+                                            type="number"
+                                            step="0.50"
+                                            min="0"
+                                            value={appSettings.restaurantProfile?.coverCharge || ''}
+                                            onChange={(e) => handleUpdateCoverCharge(parseFloat(e.target.value))}
+                                            className="w-full bg-transparent text-white font-black text-2xl outline-none text-right placeholder-slate-700"
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+                                </div>
                                 <div className="bg-slate-900/50 backdrop-blur-sm p-4 rounded-2xl border border-slate-800/50 mb-8">
                                     {/* Toolbar Row */}
                                     <div className="flex flex-wrap gap-3 items-center">
@@ -2114,9 +2148,15 @@ export function App() {
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <div className="flex justify-between items-center mb-1">
+                                                    <div className="flex justify-between items-center mb-2">
                                                         <label className="text-xs font-bold text-slate-500 uppercase">Ingredienti</label>
-                                                        <button onClick={generateIngr} disabled={!editingItem.name} className="text-xs bg-purple-600/10 text-purple-400 hover:bg-purple-600/20 px-2 py-0.5 rounded-lg font-bold flex gap-1 items-center transition-colors disabled:opacity-50"><Sparkles size={12} /> AI</button>
+                                                        <button
+                                                            onClick={generateIngr}
+                                                            disabled={!editingItem.name}
+                                                            className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 disabled:from-slate-700 disabled:to-slate-600 text-white rounded-xl font-bold text-sm flex gap-2 items-center transition-all shadow-lg shadow-purple-900/30 hover:shadow-purple-900/50 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
+                                                        >
+                                                            <Sparkles size={16} className="animate-pulse" /> Genera con AI
+                                                        </button>
                                                     </div>
                                                     <textarea placeholder="Elenco ingredienti separati da virgola..." value={editingItem.ingredients || ''} onChange={e => setEditingItem({ ...editingItem, ingredients: e.target.value })} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-purple-500 transition-colors resize-none h-24" />
                                                 </div>
@@ -2124,9 +2164,15 @@ export function App() {
 
                                             <div className="space-y-5">
                                                 <div>
-                                                    <div className="flex justify-between items-center mb-1">
+                                                    <div className="flex justify-between items-center mb-2">
                                                         <label className="text-xs font-bold text-slate-500 uppercase">Descrizione Menu</label>
-                                                        <button onClick={generateDesc} disabled={!editingItem.name} className="text-xs bg-purple-600/10 text-purple-400 hover:bg-purple-600/20 px-2 py-0.5 rounded-lg font-bold flex gap-1 items-center transition-colors disabled:opacity-50"><Sparkles size={12} /> AI</button>
+                                                        <button
+                                                            onClick={generateDesc}
+                                                            disabled={!editingItem.name}
+                                                            className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 disabled:from-slate-700 disabled:to-slate-600 text-white rounded-xl font-bold text-sm flex gap-2 items-center transition-all shadow-lg shadow-indigo-900/30 hover:shadow-indigo-900/50 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 active:scale-95"
+                                                        >
+                                                            <Sparkles size={16} className="animate-pulse" /> Genera con AI
+                                                        </button>
                                                     </div>
                                                     <textarea placeholder="Descrizione accattivante per il menu digitale..." value={editingItem.description || ''} onChange={e => setEditingItem({ ...editingItem, description: e.target.value })} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-purple-500 transition-colors resize-none h-24" />
                                                 </div>
@@ -3066,15 +3112,6 @@ export function App() {
                         {adminTab === 'expenses' && (
                             <ExpenseManager showToast={showToast} />
                         )}
-                        {adminTab === 'invoices' && (
-                            <div className="max-w-7xl mx-auto pb-24">
-                                <InvoiceManager
-                                    showToast={showToast}
-                                    restaurantProfile={profileForm}
-                                    onUpdateProfile={(p) => setProfileForm(p)}
-                                />
-                            </div>
-                        )}
                         {adminTab === 'receipts' && (
                             <div className="max-w-7xl mx-auto space-y-8 animate-fade-in pb-24">
 
@@ -3780,6 +3817,21 @@ export function App() {
                                     setShowWhatsAppManager(true);
                                 }}
                             />
+                        )}
+                        {adminTab === 'invoices' && (
+                            <div className="max-w-6xl mx-auto animate-fade-in pb-20">
+                                <InvoiceManager
+                                    showToast={showToast}
+                                    showConfirm={showConfirm}
+                                    restaurantProfile={profileForm}
+                                    onSaveProfile={(updated) => {
+                                        setProfileForm(updated);
+                                        const newSettings = { ...appSettings, restaurantProfile: updated };
+                                        setAppSettingsState(newSettings);
+                                        saveAppSettings(newSettings);
+                                    }}
+                                />
+                            </div>
                         )}
                     </div >
                 </div >

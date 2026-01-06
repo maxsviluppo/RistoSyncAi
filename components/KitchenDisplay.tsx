@@ -69,9 +69,34 @@ const playNotificationSound = (type: 'new' | 'ready' | 'alert') => {
 };
 
 // --- RECEIPT GENERATOR ---
-const generateReceiptHtml = (items: OrderItem[], dept: string, table: string, waiter: string, restaurantName: string, allMenuItems: MenuItem[]) => {
+const generateReceiptHtml = (
+    items: OrderItem[],
+    dept: string,
+    table: string,
+    waiter: string,
+    restaurantName: string,
+    allMenuItems: MenuItem[],
+    numberOfGuests: number = 0,
+    coverCharge: number = 0,
+    discount: number = 0
+) => {
     const time = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
     const date = new Date().toLocaleDateString('it-IT');
+
+    // Filter out separators ("A seguire")
+    const actualItems = items.filter(item => !item.isSeparator);
+
+    // Calculate subtotal
+    const subtotal = actualItems.reduce((sum, item) => sum + (item.menuItem.price * item.quantity), 0);
+
+    // Calculate cover charge (only for adults)
+    const coverTotal = numberOfGuests > 0 && coverCharge > 0 ? numberOfGuests * coverCharge : 0;
+
+    // Calculate total before discount
+    const totalBeforeDiscount = subtotal + coverTotal;
+
+    // Apply discount
+    const finalTotal = totalBeforeDiscount - discount;
 
     return `
     <html>
@@ -86,8 +111,13 @@ const generateReceiptHtml = (items: OrderItem[], dept: string, table: string, wa
                 .item { display: flex; margin-bottom: 4px; align-items: baseline; }
                 .qty { font-weight: bold; width: 30px; font-size: 16px; }
                 .name { flex: 1; font-weight: bold; font-size: 16px; }
+                .price { font-weight: bold; font-size: 16px; white-space: nowrap; }
                 .notes { display: block; font-size: 12px; margin-left: 30px; font-style: italic; margin-bottom: 4px; }
                 .sub-items { margin-left: 30px; font-size: 12px; margin-bottom: 8px; color: #333; }
+                .totals { border-top: 2px dashed black; margin-top: 15px; padding-top: 10px; font-size: 16px; }
+                .total-line { display: flex; justify-content: space-between; margin: 5px 0; }
+                .total-line.discount { color: #d00; font-weight: bold; }
+                .total-line.final { font-size: 20px; font-weight: bold; border-top: 2px solid black; padding-top: 8px; margin-top: 8px; }
                 .footer { border-top: 2px dashed black; margin-top: 15px; padding-top: 10px; text-align: center; font-size: 10px; }
                 .close-btn { display: block; width: 100%; background-color: #ef4444; color: white; text-align: center; padding: 15px 0; font-weight: bold; font-size: 16px; border: none; cursor: pointer; position: fixed; bottom: 0; left: 0; right: 0; text-transform: uppercase; }
                 @media print { .no-print { display: none !important; } }
@@ -95,7 +125,7 @@ const generateReceiptHtml = (items: OrderItem[], dept: string, table: string, wa
         </head>
         <body>
             <div class="header"><div class="title">${restaurantName}</div><div class="dept">${dept}</div><div class="meta">TAVOLO: ${table.replace(/_?history_?/gi, '').trim()}</div><div class="meta">Staff: ${waiter}</div><div style="font-size: 12px; margin-top:5px;">${date} - ${time}</div></div>
-            ${items.map(item => {
+            ${actualItems.map(item => {
         let subItemsHtml = '';
         // Resolve sub-items for Menu Combo
         if (item.menuItem.category === Category.MENU_COMPLETO && item.menuItem.comboItems) {
@@ -104,12 +134,35 @@ const generateReceiptHtml = (items: OrderItem[], dept: string, table: string, wa
                 subItemsHtml = `<div class="sub-items">${subNames.map(n => `<div>- ${n}</div>`).join('')}</div>`;
             }
         }
+        const itemTotal = item.menuItem.price * item.quantity;
         return `
-                <div class="item"><span class="qty">${item.quantity}</span><span class="name">${item.menuItem.name}</span></div>
+                <div class="item"><span class="qty">${item.quantity}</span><span class="name">${item.menuItem.name}</span><span class="price">€ ${itemTotal.toFixed(2)}</span></div>
                 ${subItemsHtml}
                 ${item.notes ? `<span class="notes">Note: ${item.notes}</span>` : ''}
                 `;
     }).join('')}
+            <div class="totals">
+                <div class="total-line">
+                    <span>Subtotale:</span>
+                    <span>€ ${subtotal.toFixed(2)}</span>
+                </div>
+                ${coverTotal > 0 ? `
+                <div class="total-line">
+                    <span>Coperto (${numberOfGuests} ${numberOfGuests === 1 ? 'persona' : 'persone'}):</span>
+                    <span>€ ${coverTotal.toFixed(2)}</span>
+                </div>
+                ` : ''}
+                ${discount > 0 ? `
+                <div class="total-line discount">
+                    <span>Sconto:</span>
+                    <span>- € ${discount.toFixed(2)}</span>
+                </div>
+                ` : ''}
+                <div class="total-line final">
+                    <span>TOTALE:</span>
+                    <span>€ ${finalTotal.toFixed(2)}</span>
+                </div>
+            </div>
             <div class="footer">RistoSync AI - Copia di Cortesia</div>
             <button class="no-print close-btn" onclick="window.close()">✖ CHIUDI FINESTRA</button>
             <script>window.onload = function() { setTimeout(function(){ window.focus(); window.print(); }, 500); }</script>
