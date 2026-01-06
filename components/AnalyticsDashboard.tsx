@@ -35,7 +35,7 @@ const getDepartmentByCategory = (cat: Category): Department => {
 
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose, showToast, isIntegrated = false }) => {
     // State
-    const [activeTab, setActiveTab] = useState<'overview' | 'tables' | 'finance' | 'staff' | 'departments' | 'cash' | 'statement'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'tables' | 'staff' | 'departments' | 'cash' | 'statement'>('overview');
     const [timeFilter, setTimeFilter] = useState<'today' | 'yesterday' | 'week' | 'month' | 'custom'>('today');
     const [customDateStart, setCustomDateStart] = useState(new Date().toISOString().split('T')[0]);
     const [customDateEnd, setCustomDateEnd] = useState(new Date().toISOString().split('T')[0]);
@@ -376,7 +376,6 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
                             { id: 'departments', label: 'Reparti', icon: PieChart },
                             { id: 'cash', label: 'Cassa & Spese', icon: Wallet },
                             { id: 'statement', label: 'Estratto Conto', icon: FileText },
-                            { id: 'finance', label: 'Finanze', icon: DollarSign },
                             //{ id: 'staff', label: 'Staff', icon: Users },
                         ].map(tab => (
                             <button

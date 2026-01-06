@@ -3250,7 +3250,7 @@ export function App() {
                                                             <div className="p-4 flex-1 max-h-[250px] overflow-y-auto">
                                                                 <ul className="space-y-2 text-sm font-mono">
                                                                     <li className="text-center text-xs text-slate-400 mb-2">--- INIZIO SCONTRINO ---</li>
-                                                                    {order.items.map((item, idx) => (
+                                                                    {order.items.filter(item => !item.isSeparator && !item.menuItem.name.toLowerCase().includes('a seguire')).map((item, idx) => (
                                                                         <li key={idx} className="flex justify-between items-start border-b border-slate-100 pb-1 last:border-0">
                                                                             <span className="font-bold w-8">{item.quantity}x</span>
                                                                             <span className="flex-1 truncate mr-2">{item.menuItem.name}</span>
@@ -3298,7 +3298,7 @@ export function App() {
                                                                                         <p class="info">${new Date(order.timestamp).toLocaleString('it-IT')}</p>
                                                                                     </div>
                                                                                     
-                                                                                    ${order.items.map(item => `
+                                                                                    ${order.items.filter(item => !item.isSeparator && !item.menuItem.name.toLowerCase().includes('a seguire')).map(item => `
                                                                                         <div class="item">
                                                                                             <span>${item.quantity} x ${item.menuItem.name}</span>
                                                                                             <span>${(item.menuItem.price * item.quantity).toFixed(2)}</span>
@@ -3329,7 +3329,7 @@ export function App() {
                                                                     </button>
                                                                     <button
                                                                         onClick={() => {
-                                                                            const receiptText = `${restaurantName}\nTavolo: ${order.tableNumber.replace('_HISTORY', '')}\nData: ${new Date(order.timestamp).toLocaleString('it-IT')}\n--------------------------------\n${order.items.map(i => `${i.quantity}x ${i.menuItem.name} ... € ${(i.menuItem.price * i.quantity).toFixed(2)}`).join('\n')}\n--------------------------------\nTOTALE: € ${orderTotal.toFixed(2)}`;
+                                                                            const receiptText = `${restaurantName}\nTavolo: ${order.tableNumber.replace('_HISTORY', '')}\nData: ${new Date(order.timestamp).toLocaleString('it-IT')}\n--------------------------------\n${order.items.filter(i => !i.isSeparator && !i.menuItem.name.toLowerCase().includes('a seguire')).map(i => `${i.quantity}x ${i.menuItem.name} ... € ${(i.menuItem.price * i.quantity).toFixed(2)}`).join('\n')}\n--------------------------------\nTOTALE: € ${orderTotal.toFixed(2)}`;
                                                                             alert(receiptText);
                                                                         }}
                                                                         className="py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-sm hover:shadow-md"
