@@ -81,7 +81,49 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
     // DELETE SEPARATOR MODAL STATE
     const [deleteSeparatorModal, setDeleteSeparatorModal] = useState<{ orderId: string; itemIndex: number } | null>(null);
 
-    const waiterName = getWaiterName();
+    // SWIPE TO DELETE STATE
+    const [swipeState, setSwipeState] = useState<{ [key: number]: { startX: number; currentX: number; swiping: boolean; revealPercent: number } }>({});
+    const [deleteItemModal, setDeleteItemModal] = useState<{ orderId: string; itemIndex: number; itemName: string } | null>(null);
+    const swipeTimerRef = useRef<{ [key: number]: ReturnType<typeof setInterval> }>({});
+
+    // HINT ANIMATION STATE
+    const [hintState, setHintState] = useState<{ index: number; offset: number }>({ index: -1, offset: 0 });
+
+    const activeTableOrder = selectedTable
+        ? orders.find(o => o.tableNumber === selectedTable && o.status !== OrderStatus.DELIVERED)
+        : null;
+
+    // Hint Animation Effect
+    useEffect(() => {
+        if (!activeTableOrder || Object.keys(swipeState).length > 0) return;
+
+        const hintInterval = setInterval(() => {
+            // Only play if we have items and no active interaction
+            if (!activeTableOrder.items || activeTableOrder.items.length === 0) return;
+            if (Object.keys(swipeState).length > 0) return;
+
+            const targetIndex = 0; // Always hint the first item
+
+            // Sequence: Left (Edit) -> Center -> Right (Delete) -> Center
+            setHintState({ index: targetIndex, offset: -80 }); // Show Blue
+
+            setTimeout(() => {
+                setHintState({ index: targetIndex, offset: 0 }); // Back
+
+                setTimeout(() => {
+                    setHintState({ index: targetIndex, offset: 80 }); // Show Red
+
+                    setTimeout(() => {
+                        setHintState({ index: targetIndex, offset: 0 }); // Back
+                        setTimeout(() => setHintState({ index: -1, offset: 0 }), 300);
+                    }, 600);
+                }, 500);
+            }, 600);
+
+        }, 5000);
+
+        return () => clearInterval(hintInterval);
+    }, [activeTableOrder, swipeState]);
 
     const loadData = () => {
         try {
@@ -166,9 +208,7 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
         return `${minutes}m`;
     };
 
-    const activeTableOrder = selectedTable
-        ? orders.find(o => o.tableNumber === selectedTable && o.status !== OrderStatus.DELIVERED)
-        : null;
+    // activeTableOrder moved up for hook access
 
     const handleTableClick = (tableNum: string) => {
         setSelectedTable(tableNum);
@@ -199,8 +239,7 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                 id: `separator_${Date.now()}`,
                 name: '→ a seguire →',
                 category: Category.ANTIPASTI, // Categoria fittizia
-                price: 0,
-                available: true
+                price: 0
             },
             quantity: 1,
             isSeparator: true,
@@ -472,6 +511,86 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
         onExit(); // Go back to Role Selection
     };
 
+    // SWIPE TO DELETE FUNCTIONS
+    const handleSwipeStart = (idx: number, clientX: number) => {
+        // Stop hint if running
+        setHintState({ index: -1, offset: 0 });
+
+        setSwipeState(prev => ({
+            ...prev,
+            [idx]: { startX: clientX, currentX: clientX, swiping: true, revealPercent: 0 }
+        }));
+
+        // Clear existing timer if any
+        if (swipeTimerRef.current[idx]) {
+            clearInterval(swipeTimerRef.current[idx]);
+        }
+        // Legacy timer removed in favor of global Hint Animation
+    };
+
+    const handleSwipeMove = (idx: number, clientX: number) => {
+        setSwipeState(prev => {
+            const current = prev[idx];
+            if (current && current.swiping) {
+                const deltaX = clientX - current.startX;
+                // Calculate reveal percent (150px = 100%)
+                // Right swipe (Delete) = positive
+                // Left swipe (Edit) = negative
+                const reveal = (deltaX / 150) * 100;
+
+                return {
+                    ...prev,
+                    [idx]: { ...current, currentX: clientX, revealPercent: reveal }
+                };
+            }
+            return prev;
+        });
+    };
+
+    const handleSwipeEnd = (idx: number, orderId: string, itemName: string) => {
+        // Clear the timer
+        if (swipeTimerRef.current[idx]) {
+            clearInterval(swipeTimerRef.current[idx]);
+            delete swipeTimerRef.current[idx];
+        }
+
+        const current = swipeState[idx];
+        if (current) {
+            const deltaX = current.currentX - current.startX;
+
+            // RIGHT SWIPE (DELETE) -> Threshold > 100px or > 50%
+            if (deltaX > 100 || (current.revealPercent > 0 && current.revealPercent >= 50)) {
+                setDeleteItemModal({ orderId, itemIndex: idx, itemName });
+            }
+            // LEFT SWIPE (EDIT) -> Threshold < -100px or < -50%
+            else if (deltaX < -100 || (current.revealPercent < 0 && current.revealPercent <= -50)) {
+                setCurrentNoteItemIndex(idx);
+                setTempNote('');
+            }
+        }
+
+        // Reset swipe state
+        setSwipeState(prev => {
+            const newState = { ...prev };
+            delete newState[idx];
+            return newState;
+        });
+    };
+
+    const handleSwipeCancel = (idx: number) => {
+        // Clear the timer
+        if (swipeTimerRef.current[idx]) {
+            clearInterval(swipeTimerRef.current[idx]);
+            delete swipeTimerRef.current[idx];
+        }
+        // Reset swipe state
+        setSwipeState(prev => {
+            const newState = { ...prev };
+            delete newState[idx];
+            return newState;
+        });
+    };
+
     const filteredItems = (menuItems || []).filter(item => {
         const matchesSearch = item.name.toLowerCase().includes(searchQuery.toLowerCase());
         const matchesCategory = item.category === activeCategory;
@@ -599,6 +718,56 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                                 <Trash2 size={20} /> SÌ, ELIMINA
                             </button>
                             <button onClick={() => setDeleteSeparatorModal(null)} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-2xl transition-all">
+                                ANNULLA
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* DELETE ITEM MODAL */}
+            {deleteItemModal && (
+                <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
+                    <div className="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-slide-up text-center">
+                        <div className="w-16 h-16 bg-red-600/20 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 animate-pulse">
+                            <Trash2 size={32} />
+                        </div>
+                        <h3 className="text-2xl font-black text-white mb-2">Elimina Piatto</h3>
+                        <p className="text-slate-400 mb-6">
+                            Vuoi rimuovere<br />
+                            <strong className="text-red-300">"{deleteItemModal.itemName}"</strong><br />
+                            dalla comanda?
+                        </p>
+
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={async () => {
+                                    const { orderId, itemIndex } = deleteItemModal;
+                                    const currentOrders = getOrders();
+                                    const orderToUpdate = currentOrders.find(o => o.id === orderId);
+                                    if (!orderToUpdate) {
+                                        setDeleteItemModal(null);
+                                        return;
+                                    }
+
+                                    const updatedItems = [...orderToUpdate.items];
+                                    updatedItems.splice(itemIndex, 1);
+
+                                    const updatedOrder = {
+                                        ...orderToUpdate,
+                                        items: updatedItems,
+                                        timestamp: Date.now()
+                                    };
+
+                                    await updateOrder(updatedOrder);
+                                    setDeleteItemModal(null);
+                                    setTimeout(loadData, 100);
+                                }}
+                                className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black text-lg rounded-2xl shadow-lg shadow-red-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Trash2 size={20} /> SÌ, ELIMINA
+                            </button>
+                            <button onClick={() => setDeleteItemModal(null)} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-2xl transition-all">
                                 ANNULLA
                             </button>
                         </div>
@@ -798,187 +967,235 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                                                                 const isReadyToServe = item.completed && !item.served;
                                                                 const isServed = item.served;
                                                                 const notesArray = item.notes ? item.notes.split('|||') : [];
+                                                                const swipe = swipeState[idx];
+                                                                // Use swipe offset if active, otherwise check hint
+                                                                const swipeOffset = swipe
+                                                                    ? (swipe.currentX - swipe.startX)
+                                                                    : (hintState.index === idx ? hintState.offset : 0);
+
+                                                                // Calculate reveal percent for opacity
+                                                                // If hint is active, use fixed percent based on offset direction
+                                                                const revealPercent = swipe
+                                                                    ? (swipe.currentX - swipe.startX) / 1.5 // Approx conversion
+                                                                    : (hintState.index === idx ? hintState.offset / 0.8 : 0);
+
                                                                 return (
-                                                                    <div key={idx} className={`flex flex-col text-sm p-3 rounded-lg border transition-all ${isReadyToServe ? 'bg-green-900/30 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.2)]' : 'bg-slate-800/50 border-slate-700'}`}>
-                                                                        <div className="flex justify-between items-start">
-                                                                            <div className="flex gap-3 items-start flex-1">
-                                                                                <span className="font-bold text-white bg-slate-700 px-2 py-1 rounded text-xs">x{item.quantity}</span>
-                                                                                <div className="flex flex-col flex-1">
-                                                                                    <span className={`font-bold text-base ${isServed ? 'line-through text-slate-500' : isReadyToServe ? 'text-white' : 'text-slate-300'}`}>{item.menuItem?.name || 'Item'}</span>
-                                                                                    {isReadyToServe && <span className="text-[10px] font-black text-green-400 uppercase tracking-wider animate-pulse flex items-center gap-1 mt-1"><BellRing size={10} /> DA SERVIRE</span>}
-
-                                                                                    {/* Display existing notes */}
-                                                                                    {notesArray.length > 0 && (
-                                                                                        <div className="mt-2 space-y-1">
-                                                                                            {notesArray.map((note, noteIdx) => (
-                                                                                                <div key={noteIdx} className="flex items-center gap-2 bg-orange-900/20 px-2 py-1 rounded border border-orange-900/30">
-                                                                                                    <span className="text-xs text-orange-300 flex-1">⚠️ {note.trim()}</span>
-                                                                                                    <button
-                                                                                                        onClick={() => {
-                                                                                                            setEditingNote({ itemIndex: idx, noteIndex: noteIdx, currentText: note.trim() });
-                                                                                                        }}
-                                                                                                        className="text-blue-400 hover:text-blue-300 p-1"
-                                                                                                        title="Modifica nota"
-                                                                                                    >
-                                                                                                        <Edit3 size={12} />
-                                                                                                    </button>
-                                                                                                    <button
-                                                                                                        onClick={async () => {
-                                                                                                            // Get current orders
-                                                                                                            const currentOrders = getOrders();
-                                                                                                            const orderToUpdate = currentOrders.find(o => o.id === activeTableOrder.id);
-                                                                                                            if (!orderToUpdate) return;
-
-                                                                                                            const newNotesArray = [...notesArray];
-                                                                                                            newNotesArray.splice(noteIdx, 1);
-                                                                                                            const newNotes = newNotesArray.length > 0 ? newNotesArray.join('|||') : undefined;
-
-                                                                                                            // Create updated items array
-                                                                                                            const updatedItems = [...orderToUpdate.items];
-                                                                                                            updatedItems[idx] = { ...updatedItems[idx], notes: newNotes };
-
-                                                                                                            // Update the order directly
-                                                                                                            const updatedOrder = {
-                                                                                                                ...orderToUpdate,
-                                                                                                                items: updatedItems,
-                                                                                                                timestamp: Date.now()
-                                                                                                            };
-
-                                                                                                            // Use updateOrder instead of saveOrders to sync with cloud
-                                                                                                            updateOrder(updatedOrder);
-
-                                                                                                            setTimeout(loadData, 100);
-                                                                                                        }}
-                                                                                                        className="text-red-400 hover:text-red-300 p-1"
-                                                                                                        title="Elimina nota"
-                                                                                                    >
-                                                                                                        <X size={12} />
-                                                                                                    </button>
-                                                                                                </div>
-                                                                                            ))}
-                                                                                        </div>
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-                                                                            <div className="flex items-center gap-2 ml-2">
-                                                                                {/* Add note button */}
-                                                                                <button
-                                                                                    onClick={() => {
-                                                                                        setCurrentNoteItemIndex(idx);
-                                                                                        setTempNote('');
-                                                                                    }}
-                                                                                    className="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg shadow-lg active:scale-95 transition-all"
-                                                                                    title="Aggiungi nota"
-                                                                                >
-                                                                                    <Edit3 size={16} />
-                                                                                </button>
-
-                                                                                {isReadyToServe ? (
-                                                                                    <button onClick={() => handleServeItem(activeTableOrder.id, idx)} className="bg-green-500 hover:bg-green-400 text-white p-2 rounded-lg shadow-lg active:scale-95 transition-all">
-                                                                                        <Square size={20} className="fill-current text-green-700" />
-                                                                                    </button>
-                                                                                ) : isServed ? (
-                                                                                    <CheckSquare size={20} className="text-slate-600" />
-                                                                                ) : (
-                                                                                    <span className="font-mono text-slate-500 text-xs">Cooking</span>
-                                                                                )}
+                                                                    <div
+                                                                        key={idx}
+                                                                        className="relative overflow-hidden rounded-lg cursor-grab active:cursor-grabbing"
+                                                                        onTouchStart={(e) => handleSwipeStart(idx, e.touches[0].clientX)}
+                                                                        onTouchMove={(e) => handleSwipeMove(idx, e.touches[0].clientX)}
+                                                                        onTouchEnd={() => handleSwipeEnd(idx, activeTableOrder.id, item.menuItem?.name || 'Item')}
+                                                                        onTouchCancel={() => handleSwipeCancel(idx)}
+                                                                        onMouseDown={(e) => handleSwipeStart(idx, e.clientX)}
+                                                                        onMouseMove={(e) => e.buttons === 1 && handleSwipeMove(idx, e.clientX)}
+                                                                        onMouseUp={() => handleSwipeEnd(idx, activeTableOrder.id, item.menuItem?.name || 'Item')}
+                                                                        onMouseLeave={() => swipeState[idx]?.swiping && handleSwipeCancel(idx)}
+                                                                    >
+                                                                        {/* SWIPE BACKGROUNDS */}
+                                                                        {/* DELETE (Rights swipe) background */}
+                                                                        <div
+                                                                            className="absolute inset-y-0 left-0 bg-red-600 flex items-center justify-start pl-6 rounded-l-lg w-full z-0"
+                                                                            style={{
+                                                                                opacity: swipeOffset > 0 ? Math.min(swipeOffset / 100, 1) : 0,
+                                                                                visibility: swipeOffset > 0 ? 'visible' : 'hidden'
+                                                                            }}
+                                                                        >
+                                                                            <div className="flex items-center gap-2 text-white font-black">
+                                                                                <Trash2 size={24} />
+                                                                                <span className="text-sm uppercase tracking-wider">Elimina</span>
                                                                             </div>
                                                                         </div>
 
-                                                                        {/* Note input modal inline */}
-                                                                        {currentNoteItemIndex === idx && (
-                                                                            <div className="mt-3 pt-3 border-t border-slate-700 space-y-2">
-                                                                                <label className="text-xs font-bold text-slate-400 uppercase">Aggiungi Nota (es. allergia, preferenza)</label>
-                                                                                <div className="flex items-center gap-2">
-                                                                                    <input
-                                                                                        type="text"
-                                                                                        placeholder="Scrivi o detta una nota..."
-                                                                                        value={tempNote}
-                                                                                        onChange={(e) => setTempNote(e.target.value)}
-                                                                                        className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 outline-none"
-                                                                                        autoFocus
-                                                                                    />
-                                                                                    <button
-                                                                                        onClick={() => toggleRecording(idx)}
-                                                                                        className={`p-2 rounded-lg transition-all ${isRecording && currentNoteItemIndex === idx ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-700 text-slate-300 hover:bg-blue-600 hover:text-white'}`}
-                                                                                        title={isRecording && currentNoteItemIndex === idx ? 'Stop Recording' : 'Start Voice Input'}
-                                                                                    >
-                                                                                        {isRecording && currentNoteItemIndex === idx ? <MicOff size={20} /> : <Mic size={20} />}
-                                                                                    </button>
-                                                                                    <button
-                                                                                        onClick={async () => {
-                                                                                            try {
-                                                                                                if (!tempNote.trim()) {
-                                                                                                    alert('La nota è vuota!');
-                                                                                                    return;
-                                                                                                }
+                                                                        {/* EDIT (Left swipe) background */}
+                                                                        <div
+                                                                            className="absolute inset-y-0 right-0 bg-blue-600 flex items-center justify-end pr-6 rounded-r-lg w-full z-0"
+                                                                            style={{
+                                                                                opacity: swipeOffset < 0 ? Math.min(Math.abs(swipeOffset) / 100, 1) : 0,
+                                                                                visibility: swipeOffset < 0 ? 'visible' : 'hidden'
+                                                                            }}
+                                                                        >
+                                                                            <div className="flex items-center gap-2 text-white font-black">
+                                                                                <span className="text-sm uppercase tracking-wider">Modifica</span>
+                                                                                <Edit3 size={24} />
+                                                                            </div>
+                                                                        </div>
 
-                                                                                                if (!activeTableOrder) {
-                                                                                                    alert('Errore: ordine non trovato. Ricarica la pagina.');
-                                                                                                    return;
-                                                                                                }
+                                                                        {/* Main item content - slides right during swipe */}
+                                                                        <div
+                                                                            className={`flex flex-col text-sm p-3 border transition-transform ${isReadyToServe ? 'bg-green-900/30 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.2)]' : 'bg-slate-800 border-slate-700'} rounded-lg relative`}
+                                                                            style={{ transform: `translateX(${swipeOffset}px)` }}
+                                                                        >
+                                                                            <div className="flex justify-between items-start">
+                                                                                <div className="flex gap-3 items-start flex-1">
+                                                                                    <span className="font-bold text-white bg-slate-700 px-2 py-1 rounded text-xs">x{item.quantity}</span>
+                                                                                    <div className="flex flex-col flex-1">
+                                                                                        <span className={`font-bold text-base ${isServed ? 'line-through text-slate-500' : isReadyToServe ? 'text-white' : 'text-slate-300'}`}>{item.menuItem?.name || 'Item'}</span>
+                                                                                        {isReadyToServe && <span className="text-[10px] font-black text-green-400 uppercase tracking-wider animate-pulse flex items-center gap-1 mt-1"><BellRing size={10} /> DA SERVIRE</span>}
 
-                                                                                                // Get current orders
-                                                                                                const currentOrders = getOrders();
-                                                                                                const orderToUpdate = currentOrders.find(o => o.id === activeTableOrder.id);
-                                                                                                if (!orderToUpdate) {
-                                                                                                    alert('Errore: impossibile trovare l\'ordine da aggiornare.');
-                                                                                                    return;
-                                                                                                }
+                                                                                        {/* Display existing notes */}
+                                                                                        {notesArray.length > 0 && (
+                                                                                            <div className="mt-2 space-y-1">
+                                                                                                {notesArray.map((note, noteIdx) => (
+                                                                                                    <div key={noteIdx} className="flex items-center gap-2 bg-orange-900/20 px-2 py-1 rounded border border-orange-900/30">
+                                                                                                        <span className="text-xs text-orange-300 flex-1">⚠️ {note.trim()}</span>
+                                                                                                        <button
+                                                                                                            onClick={() => {
+                                                                                                                setEditingNote({ itemIndex: idx, noteIndex: noteIdx, currentText: note.trim() });
+                                                                                                            }}
+                                                                                                            className="text-blue-400 hover:text-blue-300 p-1"
+                                                                                                            title="Modifica nota"
+                                                                                                        >
+                                                                                                            <Edit3 size={12} />
+                                                                                                        </button>
+                                                                                                        <button
+                                                                                                            onClick={async () => {
+                                                                                                                // Get current orders
+                                                                                                                const currentOrders = getOrders();
+                                                                                                                const orderToUpdate = currentOrders.find(o => o.id === activeTableOrder.id);
+                                                                                                                if (!orderToUpdate) return;
 
-                                                                                                // Update the specific item's notes
-                                                                                                const currentNotes = orderToUpdate.items[idx].notes || '';
-                                                                                                const newNotesArray = currentNotes ? currentNotes.split('|||') : [];
-                                                                                                newNotesArray.push(tempNote.trim());
+                                                                                                                const newNotesArray = [...notesArray];
+                                                                                                                newNotesArray.splice(noteIdx, 1);
+                                                                                                                const newNotes = newNotesArray.length > 0 ? newNotesArray.join('|||') : undefined;
 
-                                                                                                // Create updated items array
-                                                                                                const updatedItems = [...orderToUpdate.items];
-                                                                                                updatedItems[idx] = {
-                                                                                                    ...updatedItems[idx],
-                                                                                                    notes: newNotesArray.join('|||')
-                                                                                                };
+                                                                                                                // Create updated items array
+                                                                                                                const updatedItems = [...orderToUpdate.items];
+                                                                                                                updatedItems[idx] = { ...updatedItems[idx], notes: newNotes };
 
-                                                                                                // Update the order directly
-                                                                                                const updatedOrder = {
-                                                                                                    ...orderToUpdate,
-                                                                                                    items: updatedItems,
-                                                                                                    timestamp: Date.now()
-                                                                                                };
+                                                                                                                // Update the order directly
+                                                                                                                const updatedOrder = {
+                                                                                                                    ...orderToUpdate,
+                                                                                                                    items: updatedItems,
+                                                                                                                    timestamp: Date.now()
+                                                                                                                };
 
-                                                                                                // Save to storage
-                                                                                                const newOrders = currentOrders.map(o =>
-                                                                                                    o.id === activeTableOrder.id ? updatedOrder : o
-                                                                                                );
-                                                                                                // Use updateOrder instead of saveOrders to sync with cloud
-                                                                                                updateOrder(updatedOrder);
+                                                                                                                // Use updateOrder instead of saveOrders to sync with cloud
+                                                                                                                updateOrder(updatedOrder);
 
-                                                                                                setTempNote('');
-                                                                                                setCurrentNoteItemIndex(null);
-                                                                                                setTimeout(loadData, 100);
-                                                                                            } catch (error) {
-                                                                                                console.error('Errore aggiunta nota:', error);
-                                                                                                alert('Errore durante l\'aggiunta della nota: ' + error);
-                                                                                            }
-                                                                                        }}
-                                                                                        disabled={tempNote.trim().length === 0}
-                                                                                        className="p-2 bg-green-600 hover:bg-green-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-lg transition-all"
-                                                                                        title="Aggiungi Nota"
-                                                                                    >
-                                                                                        <Plus size={20} />
-                                                                                    </button>
-                                                                                    <button
-                                                                                        onClick={() => {
-                                                                                            setCurrentNoteItemIndex(null);
-                                                                                            setTempNote('');
-                                                                                        }}
-                                                                                        className="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-all"
-                                                                                        title="Annulla"
-                                                                                    >
-                                                                                        <X size={20} />
-                                                                                    </button>
+                                                                                                                setTimeout(loadData, 100);
+                                                                                                            }}
+                                                                                                            className="text-red-400 hover:text-red-300 p-1"
+                                                                                                            title="Elimina nota"
+                                                                                                        >
+                                                                                                            <X size={12} />
+                                                                                                        </button>
+                                                                                                    </div>
+                                                                                                ))}
+                                                                                            </div>
+                                                                                        )}
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div className="flex items-center gap-2 ml-2">
+                                                                                    {/* Edit button removed - replaced by Left Swipe */}
+
+                                                                                    {isReadyToServe ? (
+                                                                                        <button onClick={() => handleServeItem(activeTableOrder.id, idx)} className="bg-green-500 hover:bg-green-400 text-white p-2 rounded-lg shadow-lg active:scale-95 transition-all">
+                                                                                            <Square size={20} className="fill-current text-green-700" />
+                                                                                        </button>
+                                                                                    ) : isServed ? (
+                                                                                        <CheckSquare size={20} className="text-slate-600" />
+                                                                                    ) : (
+                                                                                        <span className="font-mono text-slate-500 text-xs">Cooking</span>
+                                                                                    )}
                                                                                 </div>
                                                                             </div>
-                                                                        )}
+
+                                                                            {/* Note input modal inline */}
+                                                                            {currentNoteItemIndex === idx && (
+                                                                                <div className="mt-3 pt-3 border-t border-slate-700 space-y-2">
+                                                                                    <label className="text-xs font-bold text-slate-400 uppercase">Aggiungi Nota (es. allergia, preferenza)</label>
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <input
+                                                                                            type="text"
+                                                                                            placeholder="Scrivi o detta una nota..."
+                                                                                            value={tempNote}
+                                                                                            onChange={(e) => setTempNote(e.target.value)}
+                                                                                            className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 outline-none"
+                                                                                            autoFocus
+                                                                                        />
+                                                                                        <button
+                                                                                            onClick={() => toggleRecording(idx)}
+                                                                                            className={`p-2 rounded-lg transition-all ${isRecording && currentNoteItemIndex === idx ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-700 text-slate-300 hover:bg-blue-600 hover:text-white'}`}
+                                                                                            title={isRecording && currentNoteItemIndex === idx ? 'Stop Recording' : 'Start Voice Input'}
+                                                                                        >
+                                                                                            {isRecording && currentNoteItemIndex === idx ? <MicOff size={20} /> : <Mic size={20} />}
+                                                                                        </button>
+                                                                                        <button
+                                                                                            onClick={async () => {
+                                                                                                try {
+                                                                                                    if (!tempNote.trim()) {
+                                                                                                        alert('La nota è vuota!');
+                                                                                                        return;
+                                                                                                    }
+
+                                                                                                    if (!activeTableOrder) {
+                                                                                                        alert('Errore: ordine non trovato. Ricarica la pagina.');
+                                                                                                        return;
+                                                                                                    }
+
+                                                                                                    // Get current orders
+                                                                                                    const currentOrders = getOrders();
+                                                                                                    const orderToUpdate = currentOrders.find(o => o.id === activeTableOrder.id);
+                                                                                                    if (!orderToUpdate) {
+                                                                                                        alert('Errore: impossibile trovare l\'ordine da aggiornare.');
+                                                                                                        return;
+                                                                                                    }
+
+                                                                                                    // Update the specific item's notes
+                                                                                                    const currentNotes = orderToUpdate.items[idx].notes || '';
+                                                                                                    const newNotesArray = currentNotes ? currentNotes.split('|||') : [];
+                                                                                                    newNotesArray.push(tempNote.trim());
+
+                                                                                                    // Create updated items array
+                                                                                                    const updatedItems = [...orderToUpdate.items];
+                                                                                                    updatedItems[idx] = {
+                                                                                                        ...updatedItems[idx],
+                                                                                                        notes: newNotesArray.join('|||')
+                                                                                                    };
+
+                                                                                                    // Update the order directly
+                                                                                                    const updatedOrder = {
+                                                                                                        ...orderToUpdate,
+                                                                                                        items: updatedItems,
+                                                                                                        timestamp: Date.now()
+                                                                                                    };
+
+                                                                                                    // Save to storage
+                                                                                                    const newOrders = currentOrders.map(o =>
+                                                                                                        o.id === activeTableOrder.id ? updatedOrder : o
+                                                                                                    );
+                                                                                                    // Use updateOrder instead of saveOrders to sync with cloud
+                                                                                                    updateOrder(updatedOrder);
+
+                                                                                                    setTempNote('');
+                                                                                                    setCurrentNoteItemIndex(null);
+                                                                                                    setTimeout(loadData, 100);
+                                                                                                } catch (error) {
+                                                                                                    console.error('Errore aggiunta nota:', error);
+                                                                                                    alert('Errore durante l\'aggiunta della nota: ' + error);
+                                                                                                }
+                                                                                            }}
+                                                                                            disabled={tempNote.trim().length === 0}
+                                                                                            className="p-2 bg-green-600 hover:bg-green-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-lg transition-all"
+                                                                                            title="Aggiungi Nota"
+                                                                                        >
+                                                                                            <Plus size={20} />
+                                                                                        </button>
+                                                                                        <button
+                                                                                            onClick={() => {
+                                                                                                setCurrentNoteItemIndex(null);
+                                                                                                setTempNote('');
+                                                                                            }}
+                                                                                            className="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-all"
+                                                                                            title="Annulla"
+                                                                                        >
+                                                                                            <X size={20} />
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
                                                                 );
                                                             })
