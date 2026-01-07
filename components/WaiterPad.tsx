@@ -78,6 +78,9 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
     // EDIT NOTE MODAL STATE
     const [editingNote, setEditingNote] = useState<{ itemIndex: number; noteIndex: number; currentText: string } | null>(null);
 
+    // DELETE SEPARATOR MODAL STATE
+    const [deleteSeparatorModal, setDeleteSeparatorModal] = useState<{ orderId: string; itemIndex: number } | null>(null);
+
     const waiterName = getWaiterName();
 
     const loadData = () => {
@@ -554,6 +557,55 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                 </div>
             )}
 
+            {/* DELETE SEPARATOR MODAL */}
+            {deleteSeparatorModal && (
+                <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
+                    <div className="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-slide-up text-center">
+                        <div className="w-16 h-16 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-4 text-purple-500 animate-pulse">
+                            <ArrowRightLeft size={32} />
+                        </div>
+                        <h3 className="text-2xl font-black text-white mb-2">Rimuovi Pausa</h3>
+                        <p className="text-slate-400 mb-6">
+                            Vuoi eliminare la pausa<br />
+                            <strong className="text-purple-300">"→ A SEGUIRE →"</strong> dalla comanda?
+                        </p>
+
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={async () => {
+                                    const { orderId, itemIndex } = deleteSeparatorModal;
+                                    const currentOrders = getOrders();
+                                    const orderToUpdate = currentOrders.find(o => o.id === orderId);
+                                    if (!orderToUpdate) {
+                                        setDeleteSeparatorModal(null);
+                                        return;
+                                    }
+
+                                    const updatedItems = [...orderToUpdate.items];
+                                    updatedItems.splice(itemIndex, 1);
+
+                                    const updatedOrder = {
+                                        ...orderToUpdate,
+                                        items: updatedItems,
+                                        timestamp: Date.now()
+                                    };
+
+                                    await updateOrder(updatedOrder);
+                                    setDeleteSeparatorModal(null);
+                                    setTimeout(loadData, 100);
+                                }}
+                                className="w-full py-4 bg-purple-600 hover:bg-purple-500 text-white font-black text-lg rounded-2xl shadow-lg shadow-purple-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Trash2 size={20} /> SÌ, ELIMINA
+                            </button>
+                            <button onClick={() => setDeleteSeparatorModal(null)} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-2xl transition-all">
+                                ANNULLA
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* REVIEW REQUEST TOAST */}
             {showReviewToast && (
                 <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-[200] animate-slide-down">
@@ -732,23 +784,8 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                                                                                 <span className="font-bold text-purple-300 text-sm tracking-widest uppercase">→ A SEGUIRE →</span>
                                                                             </div>
                                                                             <button
-                                                                                onClick={async () => {
-                                                                                    if (!confirm('Eliminare la pausa "A Seguire"?')) return;
-                                                                                    const currentOrders = getOrders();
-                                                                                    const orderToUpdate = currentOrders.find(o => o.id === activeTableOrder.id);
-                                                                                    if (!orderToUpdate) return;
-
-                                                                                    const updatedItems = [...orderToUpdate.items];
-                                                                                    updatedItems.splice(idx, 1);
-
-                                                                                    const updatedOrder = {
-                                                                                        ...orderToUpdate,
-                                                                                        items: updatedItems,
-                                                                                        timestamp: Date.now()
-                                                                                    };
-
-                                                                                    await updateOrder(updatedOrder);
-                                                                                    setTimeout(loadData, 100);
+                                                                                onClick={() => {
+                                                                                    setDeleteSeparatorModal({ orderId: activeTableOrder.id, itemIndex: idx });
                                                                                 }}
                                                                                 className="p-2 bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white rounded-lg transition-colors shadow-sm"
                                                                             >
