@@ -592,8 +592,9 @@ export const toggleOrderItemCompletion = (orderId: string, itemIndex: number, su
         }
     }
 
-    const allCooked = newItems.every(i => i.completed);
-    const anyCooked = newItems.some(i => i.completed || (i.comboCompletedParts && i.comboCompletedParts.length > 0));
+    const realItems = newItems.filter(i => i.menuItem.id !== 'separator');
+    const allCooked = realItems.length > 0 && realItems.every(i => i.completed);
+    const anyCooked = realItems.some(i => i.completed || (i.comboCompletedParts && i.comboCompletedParts.length > 0));
 
     let newStatus = order.status;
     if (order.status !== OrderStatus.DELIVERED) {
@@ -632,7 +633,7 @@ export const serveItem = (orderId: string, itemIndex: number, subItemId?: string
         }
     }
 
-    const allServed = newItems.every(i => i.served);
+    const allServed = newItems.filter(i => i.menuItem.id !== 'separator').every(i => i.served);
     let newStatus = order.status;
     if (allServed && (newStatus === OrderStatus.READY || newStatus === OrderStatus.COOKING)) {
         newStatus = OrderStatus.PENDING;

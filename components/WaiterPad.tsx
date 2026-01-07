@@ -4,7 +4,7 @@ import {
 } from '../types';
 import {
     getOrders, addOrder, updateOrderStatus, updateOrderItems, updateOrder,
-    toggleOrderItemCompletion, serveItem, saveOrders,
+    toggleOrderItemCompletion, serveItem,
     getWaiterName, logoutWaiter, getMenuItems,
     freeTable, getAppSettings, getAutomations, getTableCount,
     fetchSettingsFromCloud, getTodayReservations, getTableReservation, markCustomerArrived
@@ -13,8 +13,9 @@ import {
     LogOut, Plus, Search, Utensils, CheckCircle,
     ChevronLeft, Trash2, User, Clock,
     DoorOpen, ChefHat, Pizza, Sandwich,
-    Wine, CakeSlice, UtensilsCrossed, Send as SendIcon, CheckSquare, Square, BellRing, X, ArrowLeft, AlertTriangle, Home, Lock, Mic, MicOff, Edit3, Calendar, Users, Baby, ArrowRightLeft
-} from 'lucide-react';
+    Wine, CakeSlice, UtensilsCrossed, Send as SendIcon, CheckSquare, Square, BellRing, X, ArrowLeft, AlertTriangle, Home, Lock, Mic, MicOff, Edit3, Calendar, Users, Baby, ArrowDown
+}
+    from 'lucide-react';
 
 interface WaiterPadProps {
     onExit: () => void;
@@ -86,11 +87,59 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
     const [deleteItemModal, setDeleteItemModal] = useState<{ orderId: string; itemIndex: number; itemName: string } | null>(null);
     const swipeTimerRef = useRef<{ [key: number]: ReturnType<typeof setInterval> }>({});
 
-    const activeTableOrder = selectedTable
-        ? orders.find(o => o.tableNumber === selectedTable && o.status !== OrderStatus.DELIVERED)
-        : null;
-
     const waiterName = getWaiterName();
+
+    // NOTIFICATION STATE & AUDIO
+    const [viewNotification, setViewNotification] = useState<{ message: string, color: string } | null>(null);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const prevOrdersRef = useRef<Order[]>([]);
+
+    useEffect(() => {
+        // Initialize Audio (Kitchen Bell Sound)
+        audioRef.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+    }, []);
+
+    // WATCH FOR KITCHEN COMPLETIONS
+    useEffect(() => {
+        if (!orders || orders.length === 0) return;
+
+        // Skip first run to avoid notifying on page load if data exists
+        if (prevOrdersRef.current.length === 0 && orders.length > 0) {
+            prevOrdersRef.current = orders;
+            return;
+        }
+
+        let soundPlayed = false;
+
+        orders.forEach(newOrder => {
+            const oldOrder = prevOrdersRef.current.find(o => o.id === newOrder.id);
+            if (!oldOrder) return; // New order, ignore or handle differently? Usually ignore for "ready" toast
+
+            newOrder.items.forEach((newItem, idx) => {
+                const oldItem = oldOrder.items[idx];
+                if (!oldItem) return;
+
+                // CHECK: Was NOT completed -> NOW IS completed (and not served yet)
+                if (!oldItem.completed && newItem.completed && !newItem.served) {
+
+                    // Trigger Notification (Visual Toast for EACH item)
+                    setViewNotification({
+                        message: `🔔 ${newItem.menuItem.name} PRONTO DA RITIRARE al Tavolo ${newOrder.tableNumber}!`,
+                        color: 'bg-green-600'
+                    });
+
+                    // Play Sound (REMOVED as requested - only Toast)
+                    // Audio removed as requested, only Visual Toast
+
+                    // Hide after 6s
+                    setTimeout(() => setViewNotification(null), 6000);
+                }
+            });
+        });
+
+        // Update Ref
+        prevOrdersRef.current = orders;
+    }, [orders]);
 
     const loadData = () => {
         try {
@@ -134,7 +183,7 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
             const tableOrders = orders.filter(o => o.tableNumber === tableNum && o.status !== OrderStatus.DELIVERED);
 
             if (tableOrders.length > 0) {
-                const allItemsServed = tableOrders.every(order => (order.items || []).every(item => item.served));
+                const allItemsServed = tableOrders.every(order => (order.items || []).filter(i => i.menuItem.id !== 'separator').every(item => item.served));
                 if (allItemsServed) return 'completed';
 
                 const hasItemsToServe = tableOrders.some(o => (o.items || []).some(i => i.completed && !i.served));
@@ -175,7 +224,9 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
         return `${minutes}m`;
     };
 
-    // activeTableOrder moved up for hook access
+    const activeTableOrder = selectedTable
+        ? orders.find(o => o.tableNumber === selectedTable && o.status !== OrderStatus.DELIVERED)
+        : null;
 
     const handleTableClick = (tableNum: string) => {
         setSelectedTable(tableNum);
@@ -185,37 +236,35 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
 
     const addToCart = (item: MenuItem) => {
         setCart(prev => {
-            // Cerca se il piatto esiste già nel carrello (indipendentemente dalle note)
-            const existingIndex = prev.findIndex(i => i.menuItem.id === item.id);
-            if (existingIndex !== -1) {
-                // Se esiste, aumenta solo la quantità
-                return prev.map((i, idx) => idx === existingIndex
+            const existing = prev.find(i => i.menuItem.id === item.id && !i.notes);
+            if (existing) {
+                return prev.map(i => i.menuItem.id === item.id && !i.notes
                     ? { ...i, quantity: i.quantity + 1 }
                     : i
                 );
             }
-            // Se non esiste, aggiungilo come nuovo item
             return [...prev, { menuItem: item, quantity: 1, served: false, completed: false }];
         });
     };
 
-    const addCourseSeparator = () => {
-        // Crea un item separatore speciale
-        const separator: OrderItem = {
+    const addSeparatorToCart = () => {
+        const separatorItem: any = {
             menuItem: {
-                id: `separator_${Date.now()}`,
-                name: '→ a seguire →',
-                category: Category.ANTIPASTI, // Categoria fittizia
-                price: 0
+                id: 'separator',
+                name: '--- A SEGUIRE ---',
+                price: 0,
+                category: Category.ANTIPASTI, // Safe fallback
+                description: '',
             },
             quantity: 1,
-            isSeparator: true,
+            completed: false,
             served: false,
-            completed: false
+            isAddedLater: false,
+            notes: '',
+            isSeparator: true
         };
-        setCart(prev => [...prev, separator]);
+        setCart(prev => [...prev, separatorItem]);
     };
-
 
     const removeFromCart = (index: number) => {
         setCart(prev => prev.filter((_, i) => i !== index));
@@ -291,17 +340,47 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
         }
     };
 
-    const addNoteToItem = (itemIndex: number) => {
-        if (!tempNote.trim()) return;
+    const addNoteToItem = async (itemIndex: number) => {
+        if (!tempNote.trim() && !isRecording) return; // Allow empty if just stopped recording but has text? No, check tempNote
 
-        setCart(prev => {
-            const newCart = [...prev];
-            const currentNotes = newCart[itemIndex].notes || '';
-            const notesArray = currentNotes ? currentNotes.split('|||') : [];
-            notesArray.push(tempNote.trim());
-            newCart[itemIndex] = { ...newCart[itemIndex], notes: notesArray.join('|||') };
-            return newCart;
-        });
+        const textToAdd = tempNote.trim();
+        if (!textToAdd) return;
+
+        // CASE 1: Editing Active Order (View Table)
+        if (view === 'tables' && activeTableOrder) {
+            const updatedItems = [...activeTableOrder.items];
+            if (updatedItems[itemIndex]) {
+                const currentNotes = updatedItems[itemIndex].notes || '';
+                const notesArray = currentNotes ? currentNotes.split('|||') : [];
+                notesArray.push(textToAdd);
+
+                updatedItems[itemIndex] = {
+                    ...updatedItems[itemIndex],
+                    notes: notesArray.join('|||')
+                };
+
+                const updatedOrder = {
+                    ...activeTableOrder,
+                    items: updatedItems,
+                    timestamp: Date.now()
+                };
+
+                await updateOrder(updatedOrder);
+                loadData();
+            }
+        }
+        // CASE 2: Editing Cart (New Order)
+        else {
+            setCart(prev => {
+                if (!prev[itemIndex]) return prev;
+                const newCart = [...prev];
+                const currentNotes = newCart[itemIndex].notes || '';
+                const notesArray = currentNotes ? currentNotes.split('|||') : [];
+                notesArray.push(textToAdd);
+                newCart[itemIndex] = { ...newCart[itemIndex], notes: notesArray.join('|||') };
+                return newCart;
+            });
+        }
 
         // Stop microphone if recording
         if (isRecording && recognitionRef.current) {
@@ -313,47 +392,68 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
         setCurrentNoteItemIndex(null);
     };
 
-    const removeNoteFromItem = (itemIndex: number, noteIndex: number) => {
-        setCart(prev => {
-            const newCart = [...prev];
-            const currentNotes = newCart[itemIndex].notes || '';
-            const notesArray = currentNotes.split('|||');
-            notesArray.splice(noteIndex, 1);
-            newCart[itemIndex] = { ...newCart[itemIndex], notes: notesArray.length > 0 ? notesArray.join('|||') : undefined };
-            return newCart;
-        });
+    const removeNoteFromItem = async (itemIndex: number, noteIndex: number) => {
+        // CASE 1: Active Order
+        if (view === 'tables' && activeTableOrder) {
+            const updatedItems = [...activeTableOrder.items];
+            if (updatedItems[itemIndex]) {
+                const currentNotes = updatedItems[itemIndex].notes || '';
+                const notesArray = currentNotes.split('|||');
+                notesArray.splice(noteIndex, 1);
+                updatedItems[itemIndex] = {
+                    ...updatedItems[itemIndex],
+                    notes: notesArray.length > 0 ? notesArray.join('|||') : undefined
+                };
+
+                const updatedOrder = {
+                    ...activeTableOrder,
+                    items: updatedItems,
+                    timestamp: Date.now()
+                };
+                await updateOrder(updatedOrder);
+                loadData();
+            }
+        }
+        // CASE 2: Cart
+        else {
+            setCart(prev => {
+                if (!prev[itemIndex]) return prev;
+                const newCart = [...prev];
+                const currentNotes = newCart[itemIndex].notes || '';
+                const notesArray = currentNotes.split('|||');
+                notesArray.splice(noteIndex, 1);
+                newCart[itemIndex] = { ...newCart[itemIndex], notes: notesArray.length > 0 ? notesArray.join('|||') : undefined };
+                return newCart;
+            });
+        }
     };
 
     const editNoteInItem = async (itemIndex: number, noteIndex: number, newText: string) => {
-        // Check if we're editing an active order or the cart
-        if (activeTableOrder) {
-            // Editing an active order - update directly
-            const currentOrders = getOrders();
-            const orderToUpdate = currentOrders.find(o => o.id === activeTableOrder.id);
-            if (!orderToUpdate) return;
+        // CASE 1: Active Order
+        if (view === 'tables' && activeTableOrder) {
+            const updatedItems = [...activeTableOrder.items];
+            if (updatedItems[itemIndex]) {
+                const currentNotes = updatedItems[itemIndex].notes || '';
+                const notesArray = currentNotes.split('|||');
+                notesArray[noteIndex] = newText;
+                updatedItems[itemIndex] = {
+                    ...updatedItems[itemIndex],
+                    notes: notesArray.join('|||')
+                };
 
-            const currentNotes = orderToUpdate.items[itemIndex].notes || '';
-            const notesArray = currentNotes.split('|||');
-            notesArray[noteIndex] = newText;
-
-            // Create updated items array
-            const updatedItems = [...orderToUpdate.items];
-            updatedItems[itemIndex] = { ...updatedItems[itemIndex], notes: notesArray.join('|||') };
-
-            // Update the order directly
-            const updatedOrder = {
-                ...orderToUpdate,
-                items: updatedItems,
-                timestamp: Date.now()
-            };
-
-            // Use updateOrder instead of saveOrders to sync with cloud
-            updateOrder(updatedOrder);
-
-            setTimeout(loadData, 100);
-        } else {
-            // Editing the cart
+                const updatedOrder = {
+                    ...activeTableOrder,
+                    items: updatedItems,
+                    timestamp: Date.now()
+                };
+                await updateOrder(updatedOrder);
+                loadData();
+            }
+        }
+        // CASE 2: Cart
+        else {
             setCart(prev => {
+                if (!prev[itemIndex]) return prev;
                 const newCart = [...prev];
                 const currentNotes = newCart[itemIndex].notes || '';
                 const notesArray = currentNotes.split('|||');
@@ -489,32 +589,6 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
         if (swipeTimerRef.current[idx]) {
             clearInterval(swipeTimerRef.current[idx]);
         }
-
-        // Progressive reveal timer (3% every 5 seconds - roughly simulates "hold to reveal")
-        swipeTimerRef.current[idx] = setInterval(() => {
-            setSwipeState(prev => {
-                const current = prev[idx];
-                if (current && current.swiping) {
-                    const deltaX = current.currentX - current.startX;
-
-                    // Determine direction based on current swipe position
-                    if (deltaX > 0 && current.revealPercent < 100) {
-                        // Right Swipe (Delete) -> Increase positive percent
-                        return {
-                            ...prev,
-                            [idx]: { ...current, revealPercent: Math.min(current.revealPercent + 3, 100) }
-                        };
-                    } else if (deltaX < 0 && current.revealPercent > -100) {
-                        // Left Swipe (Edit) -> Increase negative percent (make more negative)
-                        return {
-                            ...prev,
-                            [idx]: { ...current, revealPercent: Math.max(current.revealPercent - 3, -100) }
-                        };
-                    }
-                }
-                return prev;
-            });
-        }, 5000);
     };
 
     const handleSwipeMove = (idx: number, clientX: number) => {
@@ -523,8 +597,8 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
             if (current && current.swiping) {
                 const deltaX = clientX - current.startX;
                 // Calculate reveal percent (150px = 100%)
-                // Right swipe (Delete) = positive
-                // Left swipe (Edit) = negative
+                // Left swipe (Delete) = negative (deltaX < 0)
+                // Right swipe (Edit) = positive (deltaX > 0)
                 const reveal = (deltaX / 150) * 100;
 
                 return {
@@ -547,14 +621,20 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
         if (current) {
             const deltaX = current.currentX - current.startX;
 
-            // RIGHT SWIPE (DELETE) -> Threshold > 100px or > 50%
-            if (deltaX > 100 || (current.revealPercent > 0 && current.revealPercent >= 50)) {
+            // LEFT SWIPE (DELETE) -> Threshold < -100px or < -50%
+            if (deltaX < -100 || (current.revealPercent < 0 && current.revealPercent <= -50)) {
                 setDeleteItemModal({ orderId, itemIndex: idx, itemName });
             }
-            // LEFT SWIPE (EDIT) -> Threshold < -100px or < -50%
-            else if (deltaX < -100 || (current.revealPercent < 0 && current.revealPercent <= -50)) {
-                setCurrentNoteItemIndex(idx);
-                setTempNote('');
+            // RIGHT SWIPE (EDIT) -> Threshold > 100px or > 50%
+            else if (deltaX > 100 || (current.revealPercent > 0 && current.revealPercent >= 50)) {
+                // BUGFIX: Prevent edit for separators
+                const item = activeTableOrder?.items ? activeTableOrder.items[idx] : null;
+                if (item && item.menuItem.id === 'separator') {
+                    // Ignore edit swipe for separator
+                } else {
+                    setCurrentNoteItemIndex(idx);
+                    setTempNote('');
+                }
             }
         }
 
@@ -592,6 +672,30 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
 
     return (
         <div className="min-h-screen bg-slate-900 text-white flex flex-col font-sans relative">
+
+            {/* ALERT NOTIFICATION TOAST */}
+            {viewNotification && (
+                <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-[200] ${viewNotification.color} text-white px-8 py-4 rounded-full shadow-2xl flex items-center gap-4 animate-bounce border-2 border-white/20`}>
+                    <div className="bg-white/20 p-2 rounded-full">
+                        <BellRing size={28} className="text-white animate-pulse" />
+                    </div>
+                    <span className="font-black text-xl tracking-wide shadow-black drop-shadow-md">{viewNotification.message}</span>
+                </div>
+            )}
+            <style>{`
+                @keyframes swipe-hint {
+                    0% { transform: translateX(0); }
+                    10% { transform: translateX(20px); }
+                    30% { transform: translateX(-20px); }
+                    50% { transform: translateX(10px); }
+                    70% { transform: translateX(-10px); }
+                    100% { transform: translateX(0); }
+                }
+                .animate-swipe-hint {
+                    animation: swipe-hint 1.2s ease-in-out;
+                    animation-delay: 0.5s;
+                }
+            `}</style>
 
             {showConfirmModal && (
                 <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
@@ -665,105 +769,6 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                 </div>
             )}
 
-            {/* DELETE SEPARATOR MODAL */}
-            {deleteSeparatorModal && (
-                <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
-                    <div className="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-slide-up text-center">
-                        <div className="w-16 h-16 bg-purple-600/20 rounded-full flex items-center justify-center mx-auto mb-4 text-purple-500 animate-pulse">
-                            <ArrowRightLeft size={32} />
-                        </div>
-                        <h3 className="text-2xl font-black text-white mb-2">Rimuovi Pausa</h3>
-                        <p className="text-slate-400 mb-6">
-                            Vuoi eliminare la pausa<br />
-                            <strong className="text-purple-300">"→ A SEGUIRE →"</strong> dalla comanda?
-                        </p>
-
-                        <div className="flex flex-col gap-3">
-                            <button
-                                onClick={async () => {
-                                    const { orderId, itemIndex } = deleteSeparatorModal;
-                                    const currentOrders = getOrders();
-                                    const orderToUpdate = currentOrders.find(o => o.id === orderId);
-                                    if (!orderToUpdate) {
-                                        setDeleteSeparatorModal(null);
-                                        return;
-                                    }
-
-                                    const updatedItems = [...orderToUpdate.items];
-                                    updatedItems.splice(itemIndex, 1);
-
-                                    const updatedOrder = {
-                                        ...orderToUpdate,
-                                        items: updatedItems,
-                                        timestamp: Date.now()
-                                    };
-
-                                    await updateOrder(updatedOrder);
-                                    setDeleteSeparatorModal(null);
-                                    setTimeout(loadData, 100);
-                                }}
-                                className="w-full py-4 bg-purple-600 hover:bg-purple-500 text-white font-black text-lg rounded-2xl shadow-lg shadow-purple-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
-                            >
-                                <Trash2 size={20} /> SÌ, ELIMINA
-                            </button>
-                            <button onClick={() => setDeleteSeparatorModal(null)} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-2xl transition-all">
-                                ANNULLA
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* DELETE ITEM MODAL */}
-            {deleteItemModal && (
-                <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
-                    <div className="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-slide-up text-center">
-                        <div className="w-16 h-16 bg-red-600/20 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 animate-pulse">
-                            <Trash2 size={32} />
-                        </div>
-                        <h3 className="text-2xl font-black text-white mb-2">Elimina Piatto</h3>
-                        <p className="text-slate-400 mb-6">
-                            Vuoi rimuovere<br />
-                            <strong className="text-red-300">"{deleteItemModal.itemName}"</strong><br />
-                            dalla comanda?
-                        </p>
-
-                        <div className="flex flex-col gap-3">
-                            <button
-                                onClick={async () => {
-                                    const { orderId, itemIndex } = deleteItemModal;
-                                    const currentOrders = getOrders();
-                                    const orderToUpdate = currentOrders.find(o => o.id === orderId);
-                                    if (!orderToUpdate) {
-                                        setDeleteItemModal(null);
-                                        return;
-                                    }
-
-                                    const updatedItems = [...orderToUpdate.items];
-                                    updatedItems.splice(itemIndex, 1);
-
-                                    const updatedOrder = {
-                                        ...orderToUpdate,
-                                        items: updatedItems,
-                                        timestamp: Date.now()
-                                    };
-
-                                    await updateOrder(updatedOrder);
-                                    setDeleteItemModal(null);
-                                    setTimeout(loadData, 100);
-                                }}
-                                className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black text-lg rounded-2xl shadow-lg shadow-red-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
-                            >
-                                <Trash2 size={20} /> SÌ, ELIMINA
-                            </button>
-                            <button onClick={() => setDeleteItemModal(null)} className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-2xl transition-all">
-                                ANNULLA
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
             {/* REVIEW REQUEST TOAST */}
             {showReviewToast && (
                 <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-[200] animate-slide-down">
@@ -781,6 +786,49 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                         >
                             ✕
                         </button>
+                    </div>
+                </div>
+            )}
+
+            {/* ADD NOTE / VOICE INPUT MODAL */}
+            {currentNoteItemIndex !== null && (
+                <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
+                    <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-3xl p-6 shadow-2xl animate-slide-up">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-xl font-black text-white">Aggiungi Nota</h3>
+                            <button onClick={() => setCurrentNoteItemIndex(null)} className="p-2 bg-slate-800 rounded-full text-slate-400 hover:text-white"><X size={20} /></button>
+                        </div>
+
+                        <div className="relative mb-6">
+                            <textarea
+                                value={tempNote}
+                                onChange={(e) => setTempNote(e.target.value)}
+                                placeholder="Scrivi una nota o usa la voce..."
+                                className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white focus:border-blue-500 outline-none min-h-[100px] resize-none"
+                                autoFocus
+                            />
+                            <button
+                                onClick={() => toggleRecording(currentNoteItemIndex)}
+                                className={`absolute bottom-3 right-3 p-3 rounded-full shadow-lg transition-all ${isRecording ? 'bg-red-500 animate-pulse text-white' : 'bg-slate-800 text-slate-400 hover:text-blue-400 hover:bg-slate-700'}`}
+                            >
+                                {isRecording ? <MicOff size={20} /> : <Mic size={20} />}
+                            </button>
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setCurrentNoteItemIndex(null)}
+                                className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-all"
+                            >
+                                Annulla
+                            </button>
+                            <button
+                                onClick={() => addNoteToItem(currentNoteItemIndex)}
+                                className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Plus size={18} /> Aggiungi
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
@@ -814,6 +862,53 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                                 className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg shadow-blue-600/20 transition-all"
                             >
                                 Salva
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* DELETE ITEM CONFIRMATION MODAL */}
+            {deleteItemModal && (
+                <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-fade-in">
+                    <div className="bg-slate-900 border border-slate-700 w-full max-w-sm rounded-3xl p-6 shadow-2xl animate-slide-up text-center">
+                        <div className="w-16 h-16 bg-red-600/20 rounded-full flex items-center justify-center mx-auto mb-4 text-red-500 animate-pulse">
+                            <Trash2 size={32} />
+                        </div>
+                        <h3 className="text-2xl font-black text-white mb-2">Eliminare?</h3>
+                        <p className="text-slate-400 mb-6">
+                            Confermi di voler rimuovere <br />
+                            <strong className="text-white">{deleteItemModal.itemName}</strong>?
+                        </p>
+
+                        <div className="flex flex-col gap-3">
+                            <button
+                                onClick={async () => {
+                                    // Logic to delete item
+                                    const currentOrders = getOrders();
+                                    const orderToUpdate = currentOrders.find(o => o.id === deleteItemModal.orderId);
+                                    if (orderToUpdate) {
+                                        const updatedItems = [...orderToUpdate.items];
+                                        updatedItems.splice(deleteItemModal.itemIndex, 1);
+                                        const updatedOrder = {
+                                            ...orderToUpdate,
+                                            items: updatedItems,
+                                            timestamp: Date.now()
+                                        };
+                                        await updateOrder(updatedOrder);
+                                        setTimeout(loadData, 100);
+                                    }
+                                    setDeleteItemModal(null);
+                                }}
+                                className="w-full py-4 bg-red-600 hover:bg-red-500 text-white font-black text-lg rounded-2xl shadow-lg shadow-red-600/20 active:scale-95 transition-all flex items-center justify-center gap-2"
+                            >
+                                <Trash2 size={20} /> SÌ, ELIMINA
+                            </button>
+                            <button
+                                onClick={() => setDeleteItemModal(null)}
+                                className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-2xl transition-all"
+                            >
+                                ANNULLA
                             </button>
                         </div>
                     </div>
@@ -933,249 +1028,133 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                                                     <div className="space-y-2">
                                                         {activeTableOrder.items && activeTableOrder.items.length > 0 ? (
                                                             activeTableOrder.items.map((item, idx) => {
-                                                                // HANDLING SEPARATORS IN ACTIVE ORDER
-                                                                if (item.isSeparator) {
+                                                                // SEPARATOR RENDER (Visual Only, Delete Only)
+                                                                if (item.menuItem.id === 'separator') {
+                                                                    const swipe = swipeState[idx] || { currentX: 0, startX: 0, swiping: false };
+                                                                    const rawTranslateX = swipe.swiping ? swipe.currentX - swipe.startX : 0;
+                                                                    // Allow only Left Swipe (Negative TranslateX)
+                                                                    const translateX = rawTranslateX < 0 ? rawTranslateX : 0;
+
                                                                     return (
-                                                                        <div key={idx} className="flex items-center justify-between p-3 bg-purple-900/20 border-2 border-dashed border-purple-500/30 rounded-lg my-1">
-                                                                            <div className="flex items-center gap-2">
-                                                                                <ArrowRightLeft size={20} className="text-purple-400" />
-                                                                                <span className="font-bold text-purple-300 text-sm tracking-widest uppercase">→ A SEGUIRE →</span>
+                                                                        <div key={idx} className="relative overflow-hidden rounded-lg mb-2 touch-pan-y select-none bg-slate-900 border border-slate-700 border-dashed group">
+                                                                            {/* Right Background (Red for Delete) */}
+                                                                            <div className="absolute inset-y-0 right-0 w-[60%] bg-red-600 flex items-center justify-end px-4 z-0 rounded-r-lg">
+                                                                                <div className="flex items-center gap-2 font-black text-white">
+                                                                                    ELIMINA <Trash2 size={24} />
+                                                                                </div>
                                                                             </div>
-                                                                            <button
-                                                                                onClick={() => {
-                                                                                    setDeleteSeparatorModal({ orderId: activeTableOrder.id, itemIndex: idx });
-                                                                                }}
-                                                                                className="p-2 bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white rounded-lg transition-colors shadow-sm"
+
+                                                                            <div
+                                                                                className="relative z-10 flex justify-center items-center p-3 bg-slate-900 transition-transform h-full w-full"
+                                                                                style={{ transform: translateX !== 0 ? `translateX(${translateX}px)` : undefined }}
+
+                                                                                onTouchStart={(e) => handleSwipeStart(idx, e.touches[0].clientX)}
+                                                                                onTouchMove={(e) => handleSwipeMove(idx, e.touches[0].clientX)}
+                                                                                onTouchEnd={() => handleSwipeEnd(idx, activeTableOrder.id, 'Separatore')}
+
+                                                                                onMouseDown={(e) => handleSwipeStart(idx, e.clientX)}
+                                                                                onMouseMove={(e) => { if (swipe.swiping) handleSwipeMove(idx, e.clientX); }}
+                                                                                onMouseUp={() => handleSwipeEnd(idx, activeTableOrder.id, 'Separatore')}
+                                                                                onMouseLeave={() => { if (swipe.swiping) handleSwipeCancel(idx); }}
                                                                             >
-                                                                                <Trash2 size={18} />
-                                                                            </button>
+                                                                                <span className="font-black text-slate-500 uppercase tracking-[0.2em] text-xs py-1">
+                                                                                    --- A SEGUIRE ---
+                                                                                </span>
+                                                                            </div>
                                                                         </div>
                                                                     );
                                                                 }
 
                                                                 const isReadyToServe = item.completed && !item.served;
                                                                 const isServed = item.served;
-                                                                const notesArray = item.notes ? item.notes.split('|||') : [];
-                                                                const swipe = swipeState[idx];
-                                                                const revealPercent = swipe?.revealPercent || 0;
-                                                                const actualSwipeOffset = swipe ? (swipe.currentX - swipe.startX) : 0;
+
+                                                                // SWIPE LOGIC
+                                                                const swipe = swipeState[idx] || { currentX: 0, startX: 0, swiping: false };
+                                                                const translateX = swipe.swiping ? swipe.currentX - swipe.startX : 0;
 
                                                                 return (
-                                                                    <div
-                                                                        key={idx}
-                                                                        className="relative overflow-hidden rounded-lg cursor-grab active:cursor-grabbing"
-                                                                        onTouchStart={(e) => handleSwipeStart(idx, e.touches[0].clientX)}
-                                                                        onTouchMove={(e) => handleSwipeMove(idx, e.touches[0].clientX)}
-                                                                        onTouchEnd={() => handleSwipeEnd(idx, activeTableOrder.id, item.menuItem?.name || 'Item')}
-                                                                        onTouchCancel={() => handleSwipeCancel(idx)}
-                                                                        onMouseDown={(e) => handleSwipeStart(idx, e.clientX)}
-                                                                        onMouseMove={(e) => e.buttons === 1 && handleSwipeMove(idx, e.clientX)}
-                                                                        onMouseUp={() => handleSwipeEnd(idx, activeTableOrder.id, item.menuItem?.name || 'Item')}
-                                                                        onMouseLeave={() => swipeState[idx]?.swiping && handleSwipeCancel(idx)}
-                                                                    >
-                                                                        {/* SWIPE BACKGROUNDS */}
-                                                                        {/* DELETE (Rights swipe) background */}
-                                                                        <div
-                                                                            className="absolute inset-y-0 left-0 bg-red-600 flex items-center justify-start pl-6 rounded-l-lg w-full z-0"
-                                                                            style={{
-                                                                                opacity: revealPercent > 0 ? Math.min(revealPercent / 100, 1) : 0,
-                                                                                visibility: revealPercent > 0 ? 'visible' : 'hidden'
-                                                                            }}
-                                                                        >
-                                                                            <div className="flex items-center gap-2 text-white font-black">
-                                                                                <Trash2 size={24} />
-                                                                                <span className="text-sm uppercase tracking-wider">Elimina</span>
+                                                                    <div key={idx} className="relative overflow-hidden rounded-lg mb-2 touch-pan-y select-none group bg-slate-900">
+                                                                        {/* STATIC BACKGROUND LAYERS (Underneath) */}
+
+                                                                        {/* Left Background (Blue for Edit - revealed on Right Swipe) */}
+                                                                        <div className="absolute inset-y-0 left-0 w-[60%] bg-blue-600 flex items-center justify-start px-4 z-0 rounded-l-lg">
+                                                                            <div className="flex items-center gap-2 font-black text-white">
+                                                                                <Edit3 size={24} /> MODIFICA
                                                                             </div>
                                                                         </div>
 
-                                                                        {/* EDIT (Left swipe) background */}
-                                                                        <div
-                                                                            className="absolute inset-y-0 right-0 bg-blue-600 flex items-center justify-end pr-6 rounded-r-lg w-full z-0"
-                                                                            style={{
-                                                                                opacity: revealPercent < 0 ? Math.min(Math.abs(revealPercent) / 100, 1) : 0,
-                                                                                visibility: revealPercent < 0 ? 'visible' : 'hidden'
-                                                                            }}
-                                                                        >
-                                                                            <div className="flex items-center gap-2 text-white font-black">
-                                                                                <span className="text-sm uppercase tracking-wider">Modifica</span>
-                                                                                <Edit3 size={24} />
+                                                                        {/* Right Background (Red for Delete - revealed on Left Swipe) */}
+                                                                        <div className="absolute inset-y-0 right-0 w-[60%] bg-red-600 flex items-center justify-end px-4 z-0 rounded-r-lg">
+                                                                            <div className="flex items-center gap-2 font-black text-white">
+                                                                                ELIMINA <Trash2 size={24} />
                                                                             </div>
                                                                         </div>
 
-                                                                        {/* Main item content - slides right during swipe */}
+                                                                        {/* MAIN CONTENT LAYER (Moves on Top) */}
                                                                         <div
-                                                                            className={`flex flex-col text-sm p-3 border transition-transform ${isReadyToServe ? 'bg-green-900/30 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.2)]' : 'bg-slate-800 border-slate-700'} rounded-lg relative`}
-                                                                            style={{ transform: `translateX(${actualSwipeOffset}px)` }}
+                                                                            className={`relative z-10 flex justify-between items-center text-sm p-3 rounded-lg border transition-all duration-300 ease-out ${isServed
+                                                                                ? 'bg-slate-900 border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.25)]' // SERVED STYLE: Neon Green Glow & Dark BG
+                                                                                : isReadyToServe
+                                                                                    ? 'bg-slate-800 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.15)] ring-1 ring-inset ring-green-900'
+                                                                                    : 'bg-slate-800 border-slate-700'
+                                                                                } ${idx === 0 && !swipe.swiping && translateX === 0 ? 'animate-swipe-hint' : ''}`}
+                                                                            style={{ transform: translateX !== 0 ? `translateX(${translateX}px)` : undefined }}
+
+                                                                            // TOUCH EVENTS
+                                                                            onTouchStart={(e) => handleSwipeStart(idx, e.touches[0].clientX)}
+                                                                            onTouchMove={(e) => handleSwipeMove(idx, e.touches[0].clientX)}
+                                                                            onTouchEnd={() => handleSwipeEnd(idx, activeTableOrder.id, item.menuItem?.name || 'Item')}
+                                                                            onTouchCancel={() => handleSwipeCancel(idx)}
+
+                                                                            // MOUSE EVENTS
+                                                                            onMouseDown={(e) => handleSwipeStart(idx, e.clientX)}
+                                                                            onMouseMove={(e) => { if (swipe.swiping) handleSwipeMove(idx, e.clientX); }}
+                                                                            onMouseUp={() => handleSwipeEnd(idx, activeTableOrder.id, item.menuItem?.name || 'Item')}
+                                                                            onMouseLeave={() => { if (swipe.swiping) handleSwipeCancel(idx); }}
                                                                         >
-                                                                            <div className="flex justify-between items-start">
-                                                                                <div className="flex gap-3 items-start flex-1">
-                                                                                    <span className="font-bold text-white bg-slate-700 px-2 py-1 rounded text-xs">x{item.quantity}</span>
-                                                                                    <div className="flex flex-col flex-1">
-                                                                                        <span className={`font-bold text-base ${isServed ? 'line-through text-slate-500' : isReadyToServe ? 'text-white' : 'text-slate-300'}`}>{item.menuItem?.name || 'Item'}</span>
-                                                                                        {isReadyToServe && <span className="text-[10px] font-black text-green-400 uppercase tracking-wider animate-pulse flex items-center gap-1 mt-1"><BellRing size={10} /> DA SERVIRE</span>}
-
-                                                                                        {/* Display existing notes */}
-                                                                                        {notesArray.length > 0 && (
-                                                                                            <div className="mt-2 space-y-1">
-                                                                                                {notesArray.map((note, noteIdx) => (
-                                                                                                    <div key={noteIdx} className="flex items-center gap-2 bg-orange-900/20 px-2 py-1 rounded border border-orange-900/30">
-                                                                                                        <span className="text-xs text-orange-300 flex-1">⚠️ {note.trim()}</span>
-                                                                                                        <button
-                                                                                                            onClick={() => {
-                                                                                                                setEditingNote({ itemIndex: idx, noteIndex: noteIdx, currentText: note.trim() });
-                                                                                                            }}
-                                                                                                            className="text-blue-400 hover:text-blue-300 p-1"
-                                                                                                            title="Modifica nota"
-                                                                                                        >
-                                                                                                            <Edit3 size={12} />
-                                                                                                        </button>
-                                                                                                        <button
-                                                                                                            onClick={async () => {
-                                                                                                                // Get current orders
-                                                                                                                const currentOrders = getOrders();
-                                                                                                                const orderToUpdate = currentOrders.find(o => o.id === activeTableOrder.id);
-                                                                                                                if (!orderToUpdate) return;
-
-                                                                                                                const newNotesArray = [...notesArray];
-                                                                                                                newNotesArray.splice(noteIdx, 1);
-                                                                                                                const newNotes = newNotesArray.length > 0 ? newNotesArray.join('|||') : undefined;
-
-                                                                                                                // Create updated items array
-                                                                                                                const updatedItems = [...orderToUpdate.items];
-                                                                                                                updatedItems[idx] = { ...updatedItems[idx], notes: newNotes };
-
-                                                                                                                // Update the order directly
-                                                                                                                const updatedOrder = {
-                                                                                                                    ...orderToUpdate,
-                                                                                                                    items: updatedItems,
-                                                                                                                    timestamp: Date.now()
-                                                                                                                };
-
-                                                                                                                // Use updateOrder instead of saveOrders to sync with cloud
-                                                                                                                updateOrder(updatedOrder);
-
-                                                                                                                setTimeout(loadData, 100);
-                                                                                                            }}
-                                                                                                            className="text-red-400 hover:text-red-300 p-1"
-                                                                                                            title="Elimina nota"
-                                                                                                        >
-                                                                                                            <X size={12} />
-                                                                                                        </button>
-                                                                                                    </div>
-                                                                                                ))}
-                                                                                            </div>
-                                                                                        )}
-                                                                                    </div>
-                                                                                </div>
-                                                                                <div className="flex items-center gap-2 ml-2">
-                                                                                    {/* Edit button removed - replaced by Left Swipe */}
-
-                                                                                    {isReadyToServe ? (
-                                                                                        <button onClick={() => handleServeItem(activeTableOrder.id, idx)} className="bg-green-500 hover:bg-green-400 text-white p-2 rounded-lg shadow-lg active:scale-95 transition-all">
-                                                                                            <Square size={20} className="fill-current text-green-700" />
-                                                                                        </button>
-                                                                                    ) : isServed ? (
-                                                                                        <CheckSquare size={20} className="text-slate-600" />
-                                                                                    ) : (
-                                                                                        <span className="font-mono text-slate-500 text-xs">Cooking</span>
+                                                                            <div className="flex gap-3 items-center flex-1 pointer-events-none">
+                                                                                <span className={`font-bold px-2 py-1 rounded text-xs shadow-sm ${isServed ? 'bg-green-900/50 text-green-400' : 'bg-slate-700 text-white'}`}>x{item.quantity}</span>
+                                                                                <div className="flex flex-col">
+                                                                                    <span className={`font-bold text-base transition-all ${isServed ? 'line-through decoration-2 decoration-green-500 text-green-500/90' : isReadyToServe ? 'text-white' : 'text-slate-300'}`}>
+                                                                                        {item.menuItem?.name || 'Item'}
+                                                                                    </span>
+                                                                                    {item.notes && (
+                                                                                        <div className="flex flex-col gap-1 mt-1">
+                                                                                            {item.notes.split('|||').map((note, nIdx) => (
+                                                                                                <span key={nIdx} className="text-xs text-orange-400 italic flex items-center gap-1">
+                                                                                                    ⚠️ {note}
+                                                                                                </span>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    )}
+                                                                                    {isReadyToServe && (
+                                                                                        <span className="text-[10px] font-black text-green-400 uppercase tracking-wider animate-pulse flex items-center gap-1 mt-1">
+                                                                                            <BellRing size={10} /> DA SERVIRE
+                                                                                        </span>
                                                                                     )}
                                                                                 </div>
                                                                             </div>
 
-                                                                            {/* Note input modal inline */}
-                                                                            {currentNoteItemIndex === idx && (
-                                                                                <div className="mt-3 pt-3 border-t border-slate-700 space-y-2">
-                                                                                    <label className="text-xs font-bold text-slate-400 uppercase">Aggiungi Nota (es. allergia, preferenza)</label>
-                                                                                    <div className="flex items-center gap-2">
+                                                                            {/* CHECKBOX / STATUS - Stop propagation to allow clicking without dragging */}
+                                                                            <div
+                                                                                onMouseDown={(e) => e.stopPropagation()}
+                                                                                onTouchStart={(e) => e.stopPropagation()}
+                                                                            >
+                                                                                {isServed ? (
+                                                                                    <CheckSquare size={24} className="text-green-600 ml-2" />
+                                                                                ) : isReadyToServe ? (
+                                                                                    <label className="flex items-center cursor-pointer group ml-2 p-1">
                                                                                         <input
-                                                                                            type="text"
-                                                                                            placeholder="Scrivi o detta una nota..."
-                                                                                            value={tempNote}
-                                                                                            onChange={(e) => setTempNote(e.target.value)}
-                                                                                            className="flex-1 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:border-blue-500 outline-none"
-                                                                                            autoFocus
+                                                                                            type="checkbox"
+                                                                                            checked={false}
+                                                                                            onChange={() => handleServeItem(activeTableOrder.id, idx)}
+                                                                                            className="w-6 h-6 rounded border-2 border-green-500 bg-green-900/30 checked:bg-green-500 cursor-pointer accent-green-500 transition-all hover:border-green-400 focus:ring-2 focus:ring-green-400/50"
                                                                                         />
-                                                                                        <button
-                                                                                            onClick={() => toggleRecording(idx)}
-                                                                                            className={`p-2 rounded-lg transition-all ${isRecording && currentNoteItemIndex === idx ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-700 text-slate-300 hover:bg-blue-600 hover:text-white'}`}
-                                                                                            title={isRecording && currentNoteItemIndex === idx ? 'Stop Recording' : 'Start Voice Input'}
-                                                                                        >
-                                                                                            {isRecording && currentNoteItemIndex === idx ? <MicOff size={20} /> : <Mic size={20} />}
-                                                                                        </button>
-                                                                                        <button
-                                                                                            onClick={async () => {
-                                                                                                try {
-                                                                                                    if (!tempNote.trim()) {
-                                                                                                        alert('La nota è vuota!');
-                                                                                                        return;
-                                                                                                    }
-
-                                                                                                    if (!activeTableOrder) {
-                                                                                                        alert('Errore: ordine non trovato. Ricarica la pagina.');
-                                                                                                        return;
-                                                                                                    }
-
-                                                                                                    // Get current orders
-                                                                                                    const currentOrders = getOrders();
-                                                                                                    const orderToUpdate = currentOrders.find(o => o.id === activeTableOrder.id);
-                                                                                                    if (!orderToUpdate) {
-                                                                                                        alert('Errore: impossibile trovare l\'ordine da aggiornare.');
-                                                                                                        return;
-                                                                                                    }
-
-                                                                                                    // Update the specific item's notes
-                                                                                                    const currentNotes = orderToUpdate.items[idx].notes || '';
-                                                                                                    const newNotesArray = currentNotes ? currentNotes.split('|||') : [];
-                                                                                                    newNotesArray.push(tempNote.trim());
-
-                                                                                                    // Create updated items array
-                                                                                                    const updatedItems = [...orderToUpdate.items];
-                                                                                                    updatedItems[idx] = {
-                                                                                                        ...updatedItems[idx],
-                                                                                                        notes: newNotesArray.join('|||')
-                                                                                                    };
-
-                                                                                                    // Update the order directly
-                                                                                                    const updatedOrder = {
-                                                                                                        ...orderToUpdate,
-                                                                                                        items: updatedItems,
-                                                                                                        timestamp: Date.now()
-                                                                                                    };
-
-                                                                                                    // Save to storage
-                                                                                                    const newOrders = currentOrders.map(o =>
-                                                                                                        o.id === activeTableOrder.id ? updatedOrder : o
-                                                                                                    );
-                                                                                                    // Use updateOrder instead of saveOrders to sync with cloud
-                                                                                                    updateOrder(updatedOrder);
-
-                                                                                                    setTempNote('');
-                                                                                                    setCurrentNoteItemIndex(null);
-                                                                                                    setTimeout(loadData, 100);
-                                                                                                } catch (error) {
-                                                                                                    console.error('Errore aggiunta nota:', error);
-                                                                                                    alert('Errore durante l\'aggiunta della nota: ' + error);
-                                                                                                }
-                                                                                            }}
-                                                                                            disabled={tempNote.trim().length === 0}
-                                                                                            className="p-2 bg-green-600 hover:bg-green-500 disabled:opacity-30 disabled:cursor-not-allowed text-white rounded-lg transition-all"
-                                                                                            title="Aggiungi Nota"
-                                                                                        >
-                                                                                            <Plus size={20} />
-                                                                                        </button>
-                                                                                        <button
-                                                                                            onClick={() => {
-                                                                                                setCurrentNoteItemIndex(null);
-                                                                                                setTempNote('');
-                                                                                            }}
-                                                                                            className="p-2 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg transition-all"
-                                                                                            title="Annulla"
-                                                                                        >
-                                                                                            <X size={20} />
-                                                                                        </button>
-                                                                                    </div>
-                                                                                </div>
-                                                                            )}
+                                                                                    </label>
+                                                                                ) : (
+                                                                                    <span className="font-mono text-slate-500 ml-2 text-xs py-1 px-2 rounded bg-slate-900/50">Cooking</span>
+                                                                                )}
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 );
@@ -1242,7 +1221,7 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                                 if (status === 'occupied') { bgClass = "bg-blue-900/40 border-blue-500/50 text-blue-100"; statusIcon = <User size={12} />; }
                                 if (status === 'cooking') { bgClass = "bg-orange-900/40 border-orange-500/50 text-orange-100"; statusIcon = <ChefHat size={12} />; }
                                 if (status === 'ready') { bgClass = "bg-green-600 border-green-400 text-white animate-pulse shadow-[0_0_15px_rgba(34,197,94,0.6)]"; statusIcon = <BellRing size={14} className="animate-wiggle" />; }
-                                if (status === 'completed') { bgClass = "bg-orange-700/80 border-orange-500 text-white shadow-lg"; statusIcon = <CheckSquare size={12} />; }
+                                if (status === 'completed') { bgClass = "bg-purple-600 border-purple-400 text-white shadow-[0_0_15px_rgba(168,85,247,0.5)]"; statusIcon = <CheckSquare size={12} />; }
                                 if (status === 'delayed') { bgClass = "bg-red-900/20 border-red-500 text-red-500 animate-pulse ring-2 ring-red-500/50"; statusIcon = <AlertTriangle size={12} />; }
                                 if (status === 'reserved') { bgClass = "bg-purple-900/20 border-purple-500/50 text-purple-200 border-dashed"; statusIcon = <Lock size={12} />; }
 
@@ -1361,23 +1340,21 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                         </div>
 
                         {cart.length > 0 && (
-                            <div className="fixed bottom-6 left-4 right-4 z-30 flex gap-3 shadow-2xl animate-slide-up">
-                                <button onClick={() => setView('cart')} className="flex-1 bg-green-600 hover:bg-green-500 text-white py-4 rounded-2xl font-black text-lg shadow-lg shadow-green-600/30 flex items-center justify-between px-6 transition-transform active:scale-95">
-                                    <span className="tracking-wide">RIEPILOGO</span>
-                                    <span className="bg-white text-green-600 font-black w-8 h-8 flex items-center justify-center rounded-full text-sm shadow-sm">
-                                        {cart.reduce((a, b) => a + b.quantity, 0)}
-                                    </span>
+                            <div className="fixed bottom-6 left-4 right-4 z-30 flex flex-col gap-2 animate-slide-up">
+                                <button onClick={addSeparatorToCart} className="bg-slate-800/95 backdrop-blur-sm text-slate-300 py-3 rounded-xl border-2 border-slate-600 border-dashed text-xs font-bold uppercase tracking-widest shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                                    <ArrowDown size={16} /> Aggiungi "A Seguire"
                                 </button>
-                                <button
-                                    onClick={addCourseSeparator}
-                                    className="w-20 bg-purple-600 hover:bg-purple-500 text-white rounded-2xl shadow-lg shadow-purple-600/30 flex items-center justify-center transition-transform active:scale-95 border-2 border-purple-400"
-                                    title="Inserisci separatore 'a seguire'"
-                                >
-                                    <ArrowRightLeft size={24} />
-                                </button>
-                                <button onClick={requestSendOrder} className="w-20 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl shadow-lg shadow-orange-500/30 flex items-center justify-center transition-transform active:scale-95 border-2 border-orange-400">
-                                    <SendIcon size={28} className="ml-1" />
-                                </button>
+                                <div className="flex gap-3 shadow-2xl">
+                                    <button onClick={() => setView('cart')} className="flex-1 bg-green-600 hover:bg-green-500 text-white py-4 rounded-2xl font-black text-lg shadow-lg shadow-green-600/30 flex items-center justify-between px-6 transition-transform active:scale-95">
+                                        <span className="tracking-wide">RIEPILOGO</span>
+                                        <span className="bg-white text-green-600 font-black w-8 h-8 flex items-center justify-center rounded-full text-sm shadow-sm">
+                                            {cart.reduce((a, b) => a + (b.menuItem.id === 'separator' ? 0 : b.quantity), 0)}
+                                        </span>
+                                    </button>
+                                    <button onClick={requestSendOrder} className="w-20 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl shadow-lg shadow-orange-500/30 flex items-center justify-center transition-transform active:scale-95 border-2 border-orange-400">
+                                        <SendIcon size={28} className="ml-1" />
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -1393,19 +1370,14 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
 
                         <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-32">
                             {cart.map((item, idx) => {
-                                // SEPARATORE DI PORTATA
-                                if (item.isSeparator) {
+                                // SEPARATOR RENDER
+                                if (item.menuItem.id === 'separator') {
                                     return (
-                                        <div key={idx} className="bg-purple-900/20 p-3 rounded-xl border-2 border-dashed border-purple-500/50 flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <ArrowRightLeft size={24} className="text-purple-400" />
-                                                <span className="font-bold text-purple-300 text-sm italic">→ a seguire →</span>
-                                            </div>
-                                            <button
-                                                onClick={() => removeFromCart(idx)}
-                                                className="p-2 bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white rounded-lg transition-colors"
-                                            >
-                                                <Trash2 size={18} />
+                                        <div key={idx} className="bg-slate-800/30 p-1 rounded-xl border-2 border-slate-600 border-dashed flex items-center justify-between my-2 group">
+                                            <div className="w-10"></div> {/* Spacer for alignment */}
+                                            <span className="font-black text-slate-400 tracking-[0.2em] uppercase text-xs py-2">--- A SEGUIRE ---</span>
+                                            <button onClick={() => removeFromCart(idx)} className="w-10 h-10 flex items-center justify-center text-red-500/50 hover:text-red-500 transition-colors">
+                                                <X size={18} />
                                             </button>
                                         </div>
                                     );
@@ -1501,8 +1473,13 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                         <div className="fixed bottom-6 left-4 right-4 bg-slate-800 border border-slate-700 p-4 rounded-3xl shadow-2xl z-40">
                             <div className="flex justify-between items-center mb-4 px-2">
                                 <span className="text-slate-400 font-bold uppercase text-xs">Totale Piatti</span>
-                                <span className="text-3xl font-black text-white">{cart.reduce((a, b) => a + b.quantity, 0)}</span>
+                                <span className="text-3xl font-black text-white">{cart.reduce((a, b) => a + (b.menuItem.id === 'separator' ? 0 : b.quantity), 0)}</span>
                             </div>
+
+                            <button onClick={addSeparatorToCart} className="w-full mb-3 bg-slate-700 hover:bg-slate-600 text-slate-300 py-3 rounded-xl font-bold border-2 border-slate-600 border-dashed flex items-center justify-center gap-2 active:scale-95 transition-transform">
+                                <ArrowDown size={20} /> AGGIUNGI "A SEGUIRE"
+                            </button>
+
                             <button onClick={requestSendOrder} disabled={cart.length === 0} className="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white py-4 rounded-xl font-black text-xl shadow-lg shadow-blue-600/20 transition-transform active:scale-95 flex items-center justify-center gap-3">
                                 <CheckCircle size={24} /> CONFERMA ORDINE
                             </button>

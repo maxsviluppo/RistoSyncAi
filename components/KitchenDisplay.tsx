@@ -479,6 +479,19 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
             }
             sorted.forEach(newOrder => {
                 const oldOrder = prevOrders.find(o => o.id === newOrder.id);
+
+                // DETECT SINGLE ITEM COMPLETION (TOAST)
+                if (oldOrder) {
+                    newOrder.items.forEach((newItem, idx) => {
+                        const oldItem = oldOrder.items[idx];
+                        if (oldItem && !oldItem.completed && newItem.completed) {
+                            if (isItemRelevantForDept(newItem)) {
+                                showNotification(`✅ ${newItem.menuItem.name} PRONTO DA RITIRARE!`, 'success');
+                            }
+                        }
+                    });
+                }
+
                 if (oldOrder && oldOrder.status !== OrderStatus.READY && newOrder.status === OrderStatus.READY) {
                     playNotificationSound('ready');
 
