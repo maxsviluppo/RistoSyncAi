@@ -86,44 +86,11 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
     const [deleteItemModal, setDeleteItemModal] = useState<{ orderId: string; itemIndex: number; itemName: string } | null>(null);
     const swipeTimerRef = useRef<{ [key: number]: ReturnType<typeof setInterval> }>({});
 
-    // HINT ANIMATION STATE
-    const [hintState, setHintState] = useState<{ index: number; offset: number }>({ index: -1, offset: 0 });
-
     const activeTableOrder = selectedTable
         ? orders.find(o => o.tableNumber === selectedTable && o.status !== OrderStatus.DELIVERED)
         : null;
 
-    // Hint Animation Effect
-    useEffect(() => {
-        if (!activeTableOrder || Object.keys(swipeState).length > 0) return;
-
-        const hintInterval = setInterval(() => {
-            // Only play if we have items and no active interaction
-            if (!activeTableOrder.items || activeTableOrder.items.length === 0) return;
-            if (Object.keys(swipeState).length > 0) return;
-
-            const targetIndex = 0; // Always hint the first item
-
-            // Sequence: Left (Edit) -> Center -> Right (Delete) -> Center
-            setHintState({ index: targetIndex, offset: -80 }); // Show Blue
-
-            setTimeout(() => {
-                setHintState({ index: targetIndex, offset: 0 }); // Back
-
-                setTimeout(() => {
-                    setHintState({ index: targetIndex, offset: 80 }); // Show Red
-
-                    setTimeout(() => {
-                        setHintState({ index: targetIndex, offset: 0 }); // Back
-                        setTimeout(() => setHintState({ index: -1, offset: 0 }), 300);
-                    }, 600);
-                }, 500);
-            }, 600);
-
-        }, 5000);
-
-        return () => clearInterval(hintInterval);
-    }, [activeTableOrder, swipeState]);
+    const waiterName = getWaiterName();
 
     const loadData = () => {
         try {
@@ -513,19 +480,41 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
 
     // SWIPE TO DELETE FUNCTIONS
     const handleSwipeStart = (idx: number, clientX: number) => {
-        // Stop hint if running
-        setHintState({ index: -1, offset: 0 });
-
         setSwipeState(prev => ({
             ...prev,
             [idx]: { startX: clientX, currentX: clientX, swiping: true, revealPercent: 0 }
         }));
 
-        // Clear existing timer if any
+        // Clear existing timer
         if (swipeTimerRef.current[idx]) {
             clearInterval(swipeTimerRef.current[idx]);
         }
-        // Legacy timer removed in favor of global Hint Animation
+
+        // Progressive reveal timer (3% every 5 seconds - roughly simulates "hold to reveal")
+        swipeTimerRef.current[idx] = setInterval(() => {
+            setSwipeState(prev => {
+                const current = prev[idx];
+                if (current && current.swiping) {
+                    const deltaX = current.currentX - current.startX;
+
+                    // Determine direction based on current swipe position
+                    if (deltaX > 0 && current.revealPercent < 100) {
+                        // Right Swipe (Delete) -> Increase positive percent
+                        return {
+                            ...prev,
+                            [idx]: { ...current, revealPercent: Math.min(current.revealPercent + 3, 100) }
+                        };
+                    } else if (deltaX < 0 && current.revealPercent > -100) {
+                        // Left Swipe (Edit) -> Increase negative percent (make more negative)
+                        return {
+                            ...prev,
+                            [idx]: { ...current, revealPercent: Math.max(current.revealPercent - 3, -100) }
+                        };
+                    }
+                }
+                return prev;
+            });
+        }, 5000);
     };
 
     const handleSwipeMove = (idx: number, clientX: number) => {
@@ -968,16 +957,8 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                                                                 const isServed = item.served;
                                                                 const notesArray = item.notes ? item.notes.split('|||') : [];
                                                                 const swipe = swipeState[idx];
-                                                                // Use swipe offset if active, otherwise check hint
-                                                                const swipeOffset = swipe
-                                                                    ? (swipe.currentX - swipe.startX)
-                                                                    : (hintState.index === idx ? hintState.offset : 0);
-
-                                                                // Calculate reveal percent for opacity
-                                                                // If hint is active, use fixed percent based on offset direction
-                                                                const revealPercent = swipe
-                                                                    ? (swipe.currentX - swipe.startX) / 1.5 // Approx conversion
-                                                                    : (hintState.index === idx ? hintState.offset / 0.8 : 0);
+                                                                const revealPercent = swipe?.revealPercent || 0;
+                                                                const actualSwipeOffset = swipe ? (swipe.currentX - swipe.startX) : 0;
 
                                                                 return (
                                                                     <div
@@ -997,8 +978,8 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                                                                         <div
                                                                             className="absolute inset-y-0 left-0 bg-red-600 flex items-center justify-start pl-6 rounded-l-lg w-full z-0"
                                                                             style={{
-                                                                                opacity: swipeOffset > 0 ? Math.min(swipeOffset / 100, 1) : 0,
-                                                                                visibility: swipeOffset > 0 ? 'visible' : 'hidden'
+                                                                                opacity: revealPercent > 0 ? Math.min(revealPercent / 100, 1) : 0,
+                                                                                visibility: revealPercent > 0 ? 'visible' : 'hidden'
                                                                             }}
                                                                         >
                                                                             <div className="flex items-center gap-2 text-white font-black">
@@ -1011,8 +992,8 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                                                                         <div
                                                                             className="absolute inset-y-0 right-0 bg-blue-600 flex items-center justify-end pr-6 rounded-r-lg w-full z-0"
                                                                             style={{
-                                                                                opacity: swipeOffset < 0 ? Math.min(Math.abs(swipeOffset) / 100, 1) : 0,
-                                                                                visibility: swipeOffset < 0 ? 'visible' : 'hidden'
+                                                                                opacity: revealPercent < 0 ? Math.min(Math.abs(revealPercent) / 100, 1) : 0,
+                                                                                visibility: revealPercent < 0 ? 'visible' : 'hidden'
                                                                             }}
                                                                         >
                                                                             <div className="flex items-center gap-2 text-white font-black">
@@ -1024,7 +1005,7 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                                                                         {/* Main item content - slides right during swipe */}
                                                                         <div
                                                                             className={`flex flex-col text-sm p-3 border transition-transform ${isReadyToServe ? 'bg-green-900/30 border-green-500 shadow-[0_0_15px_rgba(34,197,94,0.2)]' : 'bg-slate-800 border-slate-700'} rounded-lg relative`}
-                                                                            style={{ transform: `translateX(${swipeOffset}px)` }}
+                                                                            style={{ transform: `translateX(${actualSwipeOffset}px)` }}
                                                                         >
                                                                             <div className="flex justify-between items-start">
                                                                                 <div className="flex gap-3 items-start flex-1">
