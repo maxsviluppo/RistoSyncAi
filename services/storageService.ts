@@ -231,6 +231,7 @@ const fetchFromCloud = async () => {
                 order.customerAddress = meta.customerAddress;
                 order.customerPhone = meta.customerPhone;
                 order.notes = meta.notes;
+                order.numberOfGuests = meta.numberOfGuests; // RESTORE GUEST COUNT
             }
         }
         return order;
@@ -366,14 +367,15 @@ const updateMetadataCache = (orders: Order[]) => {
         let changed = false;
 
         orders.forEach(o => {
-            if (o.deliveryTime || o.customerName || o.customerPhone || o.deliveryNotes) {
+            if (o.deliveryTime || o.customerName || o.customerPhone || o.deliveryNotes || o.numberOfGuests) {
                 cache[o.id] = {
                     deliveryTime: o.deliveryTime,
                     deliveryNotes: o.deliveryNotes,
                     customerName: o.customerName,
                     customerAddress: o.customerAddress,
                     customerPhone: o.customerPhone,
-                    notes: o.notes
+                    notes: o.notes,
+                    numberOfGuests: o.numberOfGuests
                 };
                 changed = true;
             }
@@ -401,8 +403,8 @@ const restoreMetadata = (orders: Order[]) => {
                     deliveryNotes: o.deliveryNotes || cached.deliveryNotes,
                     customerName: o.customerName || cached.customerName,
                     customerAddress: o.customerAddress || cached.customerAddress,
-                    customerPhone: o.customerPhone || cached.customerPhone,
-                    notes: o.notes || cached.notes
+                    notes: o.notes || cached.notes,
+                    numberOfGuests: o.numberOfGuests || cached.numberOfGuests
                 };
             }
             return o;
@@ -424,9 +426,7 @@ const syncOrderToCloud = async (order: Order, isDelete = false) => {
                     deliveryTime: order.deliveryTime,
                     deliveryNotes: order.deliveryNotes,
                     customerName: order.customerName,
-                    customerAddress: order.customerAddress,
-                    customerPhone: order.customerPhone,
-                    notes: order.notes
+                    numberOfGuests: order.numberOfGuests // SAVE GUEST COUNT
                 };
             }
 

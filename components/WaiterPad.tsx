@@ -65,6 +65,10 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
     const [showFreeTableModal, setShowFreeTableModal] = useState(false);
     const [showLogoutModal, setShowLogoutModal] = useState(false); // NEW: Logout Modal State
 
+    // GUEST COUNT STATE
+    const [guestCount, setGuestCount] = useState(2);
+    const [isNewSession, setIsNewSession] = useState(false);
+
     // REVIEW TOAST STATE
     const freedTablesCountRef = useRef(0);
     const [showReviewToast, setShowReviewToast] = useState(false);
@@ -468,6 +472,19 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
 
     const requestSendOrder = () => {
         if (!selectedTable || cart.length === 0) return;
+
+        // CHECK EXISTING ACTIVE ORDER for this table (excluding delivered)
+        const currentActiveOrder = orders.find(o => o.tableNumber === selectedTable && o.status !== OrderStatus.DELIVERED);
+
+        if (!currentActiveOrder) {
+            // New Session: Reset guest count (try to get from reservation)
+            const reservation = getTableReservation(selectedTable);
+            setGuestCount(reservation ? reservation.numberOfGuests : 2);
+            setIsNewSession(true);
+        } else {
+            setIsNewSession(false);
+        }
+
         setShowConfirmModal(true);
     };
 
@@ -494,7 +511,8 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                     status: OrderStatus.PENDING,
                     timestamp: Date.now(),
                     createdAt: Date.now(),
-                    waiterName: waiterName || 'Staff'
+                    waiterName: waiterName || 'Staff',
+                    numberOfGuests: guestCount // SAVE GUEST COUNT
                 };
                 await addOrder(newOrder);
             }
@@ -708,6 +726,30 @@ const WaiterPad: React.FC<WaiterPadProps> = ({ onExit }) => {
                             Stai per inviare <strong>{cart.reduce((a, b) => a + b.quantity, 0)} piatti</strong><br />
                             al <strong>Tavolo {selectedTable}</strong>.
                         </p>
+
+                        {isNewSession && (
+                            <div className="mb-6 bg-slate-800 p-4 rounded-2xl border border-slate-700">
+                                <label className="block text-slate-400 text-sm font-bold uppercase mb-3">Numero Adulti</label>
+                                <div className="flex items-center justify-between bg-slate-900 rounded-xl p-2 border border-slate-700">
+                                    <button
+                                        onClick={() => setGuestCount(Math.max(1, guestCount - 1))}
+                                        className="w-12 h-12 bg-slate-800 rounded-lg flex items-center justify-center text-white hover:bg-slate-700 transition"
+                                    >
+                                        <ArrowDown className="rotate-90" size={24} />
+                                    </button>
+                                    <div className="flex items-center gap-2">
+                                        <Users size={24} className="text-blue-500" />
+                                        <span className="text-3xl font-black text-white">{guestCount}</span>
+                                    </div>
+                                    <button
+                                        onClick={() => setGuestCount(guestCount + 1)}
+                                        className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center text-white hover:bg-blue-500 transition shadow-lg shadow-blue-900/50"
+                                    >
+                                        <Plus size={24} />
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="flex flex-col gap-3">
                             <button onClick={finalizeOrder} disabled={isSending} className="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-black text-lg rounded-2xl shadow-lg shadow-blue-600/20 active:scale-95 transition-all flex items-center justify-center gap-2">

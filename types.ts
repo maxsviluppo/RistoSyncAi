@@ -213,6 +213,7 @@ export interface Order {
   timestamp: number; // Last updated timestamp (acts as exit time when Delivered)
   createdAt: number; // Creation timestamp (entry time)
   waiterName?: string;
+  numberOfGuests?: number; // Number of people at the table
 
   // Delivery & Takeaway Fields (Optional)
   source?: OrderSource;

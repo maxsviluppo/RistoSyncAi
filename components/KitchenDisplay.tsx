@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Order, OrderStatus, Category, AppSettings, Department, OrderItem, MenuItem } from '../types';
-import { getOrders, updateOrderStatus, toggleOrderItemCompletion, getAppSettings, getMenuItems } from '../services/storageService';
-import { Clock, CheckCircle, ChefHat, Bell, User, LogOut, Square, CheckSquare, AlertOctagon, Timer, PlusCircle, History, Calendar, ChevronLeft, ChevronRight, DollarSign, UtensilsCrossed, Receipt, Pizza, ArrowRightLeft, Utensils, CakeSlice, Wine, Sandwich, ListPlus, Bike, Mic, MicOff } from 'lucide-react';
+import { getOrders, updateOrderStatus, toggleOrderItemCompletion, getAppSettings, getMenuItems, updateOrder } from '../services/storageService';
+import { Clock, CheckCircle, ChefHat, Bell, User, LogOut, Square, CheckSquare, AlertOctagon, Timer, PlusCircle, History, Calendar, ChevronLeft, ChevronRight, DollarSign, UtensilsCrossed, Receipt, Pizza, ArrowRightLeft, Utensils, CakeSlice, Wine, Sandwich, ListPlus, Bike, Mic, MicOff, Flame } from 'lucide-react';
 
 const CATEGORY_PRIORITY: Record<Category, number> = {
     [Category.MENU_COMPLETO]: 0,
@@ -437,9 +437,43 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
         showNotification(`⚠️ RITARDO CRITICO: Tavolo ${tableNum}!`, 'alert');
     };
 
+    // DRAG AND DROP STATE
+    const [draggedOrder, setDraggedOrder] = useState<string | null>(null);
+
     const loadOrders = () => {
         const allOrders = getOrders();
-        const sorted = allOrders.sort((a, b) => a.timestamp - b.timestamp);
+        // 1. Base Sort: Timestamp
+        let sorted = allOrders.sort((a, b) => a.timestamp - b.timestamp);
+
+        // 2. Custom Sort Override (Persistent)
+        try {
+            const savedSort = localStorage.getItem(`ristosync_kitchen_sort_${department}`);
+            if (savedSort) {
+                const sortIds: string[] = JSON.parse(savedSort);
+                const idMap = new Map(sorted.map(o => [o.id, o]));
+
+                const customSorted: Order[] = [];
+                const remaining: Order[] = [];
+
+                // Valid sorted items
+                sortIds.forEach(id => {
+                    if (idMap.has(id)) {
+                        customSorted.push(idMap.get(id)!);
+                        idMap.delete(id);
+                    }
+                });
+
+                // Remaining (new) items - maintain timestamp order
+                sorted.forEach(o => {
+                    if (idMap.has(o.id)) {
+                        remaining.push(o);
+                    }
+                });
+
+                sorted = [...customSorted, ...remaining];
+            }
+        } catch (e) { console.error("Sort Error", e); }
+
         // Sync menu items for resolution
         const currentMenuItems = getMenuItems();
         setAllMenuItems(currentMenuItems);
@@ -561,6 +595,54 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
         setOrders(sorted);
     };
 
+    const handleDragStart = (e: React.DragEvent, orderId: string) => {
+        setDraggedOrder(orderId);
+        e.dataTransfer.effectAllowed = 'move';
+        // Optional: Custom drag image
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleDragEnd = () => {
+        setDraggedOrder(null);
+    };
+
+    const handleDrop = (e: React.DragEvent, targetOrderId: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+
+        if (!draggedOrder || draggedOrder === targetOrderId) {
+            setDraggedOrder(null);
+            return;
+        }
+
+        // Work with current orders state
+        const currentOrders = [...orders];
+        const oldIndex = currentOrders.findIndex(o => o.id === draggedOrder);
+        const newIndex = currentOrders.findIndex(o => o.id === targetOrderId);
+
+        if (oldIndex === -1 || newIndex === -1) {
+            setDraggedOrder(null);
+            return;
+        }
+
+        // Reorder the array
+        const [movedOrder] = currentOrders.splice(oldIndex, 1);
+        currentOrders.splice(newIndex, 0, movedOrder);
+
+        // Update state immediately for visual feedback
+        setOrders(currentOrders);
+
+        // Save the new order to localStorage
+        const newIds = currentOrders.map(o => o.id);
+        localStorage.setItem(`ristosync_kitchen_sort_${department}`, JSON.stringify(newIds));
+
+        setDraggedOrder(null);
+    };
+
     useEffect(() => {
         loadOrders();
         const handleStorageChange = (e: StorageEvent) => { if (e.key === 'ristosync_orders') loadOrders(); };
@@ -578,10 +660,23 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
         };
     }, [appSettings, department]);
 
+    // ADVANCE STATUS (Manual Override with Smart Logic)
     const advanceStatus = (orderId: string, currentStatus: OrderStatus) => {
-        let nextStatus = currentStatus;
-        if (currentStatus === OrderStatus.PENDING) nextStatus = OrderStatus.COOKING; else if (currentStatus === OrderStatus.COOKING) nextStatus = OrderStatus.READY; else if (currentStatus === OrderStatus.READY) nextStatus = OrderStatus.DELIVERED;
-        updateOrderStatus(orderId, nextStatus);
+        if (currentStatus === OrderStatus.PENDING) {
+            updateOrderStatus(orderId, OrderStatus.COOKING);
+        }
+        else if (currentStatus === OrderStatus.COOKING) {
+            // FORCE COMPLETE ALL ITEMS logic
+            const order = orders.find(o => o.id === orderId);
+            if (order) {
+                const updatedItems = order.items.map(i => ({ ...i, completed: true }));
+                const updatedOrder = { ...order, items: updatedItems, status: OrderStatus.READY, timestamp: Date.now() };
+                updateOrder(updatedOrder); // Uses imported updateOrder
+            }
+        }
+        else if (currentStatus === OrderStatus.READY) {
+            updateOrderStatus(orderId, OrderStatus.DELIVERED);
+        }
     };
 
     // UPDATED: Handle Item Toggle (Partial or Full)
@@ -626,6 +721,7 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
     // Le comande READY restano visibili (verdi) finché non diventano DELIVERED (dal cameriere o dal tasto "Servi")
     // Le comande DELIVERED restano visibili per 5 minuti se sono in "lingerOrders"
     // NUOVO: Nascondi ordini dove TUTTI gli item del reparto sono completati
+    // IMPORTANTE: Mantiene l'ordine custom da drag-and-drop
     const displayedOrders = orders.filter(o => {
         // Always show lingering orders (being archived)
         if (lingerOrders.includes(o.id)) return true;
@@ -654,17 +750,8 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
 
         // Hide if all items are completed (department work is done)
         return !allCompleted;
-    }).sort((a, b) => {
-        // Sposta le comande in archiviazione (lingering) in fondo
-        const aIsLingering = lingerOrders.includes(a.id);
-        const bIsLingering = lingerOrders.includes(b.id);
-
-        if (aIsLingering && !bIsLingering) return 1;  // a va dopo b
-        if (!aIsLingering && bIsLingering) return -1; // a va prima di b
-
-        // Se entrambe lingering o entrambe attive, mantieni ordine cronologico
-        return a.timestamp - b.timestamp;
     });
+    // NO SORTING HERE - preserve the order from 'orders' array which has custom sort applied
 
     const isAutoPrintActive = appSettings.printEnabled && appSettings.printEnabled[department];
 
@@ -736,7 +823,7 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
             </div>
 
             {viewMode === 'active' ? (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3 pb-10">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 pb-10">
                     {displayedOrders.map((order) => {
                         // PREPARE DATA
                         const cleanTable = order.tableNumber.replace('_HISTORY', '').replace('DEL_', 'DEL ').replace('ASP_', 'ASP ');
@@ -765,7 +852,13 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
                                 });
                         } catch (e) { console.error(e); }
 
+                        // GHOST TICKET FIX:
+                        // 1. If no visible items at all -> FORCE NULL (Do not render)
                         if (visibleItems.length === 0) return null;
+
+                        // 2. If ONLY separators -> FORCE NULL (Do not render "A SEGUIRE" on empty ticket)
+                        const hasRealItems = visibleItems.some(i => !i.item.isSeparator);
+                        if (!hasRealItems) return null;
 
                         // STATUS COLORS
                         const isLingering = lingerOrders.includes(order.id);
@@ -789,54 +882,82 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
                         });
                         const syncLabels = Array.from(otherDepts);
 
+                        const isDragging = draggedOrder === order.id;
+
                         // RENDER CARD
                         return (
-                            <div key={order.id} className={`${bgColor} text-slate-900 shadow-xl font-mono text-sm leading-tight pb-2 min-w-[200px] h-full flex flex-col relative transition-transform hover:-translate-y-1`}>
-                                {/* RECEIPT EDGE DECORATION TOP (Optional, simple line) */}
-                                <div className="h-1 bg-slate-800/10 w-full mb-1"></div>
+                            <div
+                                key={order.id}
+                                draggable
+                                onDragStart={(e) => handleDragStart(e, order.id)}
+                                onDragOver={handleDragOver}
+                                onDrop={(e) => handleDrop(e, order.id)}
+                                onDragEnd={handleDragEnd}
+                                className={`${bgColor} text-slate-900 shadow-xl font-mono text-sm leading-tight receipt-edge pb-6 relative transition-transform hover:-translate-y-1 flex flex-col ${isDragging ? 'opacity-50 ring-2 ring-blue-500' : ''} cursor-grab active:cursor-grabbing`}
+                            >
 
-                                {/* HEADER (Compact Left-Right) */}
-                                <div className="px-2 pt-2 pb-1 border-b border-dashed border-slate-400 mx-1">
-                                    <div className="flex justify-between items-end">
-                                        {/* SX: TAVOLO e REPARTO */}
-                                        <div className="flex flex-col items-start leading-none">
-                                            <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider mb-0.5">{department}</div>
-                                            <div className="text-2xl font-black text-slate-900 tracking-tighter">
-                                                {/^\d+$/.test(cleanTable) ? `TAV.${cleanTable}` : cleanTable}
-                                            </div>
+                                {/* HEADER - SPLIT LAYOUT (LEFT: TABLE | RIGHT: INFO) */}
+                                <div className="px-3 py-3 border-b border-dashed border-slate-300 bg-white/50 flex items-center justify-between gap-2">
+
+                                    {/* LEFT: TABLE NUMBER */}
+                                    <div className="flex-shrink-0">
+                                        <p className="text-6xl font-black text-slate-900 leading-none tracking-tighter">
+                                            {/^\d+$/.test(cleanTable) ? (
+                                                <>
+                                                    <span className="text-xs font-bold text-slate-500 block -mb-1 ml-1 tracking-widest">TAVOLO</span>
+                                                    {cleanTable}
+                                                </>
+                                            ) : cleanTable}
+                                        </p>
+                                    </div>
+
+                                    {/* RIGHT: INFO COLUMN */}
+                                    <div className="flex flex-col items-end gap-1 flex-1 min-w-0">
+
+                                        {/* Row 1: Time & Dept */}
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className="text-xs font-black uppercase text-slate-600 tracking-wider bg-slate-100 px-2 py-0.5 rounded-sm border border-slate-200">{department}</span>
+                                            <span className="text-3xl font-bold text-slate-800 font-mono leading-none">{formatTime(order.timestamp)}</span>
                                         </div>
 
-                                        {/* DX: ORA e STAFF */}
-                                        <div className="flex flex-col items-end text-right leading-none pb-0.5">
-                                            {/* SYNC LABELS */}
-                                            {syncLabels.length > 0 && (
-                                                <div className="flex flex-col items-end mb-1 gap-0.5">
-                                                    {syncLabels.map(d => (
-                                                        <span key={d} className="text-[8px] font-black bg-orange-100 text-orange-700 border border-orange-300 px-1 rounded-sm uppercase tracking-tight animate-pulse">
-                                                            SYNC {d}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
+                                        {/* Row 2: Staff, Sync & Guests Pill */}
+                                        <div className="flex items-center gap-3 bg-slate-100 rounded-md px-2 py-1 border border-slate-200 shadow-sm mt-0.5">
 
-                                            <div className="text-base font-bold text-slate-800 mb-0.5">{formatTime(order.timestamp)}</div>
-                                            <div className="text-[9px] font-bold text-slate-500 uppercase truncate max-w-[80px]">
-                                                {order.waiterName || 'Staff'}
+                                            {/* Staff Name & Sync Badges */}
+                                            <div className="flex items-center gap-2">
+                                                {syncLabels.length > 0 && (
+                                                    <div className="flex gap-0.5">
+                                                        {syncLabels.map(d => (
+                                                            <span key={d} title={`Sync: ${d}`} className="text-[8px] font-black bg-orange-100 text-orange-700 border border-orange-200 px-1 rounded-[3px] uppercase tracking-tight">
+                                                                {d.substring(0, 3)}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                                <span className="text-xs font-bold uppercase text-slate-700 truncate max-w-[80px]">{order.waiterName || 'Staff'}</span>
                                             </div>
+
+                                            {(order.numberOfGuests !== undefined || order.items.length > 0) && (
+                                                <>
+                                                    <div className="w-px h-3.5 bg-slate-300"></div>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <User size={14} className="text-slate-600" />
+                                                        <span className="text-sm font-black text-slate-900">{order.numberOfGuests || '?'}</span>
+                                                    </div>
+                                                </>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* ITEMS LIST */}
-                                <div className="p-3 flex-1 space-y-2 overflow-y-auto max-h-[400px]">
+                                <div className="p-4 space-y-2 flex-1">
                                     {visibleItems.map(({ item, originalIndex }) => {
-                                        // SEPARATOR HANDLING (Full width dashed)
+                                        // SEPARATOR HANDLING
                                         if (item.isSeparator) {
                                             return (
-                                                <div key={`sep-${originalIndex}`} className="flex items-center gap-2 py-1 my-1 opacity-70 w-full overflow-hidden">
-                                                    <div className="h-px bg-slate-400 flex-1 border-b border-dashed border-slate-500"></div>
-                                                    <span className="text-[10px] font-black uppercase whitespace-nowrap text-slate-600 tracking-widest">A SEGUIRE</span>
-                                                    <div className="h-px bg-slate-400 flex-1 border-b border-dashed border-slate-500"></div>
+                                                <div key={`sep-${originalIndex}`} className="flex items-center gap-2 py-2 opacity-60 w-full overflow-hidden">
+                                                    <span className="text-[10px] mx-auto font-black uppercase whitespace-nowrap text-slate-500 tracking-widest border-b border-dashed border-slate-400 pb-1 w-full text-center">--- A SEGUIRE ---</span>
                                                 </div>
                                             );
                                         }
@@ -850,9 +971,9 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
                                                 className={`cursor-pointer transition-all ${isCompleted ? 'opacity-40 line-through decoration-2 decoration-slate-500' : 'hover:bg-black/5'}`}
                                             >
                                                 <div className="flex gap-2 items-start text-sm leading-snug">
-                                                    <span className="font-black w-7 text-right shrink-0 tracking-tighter">{item.quantity}x</span>
-                                                    <div className="flex flex-col">
-                                                        <span className="font-bold uppercase">{item.menuItem.name}</span>
+                                                    <span className="font-bold">{item.quantity}x</span>
+                                                    <div className="flex flex-col flex-1">
+                                                        <span className="uppercase">{item.menuItem.name}</span>
                                                         {item.notes && item.notes.split('|||').map((note, n) => (
                                                             <span key={n} className="text-[10px] bg-white border border-slate-400 px-1 font-bold w-max mt-0.5 rounded-sm">{note}</span>
                                                         ))}
@@ -864,18 +985,36 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
                                     })}
                                 </div>
 
-                                {/* BOTTOM ACTIONS (Reduced Size) */}
-                                <div className="p-2 pt-0 mt-auto z-10 relative">
+                                {/* BOTTOM ACTIONS */}
+                                <div className="px-4 pb-4 mt-auto">
+                                    {/* BOTTOM ACTIONS - DYNAMIC STATUS BUTTON */}
+                                    {/* BOTTOM ACTIONS - DYNAMIC STATUS BUTTON */}
                                     <button
                                         onClick={(e) => { e.stopPropagation(); advanceStatus(order.id, order.status); }}
-                                        className={`w-full py-1.5 font-bold uppercase tracking-wider text-xs border border-slate-400 bg-white/60 hover:bg-white text-slate-900 rounded shadow-sm transition-all flex items-center justify-center gap-1`}
+                                        className={`w-full py-3 mb-2 font-black uppercase tracking-widest text-sm border-b-4 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 active:scale-95 active:border-b-0 active:translate-y-1 ${order.status === OrderStatus.READY
+                                            ? 'bg-green-500 border-green-700 text-white hover:bg-green-600' // Step 3: Serve/Archive
+                                            : order.status === OrderStatus.COOKING
+                                                ? 'bg-orange-500 border-orange-700 text-white hover:bg-orange-600 animate-pulse' // Step 2: Cooking (Maintained)
+                                                : 'bg-amber-400 border-amber-600 text-white hover:bg-amber-500' // Step 1: Start
+                                            }`}
                                     >
-                                        {order.status === OrderStatus.READY ? <><CheckCircle size={14} /> COMPLETA</> : (order.status === OrderStatus.PENDING ? 'IN PREPARAZIONE' : 'PRONTO PER SALA')}
+                                        {order.status === OrderStatus.READY ? (
+                                            <><CheckCircle size={18} /> PRONTO DA SERVIRE</>
+                                        ) : order.status === OrderStatus.COOKING ? (
+                                            <><Flame size={18} /> IN PREPARAZIONE</>
+                                        ) : (
+                                            <><Bell size={18} /> INIZIA PREPARAZIONE</>
+                                        )}
                                     </button>
-                                </div>
 
-                                {/* ZIG ZAG BOTTOM (CSS Class from style block) */}
-                                <div className="receipt-edge absolute bottom-[-10px] left-0 right-0 h-[20px] bg-inherit z-0" style={{ backgroundColor: 'inherit' }}></div>
+                                    {order.status === OrderStatus.COOKING && order.items.some(i => i.isSeparator) && (
+                                        <div className="text-center text-[10px] font-bold text-blue-400 mb-1">
+                                            CLICCA L'ORDINE PER GESTIRE LE PORTATE
+                                        </div>
+                                    )}
+
+                                    <div className="text-center text-[10px] text-slate-400 font-medium">*** COPIA NON FISCALE ***</div>
+                                </div>
                             </div>
                         );
                     })}
