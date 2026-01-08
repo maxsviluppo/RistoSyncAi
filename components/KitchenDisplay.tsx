@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Order, OrderStatus, Category, AppSettings, Department, OrderItem, MenuItem } from '../types';
 import { getOrders, updateOrderStatus, toggleOrderItemCompletion, getAppSettings, getMenuItems, updateOrder } from '../services/storageService';
 import { Clock, CheckCircle, ChefHat, Bell, User, LogOut, Square, CheckSquare, AlertOctagon, Timer, PlusCircle, History, Calendar, ChevronLeft, ChevronRight, DollarSign, UtensilsCrossed, Receipt, Pizza, ArrowRightLeft, Utensils, CakeSlice, Wine, Sandwich, ListPlus, Bike, Mic, MicOff, Flame } from 'lucide-react';
+import { SmartKitchenPanel } from './SmartKitchenPanel';
 
 const CATEGORY_PRIORITY: Record<Category, number> = {
     [Category.MENU_COMPLETO]: 0,
@@ -215,6 +216,8 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
     const [appSettings, setAppSettings] = useState<AppSettings>(getAppSettings());
     const [notification, setNotification] = useState<{ msg: string, type: 'info' | 'success' | 'alert' } | null>(null);
     const [allMenuItems, setAllMenuItems] = useState<MenuItem[]>([]); // New: Full menu reference for combo lookup
+    // SMART KITCHEN ASSISTANT
+    const [showSmartPanel, setShowSmartPanel] = useState(false);
 
     const [lingerOrders, setLingerOrders] = useState<string[]>([]);
 
@@ -817,6 +820,16 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
                         {isListening ? 'Ascolto...' : 'Vocale Off'}
                     </button>
 
+                    {/* SMART KITCHEN ASSISTANT TOGGLE */}
+                    <button
+                        onClick={() => setShowSmartPanel(!showSmartPanel)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg border font-bold text-xs uppercase transition-all ${showSmartPanel ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-500/50' : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white hover:border-blue-500'}`}
+                        title="Assistente Cucina Intelligente"
+                    >
+                        <span className="text-lg">⚡</span>
+                        {showSmartPanel ? 'AI ON' : 'AI'}
+                    </button>
+
                     <div className="bg-slate-800 px-4 py-2 rounded-lg border border-slate-700"><span className={`text-2xl font-mono font-bold ${isPizzeria ? 'text-red-400' : isPub ? 'text-amber-400' : 'text-orange-400'}`}>{new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</span></div>
                     <button onClick={onExit} className="bg-slate-800 text-slate-400 hover:text-white p-2.5 rounded-lg"><LogOut size={20} /></button>
                 </div>
@@ -920,6 +933,31 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
                                             <span className="text-3xl font-bold text-slate-800 font-mono leading-none">{formatTime(order.timestamp)}</span>
                                         </div>
 
+                                        {/* WAITING TIME INDICATOR */}
+                                        {(() => {
+                                            const waitingMinutes = Math.floor((Date.now() - order.timestamp) / 60000);
+                                            let timeColor = 'bg-green-500 text-white border-green-600'; // < 10 min
+                                            let timeIcon = '✓';
+
+                                            if (waitingMinutes >= 25) {
+                                                timeColor = 'bg-red-600 text-white border-red-700 animate-pulse'; // CRITICAL
+                                                timeIcon = '⚠️';
+                                            } else if (waitingMinutes >= 15) {
+                                                timeColor = 'bg-orange-500 text-white border-orange-600'; // HIGH
+                                                timeIcon = '⏱️';
+                                            } else if (waitingMinutes >= 10) {
+                                                timeColor = 'bg-yellow-500 text-slate-900 border-yellow-600'; // MEDIUM
+                                                timeIcon = '⏱️';
+                                            }
+
+                                            return (
+                                                <div className={`${timeColor} px-2 py-1 rounded-md border-2 font-black text-xs flex items-center gap-1 shadow-lg`}>
+                                                    <span>{timeIcon}</span>
+                                                    <span>{waitingMinutes} min</span>
+                                                </div>
+                                            );
+                                        })()}
+
                                         {/* Row 2: Staff, Sync & Guests Pill */}
                                         <div className="flex items-center gap-3 bg-slate-100 rounded-md px-2 py-1 border border-slate-200 shadow-sm mt-0.5">
 
@@ -975,7 +1013,9 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
                                                     <div className="flex flex-col flex-1">
                                                         <span className="uppercase">{item.menuItem.name}</span>
                                                         {item.notes && item.notes.split('|||').map((note, n) => (
-                                                            <span key={n} className="text-[10px] bg-white border border-slate-400 px-1 font-bold w-max mt-0.5 rounded-sm">{note}</span>
+                                                            <span key={n} className="text-xs bg-gradient-to-r from-yellow-400 to-orange-400 border-2 border-orange-500 text-slate-900 px-2 py-1 font-black w-max mt-1 rounded-md shadow-lg">
+                                                                {note}
+                                                            </span>
                                                         ))}
                                                         {item.isAddedLater && <span className="text-[9px] bg-slate-800 text-white px-1 font-bold w-max mt-0.5 rounded-sm">AGGIUNTA</span>}
                                                     </div>
@@ -1052,6 +1092,15 @@ const KitchenDisplay: React.FC<KitchenDisplayProps> = ({ onExit, department = 'C
                     </div>
                 </div>
             )}
+
+            {/* SMART KITCHEN ASSISTANT PANEL */}
+            <SmartKitchenPanel
+                isOpen={showSmartPanel}
+                onClose={() => setShowSmartPanel(false)}
+                orders={orders}
+                department={department}
+                allMenuItems={allMenuItems}
+            />
         </div>
     );
 };
