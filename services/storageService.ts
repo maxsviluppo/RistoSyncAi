@@ -1,4 +1,4 @@
-import { Order, OrderStatus, OrderItem, MenuItem, AppSettings, Category, Department, NotificationSettings, Reservation, Customer, ReservationStatus } from '../types';
+import { Order, OrderStatus, OrderItem, MenuItem, AppSettings, Category, Department, NotificationSettings, Reservation, Customer, ReservationStatus, InventoryItem, Expense } from '../types';
 import { supabase } from './supabase';
 
 // Generate UUID v4 compatible with PostgreSQL
@@ -18,6 +18,7 @@ const SETTINGS_NOTIFICATIONS_KEY = 'ristosync_settings_notifications';
 const APP_SETTINGS_KEY = 'ristosync_app_settings';
 const GOOGLE_API_KEY_STORAGE = 'ristosync_google_api_key';
 const METADATA_CACHE_KEY = 'ristosync_orders_metadata'; // Local cache for delivery info
+const INVENTORY_KEY = 'ristosync_inventory';
 
 // --- DEMO DATASET ---
 const DEMO_MENU_ITEMS: MenuItem[] = [
@@ -1565,4 +1566,137 @@ export const linkReservationToOrder = async (reservationId: string, orderId: str
     await updateReservationStatus(reservationId, ReservationStatus.ACTIVE, {
         orderId: orderId
     });
+};
+
+// ============================================
+// 📦 INVENTORY MANAGEMENT
+// ============================================
+
+export const getInventory = (): InventoryItem[] => {
+    const data = localStorage.getItem(INVENTORY_KEY);
+    return data ? JSON.parse(data) : [];
+};
+
+export const saveInventory = (items: InventoryItem[]) => {
+    safeLocalStorageSave(INVENTORY_KEY, JSON.stringify(items));
+    window.dispatchEvent(new Event('local-inventory-update'));
+};
+
+export const addInventoryItem = (item: Omit<InventoryItem, 'id'>) => {
+    const items = getInventory();
+    const newItem: InventoryItem = {
+        ...item,
+        id: generateUUID(),
+        lastRestocked: Date.now()
+    };
+    saveInventory([...items, newItem]);
+    return newItem;
+};
+
+export const updateInventoryItem = (id: string, updates: Partial<InventoryItem>) => {
+    const items = getInventory();
+    const updated = items.map(i => i.id === id ? { ...i, ...updates } : i);
+    saveInventory(updated);
+};
+
+export const deleteInventoryItem = (id: string) => {
+    const items = getInventory();
+    const filtered = items.filter(i => i.id !== id);
+    saveInventory(filtered);
+};
+
+
+// === EXPENSES MANAGEMENT ===
+
+
+const EXPENSES_KEY = 'ristosync_expenses';
+
+const saveExpenses = (expenses: Expense[]) => {
+    safeLocalStorageSave(EXPENSES_KEY, JSON.stringify(expenses));
+    // Trigger local update event for UI sync
+    window.dispatchEvent(new Event('local-expenses-update'));
+};
+
+export const getExpenses = (): Expense[] => {
+    try {
+        const data = localStorage.getItem(EXPENSES_KEY);
+        return data ? JSON.parse(data) : [];
+    } catch {
+        return [];
+    }
+};
+
+export const addExpense = (expense: Omit<Expense, 'id'>): Expense => {
+    const expenses = getExpenses();
+    const newExpense: Expense = {
+        ...expense,
+        id: generateUUID()
+    };
+    saveExpenses([...expenses, newExpense]);
+    return newExpense;
+};
+
+export const updateExpense = (id: string, updates: Partial<Expense>) => {
+    const expenses = getExpenses();
+    const updated = expenses.map(e => e.id === id ? { ...e, ...updates } : e);
+    saveExpenses(updated);
+};
+
+export const deleteExpense = (id: string) => {
+    const expenses = getExpenses();
+    const filtered = expenses.filter(e => e.id !== id);
+    saveExpenses(filtered);
+};
+
+
+// === SUPPLIER MANAGEMENT ===
+
+export interface Supplier {
+    id: string;
+    name: string;
+    vatNumber?: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+    paymentTerms?: string; // e.g. "30gg", "Vista fattura"
+    category?: string; // e.g. "Food", "Beverage", "Services"
+    notes?: string;
+}
+
+const SUPPLIERS_KEY = 'ristosync_suppliers';
+
+const saveSuppliers = (suppliers: Supplier[]) => {
+    safeLocalStorageSave(SUPPLIERS_KEY, JSON.stringify(suppliers));
+    window.dispatchEvent(new Event('local-suppliers-update'));
+};
+
+export const getSuppliers = (): Supplier[] => {
+    try {
+        const data = localStorage.getItem(SUPPLIERS_KEY);
+        return data ? JSON.parse(data) : [];
+    } catch {
+        return [];
+    }
+};
+
+export const addSupplier = (supplier: Omit<Supplier, 'id'>): Supplier => {
+    const suppliers = getSuppliers();
+    const newSupplier: Supplier = {
+        ...supplier,
+        id: generateUUID()
+    };
+    saveSuppliers([...suppliers, newSupplier]);
+    return newSupplier;
+};
+
+export const updateSupplier = (id: string, updates: Partial<Supplier>) => {
+    const suppliers = getSuppliers();
+    const updated = suppliers.map(s => s.id === id ? { ...s, ...updates } : s);
+    saveSuppliers(updated);
+};
+
+export const deleteSupplier = (id: string) => {
+    const suppliers = getSuppliers();
+    const filtered = suppliers.filter(s => s.id !== id);
+    saveSuppliers(filtered);
 };

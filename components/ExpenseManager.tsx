@@ -1,13 +1,14 @@
+
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../services/supabase';
 import { Expense, ExpenseCategory, PaymentMethod } from '../types';
 import {
-    CreditCard, Wallet, Calendar, Plus, Trash2, Save,
-    FileText, Filter, ChevronLeft, ChevronRight, TrendingDown,
+    Wallet, Calendar, Plus, Trash2, Save,
+    FileText, ChevronLeft, ChevronRight, TrendingDown,
     Calculator, Users
 } from 'lucide-react';
 import { DailyClosureManager } from './DailyClosureManager';
 import { ClosureRecipientsManager } from './ClosureRecipientsManager';
+import { getExpenses, addExpense as addExpenseService, deleteExpense as deleteExpenseService } from '../services/storageService';
 
 interface ExpenseManagerProps {
     showToast: (msg: string, type: 'success' | 'error' | 'info') => void;
@@ -15,7 +16,6 @@ interface ExpenseManagerProps {
 
 export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ showToast }) => {
     const [expenses, setExpenses] = useState<Expense[]>([]);
-    const [categories, setCategories] = useState<ExpenseCategory[]>([]);
     const [loading, setLoading] = useState(true);
     const [isAdding, setIsAdding] = useState(false);
     const [showClosure, setShowClosure] = useState(false);
@@ -27,114 +27,76 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ showToast }) => 
 
     // New Expense State
     const [newExpense, setNewExpense] = useState<Partial<Expense>>({
-        date: new Date().toISOString().split('T')[0],
+        date: Date.now(),
         paymentMethod: 'cash',
-        deductFrom: 'cassa'
+        // deductFrom: 'cassa' // Removed as it is not in the Expense interface in storageService yet, assumed logical handling
     });
 
     useEffect(() => {
-        fetchCategories();
-        fetchExpenses();
+        loadExpenses();
+
+        // Listen for updates from other components (e.g. InventoryManager)
+        const handleUpdate = () => loadExpenses();
+        window.addEventListener('local-expenses-update', handleUpdate);
+        return () => window.removeEventListener('local-expenses-update', handleUpdate);
     }, [selectedDate, timeFilter]);
 
-    const fetchCategories = async () => {
-        if (!supabase) return;
-        const { data, error } = await supabase.from('expense_categories').select('*');
-        if (error) {
-            console.error('Error fetching categories:', error);
-            return;
-        }
-        if (data) setCategories(data);
-    };
-
-    const fetchExpenses = async () => {
+    const loadExpenses = () => {
         setLoading(true);
-        if (!supabase) return;
+        const allExpenses = getExpenses(); // Get from local storage
 
-        let query = supabase.from('expenses').select('*');
+        // Filter locally
+        const filtered = allExpenses.filter(e => {
+            const expenseDate = new Date(e.date);
+            const year = selectedDate.getFullYear();
+            const month = selectedDate.getMonth();
 
-        // Date Filtering
-        const year = selectedDate.getFullYear();
-        const month = selectedDate.getMonth();
+            if (timeFilter === 'month') {
+                return expenseDate.getFullYear() === year && expenseDate.getMonth() === month;
+            } else {
+                return expenseDate.toDateString() === selectedDate.toDateString();
+            }
+        });
 
-        if (timeFilter === 'month') {
-            const startStr = new Date(year, month, 1).toISOString();
-            const endStr = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
-            query = query.gte('expense_date', startStr).lte('expense_date', endStr);
-        } else {
-            const startStr = new Date(year, month, selectedDate.getDate()).toISOString();
-            const endStr = new Date(year, month, selectedDate.getDate(), 23, 59, 59).toISOString();
-            query = query.gte('expense_date', startStr).lte('expense_date', endStr);
-        }
+        // Sort by date desc
+        filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-        const { data, error } = await query.order('expense_date', { ascending: false });
-
-        if (error) {
-            console.error('Error fetching expenses:', error);
-            showToast('Errore caricamento: ' + error.message, 'error');
-        } else if (data) {
-            const mappedExpenses: Expense[] = data.map((row: any) => ({
-                id: row.id,
-                category: row.category_id,
-                description: row.description,
-                amount: row.amount,
-                date: row.expense_date,
-                paymentMethod: row.payment_method as PaymentMethod,
-                deductFrom: row.deduct_from,
-                receipt: row.receipt_url,
-                notes: row.notes,
-                createdAt: new Date(row.created_at).getTime(),
-                createdBy: row.created_by
-            }));
-            setExpenses(mappedExpenses);
-        }
+        setExpenses(filtered);
         setLoading(false);
     };
 
-    const handleSave = async () => {
-        if (!newExpense.description || !newExpense.amount || !newExpense.category) {
-            showToast('Compila tutti i campi obbligatori', 'error');
+    const handleSave = () => {
+        if (!newExpense.description || !newExpense.amount) {
+            showToast('Compila descrizione e importo', 'error');
             return;
         }
 
-        if (!supabase) return;
+        addExpenseService({
+            date: new Date(newExpense.date as any).getTime(), // Ensure timestamp
+            description: newExpense.description,
+            amount: Number(newExpense.amount),
+            category: (newExpense.category as any) || 'other',
+            notes: newExpense.notes,
+            supplier: newExpense.supplier,
+            invoiceNumber: newExpense.invoiceNumber,
+            deductFrom: newExpense.deductFrom as any || 'cassa',
+            paymentMethod: newExpense.paymentMethod as any || 'cash'
+        });
 
-        const expensePayload = {
-            category_id: newExpense.category || null,
-            description: newExpense.description || 'Spesa',
-            amount: isNaN(Number(newExpense.amount)) ? 0 : Number(newExpense.amount),
-            expense_date: newExpense.date,
-            payment_method: newExpense.paymentMethod || 'cash',
-            deduct_from: newExpense.deductFrom || 'cassa',
-            notes: newExpense.notes || null
-        };
-
-        const { error } = await supabase.from('expenses').insert(expensePayload);
-
-        if (error) {
-            console.error('Error saving expense:', error);
-            showToast('ERRORE DATABASE SU SERVER: ' + (error.message || JSON.stringify(error)), 'error');
-        } else {
-            showToast('Spesa salvata con successo!', 'success');
-            setIsAdding(false);
-            setNewExpense({
-                date: new Date().toISOString().split('T')[0],
-                paymentMethod: 'cash',
-                deductFrom: 'cassa'
-            });
-            fetchExpenses();
-        }
+        showToast('Spesa salvata con successo!', 'success');
+        setIsAdding(false);
+        setNewExpense({
+            date: Date.now(),
+            paymentMethod: 'cash',
+            deductFrom: 'cassa'
+        });
+        loadExpenses();
     };
 
-    const handleDelete = async (id: string) => {
-        if (!supabase) return;
-        const { error } = await supabase.from('expenses').delete().eq('id', id);
-        if (error) {
-            showToast('Errore eliminazione: ' + error.message, 'error');
-        } else {
-            showToast('Spesa eliminata', 'success');
-            setExpenses(prev => prev.filter(e => e.id !== id));
-        }
+    const handleDelete = (id: string) => {
+        deleteExpenseService(id);
+        showToast('Spesa eliminata', 'success');
+        loadExpenses();
     };
 
     const totalAmount = expenses.reduce((sum, e) => sum + Number(e.amount), 0);
@@ -282,54 +244,75 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ showToast }) => 
                                 <label className="block text-slate-500 text-xs font-bold mb-1 uppercase">Categoria</label>
                                 <select
                                     value={newExpense.category || ''}
-                                    onChange={e => setNewExpense({ ...newExpense, category: e.target.value })}
+                                    onChange={e => setNewExpense({ ...newExpense, category: e.target.value as any })}
                                     className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500 appearance-none"
                                 >
-                                    <option value="">Seleziona Categoria</option>
-                                    {categories.map(cat => (
-                                        <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                    ))}
+                                    <option value="other">Altro</option>
+                                    <option value="inventory">Fornitori/Magazzino</option>
+                                    <option value="utilities">Utenze</option>
+                                    <option value="staff">Personale</option>
+                                    <option value="rent">Affitto</option>
                                 </select>
                             </div>
                             <div>
                                 <label className="block text-slate-500 text-xs font-bold mb-1 uppercase">Data</label>
                                 <input
                                     type="date"
-                                    value={newExpense.date}
-                                    onChange={e => setNewExpense({ ...newExpense, date: e.target.value })}
+                                    value={new Date(newExpense.date as any).toISOString().split('T')[0]}
+                                    onChange={e => setNewExpense({ ...newExpense, date: new Date(e.target.value).getTime() })}
                                     className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500"
                                 />
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+
+                        {/* Riga 2: Fonte, Metodo, Fornitore, Note */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                             <div>
-                                <label className="block text-slate-500 text-xs font-bold mb-1 uppercase">Metodo Pagamento</label>
+                                <label className="block text-slate-500 text-xs font-bold mb-1 uppercase">Preleva Da</label>
                                 <select
-                                    value={newExpense.paymentMethod}
-                                    onChange={e => setNewExpense({ ...newExpense, paymentMethod: e.target.value as PaymentMethod })}
+                                    value={newExpense.deductFrom || 'cassa'}
+                                    onChange={e => setNewExpense({ ...newExpense, deductFrom: e.target.value as any })}
                                     className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500 appearance-none"
                                 >
-                                    <option value="cash">Contanti</option>
-                                    <option value="card">Carta/Bancomat</option>
-                                    <option value="bank_transfer">Bonifico</option>
+                                    <option value="cassa">Cassa (Contanti)</option>
+                                    <option value="acconti">Fondo Acconti</option>
                                 </select>
                             </div>
                             <div>
-                                <label className="block text-slate-500 text-xs font-bold mb-1 uppercase">Detrai Da</label>
-                                <div className="flex gap-2">
-                                    <button
-                                        onClick={() => setNewExpense({ ...newExpense, deductFrom: 'cassa' })}
-                                        className={`flex-1 py-3 px-4 rounded-xl border font-bold text-sm transition-all ${newExpense.deductFrom === 'cassa' ? 'bg-blue-600 border-blue-600 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
-                                    >
-                                        Cassa
-                                    </button>
-                                    <button
-                                        onClick={() => setNewExpense({ ...newExpense, deductFrom: 'acconti' })}
-                                        className={`flex-1 py-3 px-4 rounded-xl border font-bold text-sm transition-all ${newExpense.deductFrom === 'acconti' ? 'bg-purple-600 border-purple-600 text-white' : 'bg-slate-900 border-slate-700 text-slate-400 hover:border-slate-500'}`}
-                                    >
-                                        Acconti
-                                    </button>
-                                </div>
+                                <label className="block text-slate-500 text-xs font-bold mb-1 uppercase">Metodo Pagamento</label>
+                                <select
+                                    value={newExpense.paymentMethod || 'cash'}
+                                    onChange={e => setNewExpense({ ...newExpense, paymentMethod: e.target.value as any })}
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500 appearance-none"
+                                >
+                                    <option value="cash">Contanti</option>
+                                    <option value="card">Carta / POS</option>
+                                    <option value="bonifico">Bonifico Bancario</option>
+                                    <option value="check">Assegno</option>
+                                    <option value="satispay">Satispay</option>
+                                    <option value="paypal">PayPal</option>
+                                    <option value="other">Altro</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-slate-500 text-xs font-bold mb-1 uppercase">Fornitore (Opzionale)</label>
+                                <input
+                                    type="text"
+                                    value={newExpense.supplier || ''}
+                                    onChange={e => setNewExpense({ ...newExpense, supplier: e.target.value })}
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500"
+                                    placeholder="Es. Metro, Enel"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-slate-500 text-xs font-bold mb-1 uppercase">Note / Fattura</label>
+                                <input
+                                    type="text"
+                                    value={newExpense.notes || ''}
+                                    onChange={e => setNewExpense({ ...newExpense, notes: e.target.value })}
+                                    className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500"
+                                    placeholder="Es. Fattura #123"
+                                />
                             </div>
                         </div>
 
@@ -351,8 +334,7 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ showToast }) => 
                                 <th className="p-4">Data</th>
                                 <th className="p-4">Descrizione</th>
                                 <th className="p-4">Categoria</th>
-                                <th className="p-4">Pagamento</th>
-                                <th className="p-4">Detrazione</th>
+                                <th className="p-4">Fornitore / Note</th>
                                 <th className="p-4 text-right">Importo</th>
                                 <th className="p-4 text-center">Azioni</th>
                             </tr>
@@ -360,49 +342,52 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ showToast }) => 
                         <tbody className="text-sm">
                             {expenses.length === 0 ? (
                                 <tr>
-                                    <td colSpan={7} className="p-8 text-center text-slate-500 italic">
+                                    <td colSpan={6} className="p-8 text-center text-slate-500 italic">
                                         Nessuna spesa registrata nel periodo selezionato.
                                     </td>
                                 </tr>
                             ) : (
-                                expenses.map(expense => {
-                                    const category = categories.find(c => c.id === expense.category);
-                                    return (
-                                        <tr key={expense.id} className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors">
-                                            <td className="p-4 text-slate-300">
-                                                {new Date(expense.date).toLocaleDateString('it-IT')}
-                                            </td>
-                                            <td className="p-4 text-white font-bold">{expense.description}</td>
-                                            <td className="p-4">
-                                                {category ? (
-                                                    <span
-                                                        className="px-2 py-1 rounded text-xs font-bold text-white shadow-sm"
-                                                        style={{ backgroundColor: category.color || '#64748b' }}
-                                                    >
-                                                        {category.name}
+                                expenses.map(expense => (
+                                    <tr key={expense.id} className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors">
+                                        <td className="p-4 text-slate-300">
+                                            {new Date(expense.date).toLocaleDateString('it-IT')}
+                                        </td>
+                                        <td className="p-4 text-white font-bold">{expense.description}</td>
+                                        <td className="p-4">
+                                            <span className="px-2 py-1 rounded text-xs font-bold text-white shadow-sm bg-slate-600 uppercase">
+                                                {expense.category}
+                                            </span>
+                                        </td>
+                                        <td className="p-4 text-slate-400">
+                                            {expense.supplier && <span className="block text-blue-300 font-bold">{expense.supplier}</span>}
+                                            {expense.invoiceNumber && <span className="block text-xs uppercase">{expense.invoiceNumber}</span>}
+                                            {expense.notes && <span className="text-xs italic">{expense.notes}</span>}
+                                            <div className="flex gap-2 mt-1 flex-wrap">
+                                                {expense.deductFrom && (
+                                                    <span className={`text-[10px] uppercase px-1.5 py-0.5 rounded border ${expense.deductFrom === 'acconti' ? 'bg-purple-900/30 border-purple-700 text-purple-300' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
+                                                        {expense.deductFrom === 'acconti' ? 'Fondo Acconti' : 'Cassa'}
                                                     </span>
-                                                ) : <span className="text-slate-500">-</span>}
-                                            </td>
-                                            <td className="p-4 text-slate-400 capitalize">{expense.paymentMethod === 'bank_transfer' ? 'Bonifico' : expense.paymentMethod === 'card' ? 'Carta' : 'Contanti'}</td>
-                                            <td className="p-4">
-                                                <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${expense.deductFrom === 'acconti' ? 'bg-purple-900/30 text-purple-400' : 'bg-blue-900/30 text-blue-400'}`}>
-                                                    {expense.deductFrom || 'Cassa'}
-                                                </span>
-                                            </td>
-                                            <td className="p-4 text-right font-black text-red-500">
-                                                € {Number(expense.amount).toFixed(2)}
-                                            </td>
-                                            <td className="p-4 text-center">
-                                                <button
-                                                    onClick={() => handleDelete(expense.id)}
-                                                    className="p-2 hover:bg-slate-700 rounded-lg text-slate-500 hover:text-red-500 transition-colors"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
+                                                )}
+                                                {expense.paymentMethod && (
+                                                    <span className="text-[10px] uppercase bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700 text-slate-400">
+                                                        {expense.paymentMethod}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        <td className="p-4 text-right font-black text-red-500">
+                                            € {Number(expense.amount).toFixed(2)}
+                                        </td>
+                                        <td className="p-4 text-center">
+                                            <button
+                                                onClick={() => handleDelete(expense.id)}
+                                                className="p-2 hover:bg-slate-700 rounded-lg text-slate-500 hover:text-red-500 transition-colors"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))
                             )}
                         </tbody>
                     </table>

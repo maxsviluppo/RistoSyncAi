@@ -4,10 +4,10 @@ import {
     Users, Clock, ShoppingBag, Download, ChevronLeft, ChevronRight,
     Filter, PieChart, ArrowUpRight, ArrowDownRight, Printer, Search,
     Wallet, CreditCard, Banknote, Plus, Trash2, Save, X, FileText,
-    UtensilsCrossed, Pizza, Sandwich, Wine, Info, Trophy
+    UtensilsCrossed, Pizza, Sandwich, Wine, Info, Trophy, Truck
 } from 'lucide-react';
 import { Order, OrderStatus, Category, Department, Deposit, PaymentMethod, Expense, Reservation, ReservationStatus } from '../types';
-import { getOrders } from '../services/storageService';
+import { getOrders, getExpenses } from '../services/storageService';
 import { supabase } from '../services/supabase';
 
 interface AnalyticsDashboardProps {
@@ -35,7 +35,7 @@ const getDepartmentByCategory = (cat: Category): Department => {
 
 export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose, showToast, isIntegrated = false }) => {
     // State
-    const [activeTab, setActiveTab] = useState<'overview' | 'tables' | 'staff' | 'departments' | 'cash' | 'statement'>('overview');
+    const [activeTab, setActiveTab] = useState<'overview' | 'tables' | 'staff' | 'departments' | 'cash' | 'statement' | 'suppliers'>('overview');
     const [timeFilter, setTimeFilter] = useState<'today' | 'yesterday' | 'week' | 'month' | 'custom'>('today');
     const [customDateStart, setCustomDateStart] = useState(new Date().toISOString().split('T')[0]);
     const [customDateEnd, setCustomDateEnd] = useState(new Date().toISOString().split('T')[0]);
@@ -152,27 +152,13 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
             setDeposits(validDeposits);
 
             // 3. EXPENSES (Spese)
-            if (supabase) {
-                // Try fetch
-                const { data: expData } = await supabase
-                    .from('expenses')
-                    .select('*')
-                    .gte('date', startDate.toISOString().split('T')[0])
-                    .lte('date', endDate.toISOString().split('T')[0]);
-
-                if (expData) {
-                    setExpenses(expData);
-                } else {
-                    // Local Storage Fallback
-                    const localExp = JSON.parse(localStorage.getItem('expenses') || '[]');
-                    const filteredExp = localExp.filter((e: Expense) => {
-                        return e.date >= startDate.toISOString().split('T')[0] &&
-                            e.date <= endDate.toISOString().split('T')[0];
-                    });
-                    setExpenses(filteredExp);
-                }
-            }
-
+            // 3. EXPENSES (Spese) - Centralized Storage
+            const allExpenses = getExpenses();
+            const filteredExp = allExpenses.filter(e => {
+                const eTime = new Date(e.date).getTime();
+                return eTime >= startDate.getTime() && eTime <= endDate.getTime();
+            });
+            setExpenses(filteredExp);
         } catch (err) {
             console.error("Analytics fetch error:", err);
             showToast("Errore caricamento dati storici", 'error');
@@ -239,7 +225,15 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
         const totalDeposits = deposits.reduce((sum, d) => sum + d.amount, 0);
 
         // Expenses
+        // Expenses
         const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+
+        const expensesBySupplier: Record<string, number> = {};
+        expenses.forEach(e => {
+            const supp = e.supplier ? e.supplier.trim() : 'Non specificato';
+            expensesBySupplier[supp] = (expensesBySupplier[supp] || 0) + e.amount;
+        });
+
         const expensesCassa = expenses.filter(e => e.deductFrom === 'cassa').reduce((sum, e) => sum + e.amount, 0);
         const expensesAcconti = expenses.filter(e => e.deductFrom === 'acconti').reduce((sum, e) => sum + e.amount, 0);
 
@@ -257,6 +251,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
             departmentRevenue,
             totalDeposits,
             totalExpenses,
+            expensesBySupplier,
             expensesCassa,
             expensesAcconti,
             netCashFlow: netCashFlow,
@@ -996,6 +991,42 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
                                         </>
                                     );
                                 })()}
+                            </div >
+                        )}
+
+                        {activeTab === 'suppliers' && (
+                            <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800">
+                                <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                                    <Truck className="text-amber-500" />
+                                    Spese per Fornitore
+                                </h3>
+                                <div className="space-y-4">
+                                    {Object.entries(stats.expensesBySupplier || {})
+                                        .sort(([, a], [, b]) => b - a)
+                                        .map(([supplier, amount]) => {
+                                            const values = Object.values(stats.expensesBySupplier || { a: 0 });
+                                            const maxVal = Math.max(...values);
+                                            const percent = maxVal > 0 ? (amount / maxVal) * 100 : 0;
+
+                                            return (
+                                                <div key={supplier} className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="font-bold text-slate-300">{supplier}</span>
+                                                        <span className="font-bold text-white">€ {amount.toFixed(2)}</span>
+                                                    </div>
+                                                    <div className="w-full bg-slate-800 rounded-full h-2">
+                                                        <div
+                                                            className="bg-amber-500 h-2 rounded-full transition-all duration-1000"
+                                                            style={{ width: `${percent}%` }}
+                                                        ></div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    {Object.keys(stats.expensesBySupplier || {}).length === 0 && (
+                                        <p className="text-slate-500 text-center py-10">Nessuna spesa registrata nel periodo.</p>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>

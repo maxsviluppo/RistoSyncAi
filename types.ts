@@ -177,6 +177,10 @@ export interface MenuItem {
   ingredients?: string; // New: Specific ingredients field
   allergens?: string[]; // Array of allergen names (e.g., 'Glutine', 'Latte')
   image?: string; // Base64 encoded image
+  recipe?: {
+    ingredientId: string;
+    quantity: number; // Quantity in the ingredient's unit
+  }[];
 
   // Combo / Menu Completo specific fields
   isCombo?: boolean;
@@ -382,13 +386,15 @@ export interface Expense {
   category: string;
   description: string;
   amount: number;
-  date: string; // YYYY-MM-DD
-  paymentMethod: PaymentMethod;
+  date: string | number; // YYYY-MM-DD or timestamp
+  paymentMethod?: PaymentMethod | string; // Allow string for flexibility, Make Optional
   deductFrom?: 'cassa' | 'acconti'; // Specificare da dove detrarre la spesa
   receipt?: string; // Base64 image or URL
   notes?: string;
-  createdAt: number;
+  createdAt?: number; // Make optional
   createdBy?: string;
+  supplier?: string;      // NEW: Fornitore
+  invoiceNumber?: string; // NEW: Numero Fattura
 }
 
 export interface InventoryItem {

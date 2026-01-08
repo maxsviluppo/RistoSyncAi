@@ -20,14 +20,16 @@ import ReservationManager from './components/ReservationManager';
 import CustomerManager from './components/CustomerManager';
 import SubscriptionManager from './components/SubscriptionManager';
 import { LandingPage } from './components/LandingPage';
-import { ChefHat, Smartphone, User, Settings, Bell, Utensils, X, Save, Plus, Trash2, Edit2, Wheat, Milk, Egg, Nut, Fish, Bean, Flame, Leaf, Info, LogOut, Bot, Key, Database, ShieldCheck, Lock, AlertTriangle, Mail, RefreshCw, Send, Printer, Mic, MicOff, TrendingUp, BarChart3, Calendar, ChevronLeft, ChevronRight, DollarSign, History, Receipt, UtensilsCrossed, Eye, ArrowRight, QrCode, Share2, Copy, MapPin, Store, Phone, Globe, Star, Pizza, CakeSlice, Wine, Sandwich, MessageCircle, FileText, PhoneCall, Sparkles, Loader, Facebook, Instagram, Youtube, Linkedin, Music, Compass, FileSpreadsheet, Image as ImageIcon, Upload, FileImage, ExternalLink, CreditCard, Banknote, Briefcase, Clock, Check, ListPlus, ArrowRightLeft, Code2, Cookie, Shield, Wrench, Download, CloudUpload, BookOpen, EyeOff, LayoutGrid, ArrowLeft, PlayCircle, ChevronDown, FileJson, Wallet, Crown, Zap, ShieldCheck as ShieldIcon, Trophy, Timer, LifeBuoy, Minus, Hash, Euro, Coins, TrendingDown, Package, Factory, Users, Lightbulb, Headphones, Cloud, BarChart, Camera, CheckCircle, Scan, Megaphone, Bike } from 'lucide-react';
-import { getWaiterName, saveWaiterName, getMenuItems, addMenuItem, updateMenuItem, deleteMenuItem, getNotificationSettings, saveNotificationSettings, initSupabaseSync, getGoogleApiKey, saveGoogleApiKey, removeGoogleApiKey, getAppSettings, saveAppSettings, getOrders, deleteHistoryByDate, performFactoryReset, deleteAllMenuItems, importDemoMenu } from './services/storageService';
+import { ChefHat, Smartphone, User, Settings, Bell, Utensils, X, Save, Plus, Trash2, Edit2, Wheat, Milk, Egg, Nut, Fish, Bean, Flame, Leaf, Info, LogOut, Bot, Key, Database, ShieldCheck, Lock, AlertTriangle, Mail, RefreshCw, Send, Printer, Mic, MicOff, TrendingUp, BarChart3, Calendar, ChevronLeft, ChevronRight, DollarSign, History, Receipt, UtensilsCrossed, Eye, ArrowRight, QrCode, Share2, Copy, MapPin, Store, Phone, Globe, Star, Pizza, CakeSlice, Wine, Sandwich, MessageCircle, FileText, PhoneCall, Sparkles, Loader, Facebook, Instagram, Youtube, Linkedin, Music, Compass, FileSpreadsheet, Image as ImageIcon, Upload, FileImage, ExternalLink, CreditCard, Banknote, Briefcase, Clock, Check, ListPlus, ArrowRightLeft, Code2, Cookie, Shield, Wrench, Download, CloudUpload, BookOpen, EyeOff, LayoutGrid, ArrowLeft, PlayCircle, ChevronDown, FileJson, Wallet, Crown, Zap, ShieldCheck as ShieldIcon, Trophy, Timer, LifeBuoy, Minus, Hash, Euro, Coins, TrendingDown, Package, Factory, Users, Lightbulb, Headphones, Cloud, BarChart, Camera, CheckCircle, Scan, Megaphone, Bike, Truck } from 'lucide-react';
+import { getWaiterName, saveWaiterName, getMenuItems, addMenuItem, updateMenuItem, deleteMenuItem, getNotificationSettings, saveNotificationSettings, initSupabaseSync, getGoogleApiKey, saveGoogleApiKey, removeGoogleApiKey, getAppSettings, saveAppSettings, getOrders, deleteHistoryByDate, performFactoryReset, deleteAllMenuItems, importDemoMenu, getInventory } from './services/storageService';
+
 import { supabase, signOut, isSupabaseConfigured, SUPER_ADMIN_EMAIL } from './services/supabase';
 import { ToastProvider, useToast } from './components/ToastProvider';
 
 import { askChefAI, generateRestaurantAnalysis, generateDishDescription, generateDishIngredients, generateRestaurantDescription, detectAllergensFromIngredients } from './services/geminiService';
 import { sendPaymentConfirmationEmail, sendAdminPaymentNotification } from './services/emailService';
-import { MenuItem, Category, Department, AppSettings, OrderStatus, Order, RestaurantProfile, OrderItem, NotificationSettings, SocialLinks, DeliveryPlatform } from './types';
+import { MenuItem, Category, Department, AppSettings, OrderStatus, Order, RestaurantProfile, OrderItem, NotificationSettings, SocialLinks, DeliveryPlatform, InventoryItem } from './types';
+
 import { useDialog } from './hooks/useDialog';
 import QRCodeGenerator from 'react-qr-code';
 import Tesseract from 'tesseract.js';
@@ -37,7 +39,10 @@ import DepartmentSelectorModal from './components/DepartmentSelectorModal';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import { ExpenseManager } from './components/ExpenseManager';
 import { InvoiceManager } from './components/InvoiceManager';
+import InventoryManager from './components/InventoryManager'; // Import InventoryManager
 import { ReceiptText } from 'lucide-react';
+import { SupplierManager } from './components/SupplierManager';
+
 
 // Promo Timer Component
 const PromoTimer = ({ deadlineHours, lastUpdated }: { deadlineHours: string, lastUpdated: string }) => {
@@ -148,7 +153,8 @@ export function App() {
 
     // Admin State
     const [showAdmin, setShowAdmin] = useState(false);
-    const [adminTab, setAdminTab] = useState<'profile' | 'subscription' | 'menu' | 'notif' | 'info' | 'ai' | 'analytics' | 'share' | 'receipts' | 'messages' | 'marketing' | 'delivery' | 'customers' | 'whatsapp' | 'expenses'>('menu');
+    const [adminTab, setAdminTab] = useState<'profile' | 'subscription' | 'menu' | 'notif' | 'info' | 'ai' | 'analytics' | 'share' | 'receipts' | 'messages' | 'marketing' | 'delivery' | 'customers' | 'whatsapp' | 'expenses' | 'inventory' | 'suppliers'>('menu');
+
     const [showWhatsAppManager, setShowWhatsAppManager] = useState(false);
     const [showSubscriptionManager, setShowSubscriptionManager] = useState(false);
     const [showDepartmentSelector, setShowDepartmentSelector] = useState(false);
@@ -159,6 +165,8 @@ export function App() {
 
     // Menu Manager State
     const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+    const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]); // New State for Inventory
+
     const [isEditingItem, setIsEditingItem] = useState(false);
     const [editingItem, setEditingItem] = useState<Partial<MenuItem>>({});
     const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
@@ -782,6 +790,7 @@ export function App() {
             }
         };
 
+        // Update Waiter Naming for Orders
         const handleStorageUpdate = () => {
             // Update orders for analytics if they changed in background
             setMenuItems(getMenuItems());
@@ -814,6 +823,47 @@ export function App() {
             // setShowDepartmentSelector(true);
         }
     }, [session, appSettings.restaurantProfile?.planType, appSettings.restaurantProfile?.allowedDepartment, appSettings.restaurantProfile?.showPlanChangeModal, showPaymentSuccessModal, showDepartmentSelector]);
+
+    // Load Inventory when Menu Tab is active
+    useEffect(() => {
+        if (adminTab === 'menu') {
+            setInventoryItems(getInventory());
+        }
+    }, [adminTab]);
+
+    // Auto-populate recipe from ingredients text when editing a dish
+    useEffect(() => {
+        if (editingItem.id && editingItem.ingredients && (!editingItem.recipe || editingItem.recipe.length === 0)) {
+            // Parse ingredients text and try to match with inventory
+            const ingredientNames = editingItem.ingredients
+                .split(',')
+                .map(name => name.trim())
+                .filter(Boolean);
+
+            const matchedRecipe = ingredientNames
+                .map(name => {
+                    // Try to find ingredient in inventory
+                    const inventoryItem = inventoryItems.find(inv =>
+                        inv.name.toLowerCase() === name.toLowerCase() ||
+                        inv.name.toLowerCase().includes(name.toLowerCase()) ||
+                        name.toLowerCase().includes(inv.name.toLowerCase())
+                    );
+
+                    if (inventoryItem) {
+                        return {
+                            ingredientId: inventoryItem.id,
+                            quantity: 0.1 // Default quantity, user can adjust
+                        };
+                    }
+                    return null;
+                })
+                .filter(Boolean) as Array<{ ingredientId: string; quantity: number }>;
+
+            if (matchedRecipe.length > 0) {
+                setEditingItem(prev => ({ ...prev, recipe: matchedRecipe }));
+            }
+        }
+    }, [editingItem.id, editingItem.ingredients, inventoryItems]);
 
     // --- ACTIONS ---
 
@@ -1775,6 +1825,9 @@ export function App() {
                             <button onClick={() => setAdminTab('analytics')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'analytics' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><BarChart3 size={18} /> Statistiche Tavoli</button>
                             <button onClick={() => setAdminTab('administration')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'administration' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Wallet size={18} /> Amministrazione</button>
                             <button onClick={() => setAdminTab('expenses')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'expenses' ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><CreditCard size={18} /> Gestione Spese</button>
+                            <button onClick={() => setAdminTab('inventory')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'inventory' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Package size={18} /> Magazzino & Food Cost</button>
+                            <button onClick={() => setAdminTab('suppliers')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'suppliers' ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Truck size={18} /> Anagrafica Fornitori</button>
+
                             <button onClick={() => setAdminTab('receipts')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'receipts' ? 'bg-yellow-600 text-white shadow-lg shadow-yellow-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Receipt size={18} /> Scontrini Cassa</button>
                             <button onClick={() => setAdminTab('invoices')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'invoices' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><ReceiptText size={18} /> Fattura Clienti</button>
                             <button
@@ -2077,7 +2130,16 @@ export function App() {
                                 </div>
                                 {(isEditingItem || Object.keys(editingItem).length > 0) && (
                                     <div className="bg-slate-900 p-5 rounded-3xl border border-slate-800 shadow-2xl mb-10 relative overflow-hidden animate-slide-up max-w-5xl mx-auto">
-                                        <h3 className="font-bold text-white mb-5 flex items-center gap-2 text-xl border-b border-slate-800 pb-3"><Edit2 size={20} /> {editingItem.id ? 'Modifica Piatto' : 'Crea Nuovo Piatto'}</h3>
+                                        <div className="flex justify-between items-center mb-5 border-b border-slate-800 pb-3">
+                                            <h3 className="font-bold text-white flex items-center gap-2 text-xl"><Edit2 size={20} /> {editingItem.id ? 'Modifica Piatto' : 'Crea Nuovo Piatto'}</h3>
+                                            <button
+                                                onClick={() => { setEditingItem({}); setIsEditingItem(false); }}
+                                                className="text-slate-400 hover:text-white hover:bg-slate-800 p-2 rounded-lg transition-all"
+                                                title="Chiudi"
+                                            >
+                                                <X size={24} />
+                                            </button>
+                                        </div>
                                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                             <div className="space-y-5">
                                                 <div className="flex gap-4 items-start">
@@ -2158,7 +2220,48 @@ export function App() {
                                                             <Sparkles size={16} className="animate-pulse" /> Genera con AI
                                                         </button>
                                                     </div>
-                                                    <textarea placeholder="Elenco ingredienti separati da virgola..." value={editingItem.ingredients || ''} onChange={e => setEditingItem({ ...editingItem, ingredients: e.target.value })} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-purple-500 transition-colors resize-none h-24" />
+                                                    <textarea
+                                                        placeholder="Elenco ingredienti separati da virgola..."
+                                                        value={editingItem.ingredients || ''}
+                                                        onChange={e => {
+                                                            const newIngredients = e.target.value;
+                                                            setEditingItem({ ...editingItem, ingredients: newIngredients });
+
+                                                            // Auto-sync with recipe
+                                                            const ingredientNames = newIngredients
+                                                                .split(',')
+                                                                .map(name => name.trim())
+                                                                .filter(Boolean);
+
+                                                            // Update recipe: keep existing matches, add new ones, remove deleted ones
+                                                            const updatedRecipe = ingredientNames
+                                                                .map(name => {
+                                                                    // Check if already in recipe
+                                                                    const existing = (editingItem.recipe || []).find(r => {
+                                                                        const item = inventoryItems.find(i => i.id === r.ingredientId);
+                                                                        return item?.name.toLowerCase() === name.toLowerCase();
+                                                                    });
+
+                                                                    if (existing) return existing;
+
+                                                                    // Try to find in inventory
+                                                                    const inventoryItem = inventoryItems.find(inv =>
+                                                                        inv.name.toLowerCase() === name.toLowerCase() ||
+                                                                        inv.name.toLowerCase().includes(name.toLowerCase()) ||
+                                                                        name.toLowerCase().includes(inv.name.toLowerCase())
+                                                                    );
+
+                                                                    if (inventoryItem) {
+                                                                        return { ingredientId: inventoryItem.id, quantity: 0.1 };
+                                                                    }
+                                                                    return null;
+                                                                })
+                                                                .filter(Boolean) as Array<{ ingredientId: string; quantity: number }>;
+
+                                                            setEditingItem(prev => ({ ...prev, recipe: updatedRecipe }));
+                                                        }}
+                                                        className="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-purple-500 transition-colors resize-none h-24"
+                                                    />
                                                 </div>
                                             </div>
 
@@ -2191,6 +2294,124 @@ export function App() {
                                                                 </button>
                                                             );
                                                         })}
+                                                    </div>
+                                                </div>
+
+                                                {/* SCHEDA TECNICA & FOOD COST */}
+                                                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                                                    <h4 className="text-white font-bold text-sm mb-3 flex items-center gap-2">
+                                                        <ReceiptText size={16} className="text-purple-400" />
+                                                        Scheda Tecnica & Food Cost
+                                                    </h4>
+
+                                                    <div className="space-y-3 mb-4">
+                                                        {editingItem.recipe && editingItem.recipe.map((ing, idx) => {
+                                                            const inventoryItem = inventoryItems.find(i => i.id === ing.ingredientId);
+                                                            const cost = inventoryItem ? (inventoryItem.costPerUnit * ing.quantity) : 0;
+                                                            return (
+                                                                <div key={idx} className="flex items-center gap-2 text-sm bg-slate-900 p-2 rounded-lg border border-slate-800">
+                                                                    <span className="text-slate-300 flex-1">{inventoryItem?.name || 'Ingrediente rimosso'}</span>
+                                                                    <input
+                                                                        type="number"
+                                                                        step="0.01"
+                                                                        value={ing.quantity}
+                                                                        onChange={e => {
+                                                                            const newRecipe = [...(editingItem.recipe || [])];
+                                                                            newRecipe[idx] = { ...newRecipe[idx], quantity: parseFloat(e.target.value) || 0 };
+                                                                            setEditingItem({ ...editingItem, recipe: newRecipe });
+                                                                        }}
+                                                                        className="w-16 bg-slate-950 border border-slate-700 rounded px-2 py-1 text-purple-300 font-mono text-center focus:border-purple-500 outline-none"
+                                                                    />
+                                                                    <span className="text-slate-500 text-xs">{inventoryItem?.unit}</span>
+                                                                    <span className="font-mono font-bold text-white">€ {cost.toFixed(2)}</span>
+                                                                    <button onClick={() => {
+                                                                        const newRecipe = [...(editingItem.recipe || [])];
+                                                                        newRecipe.splice(idx, 1);
+
+                                                                        // Auto-update ingredients text field
+                                                                        const ingredientNames = newRecipe.map(ing => {
+                                                                            const item = inventoryItems.find(i => i.id === ing.ingredientId);
+                                                                            return item?.name || '';
+                                                                        }).filter(Boolean).join(', ');
+
+                                                                        setEditingItem({
+                                                                            ...editingItem,
+                                                                            recipe: newRecipe,
+                                                                            ingredients: ingredientNames
+                                                                        });
+                                                                    }} className="text-red-400 hover:text-red-500 p-1"><Trash2 size={14} /></button>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                        {(!editingItem.recipe || editingItem.recipe.length === 0) && (
+                                                            <div className="text-center text-slate-500 text-xs py-2 italic">Nessun ingrediente collegato.</div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* ADD INGREDIENT */}
+                                                    <div className="flex gap-2 items-center mb-4">
+                                                        <select
+                                                            id="new-ingredient-select"
+                                                            className="flex-1 bg-slate-800 text-white text-xs rounded-lg px-2 py-2 outline-none border border-slate-700"
+                                                        >
+                                                            <option value="">Seleziona ingrediente...</option>
+                                                            {inventoryItems.map(item => (
+                                                                <option key={item.id} value={item.id}>{item.name} ({item.unit}) - €{item.costPerUnit}</option>
+                                                            ))}
+                                                        </select>
+                                                        <input
+                                                            id="new-ingredient-qty"
+                                                            type="number"
+                                                            placeholder="Qta"
+                                                            step="0.01"
+                                                            className="w-20 bg-slate-800 text-white text-xs rounded-lg px-2 py-2 outline-none border border-slate-700 font-mono"
+                                                        />
+                                                        <button onClick={() => {
+                                                            const select = document.getElementById('new-ingredient-select') as HTMLSelectElement;
+                                                            const qtyInput = document.getElementById('new-ingredient-qty') as HTMLInputElement;
+                                                            const id = select.value;
+                                                            const qty = parseFloat(qtyInput.value);
+                                                            if (id && qty > 0) {
+                                                                const currentRecipe = editingItem.recipe || [];
+                                                                const newRecipe = [...currentRecipe, { ingredientId: id, quantity: qty }];
+
+                                                                // Auto-update ingredients text field
+                                                                const ingredientNames = newRecipe.map(ing => {
+                                                                    const item = inventoryItems.find(i => i.id === ing.ingredientId);
+                                                                    return item?.name || '';
+                                                                }).filter(Boolean).join(', ');
+
+                                                                setEditingItem({
+                                                                    ...editingItem,
+                                                                    recipe: newRecipe,
+                                                                    ingredients: ingredientNames
+                                                                });
+                                                                select.value = '';
+                                                                qtyInput.value = '';
+                                                            }
+                                                        }} className="bg-purple-600 hover:bg-purple-500 text-white p-2 rounded-lg"><Plus size={16} /></button>
+                                                    </div>
+
+                                                    {/* SUMMARY */}
+                                                    <div className="border-t border-slate-800 pt-3 flex justify-between items-center">
+                                                        <div>
+                                                            <p className="text-[10px] uppercase font-bold text-slate-500">Food Cost Totale</p>
+                                                            <p className="text-xl font-black text-white">€ {
+                                                                (editingItem.recipe || []).reduce((sum, ing) => {
+                                                                    const item = inventoryItems.find(i => i.id === ing.ingredientId);
+                                                                    return sum + (item ? item.costPerUnit * ing.quantity : 0);
+                                                                }, 0).toFixed(2)
+                                                            }</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-[10px] uppercase font-bold text-slate-500">Consigliato (x3.5)</p>
+                                                            <p className="text-lg font-bold text-green-400">€ {
+                                                                ((editingItem.recipe || []).reduce((sum, ing) => {
+                                                                    const item = inventoryItems.find(i => i.id === ing.ingredientId);
+                                                                    return sum + (item ? item.costPerUnit * ing.quantity : 0);
+                                                                }, 0) * 3.5).toFixed(2)
+                                                            }</p>
+                                                        </div>
                                                     </div>
                                                 </div>
 
@@ -3074,33 +3295,6 @@ export function App() {
                                 </div>
                             </div>
                         )}
-                        {adminTab === 'analytics' && (
-                            <div className="max-w-7xl mx-auto space-y-8 animate-fade-in pb-24">
-                                <div className="bg-slate-900 p-8 rounded-3xl border border-slate-800">
-                                    <h2 className="text-3xl font-black text-white flex items-center gap-3 mb-6">
-                                        <BarChart3 className="text-emerald-500" size={36} />
-                                        Statistiche e Analytics
-                                    </h2>
-                                    <p className="text-slate-400 text-lg">
-                                        Dashboard analytics in fase di integrazione...
-                                    </p>
-                                    <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="bg-slate-950 p-6 rounded-xl border border-slate-800">
-                                            <p className="text-slate-500 text-sm font-bold uppercase mb-2">Test Card 1</p>
-                                            <p className="text-2xl font-black text-white">€ 0.00</p>
-                                        </div>
-                                        <div className="bg-slate-950 p-6 rounded-xl border border-slate-800">
-                                            <p className="text-slate-500 text-sm font-bold uppercase mb-2">Test Card 2</p>
-                                            <p className="text-2xl font-black text-white">0</p>
-                                        </div>
-                                        <div className="bg-slate-950 p-6 rounded-xl border border-slate-800">
-                                            <p className="text-slate-500 text-sm font-bold uppercase mb-2">Test Card 3</p>
-                                            <p className="text-2xl font-black text-white">-</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                         {adminTab === 'administration' && (
                             <div className="max-w-7xl mx-auto pb-24">
                                 <AnalyticsDashboard
@@ -3109,9 +3303,9 @@ export function App() {
                                 />
                             </div>
                         )}
-                        {adminTab === 'expenses' && (
-                            <ExpenseManager showToast={showToast} />
-                        )}
+
+
+
                         {adminTab === 'receipts' && (
                             <div className="max-w-7xl mx-auto space-y-8 animate-fade-in pb-24">
 
@@ -3224,8 +3418,14 @@ export function App() {
                                             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                                                 {dayOrders.map(order => {
                                                     const orderTime = new Date(order.timestamp).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+                                                    // CALCOLO COPERTO
+                                                    const coverCharge = appSettings.restaurantProfile?.coverCharge || 0;
+                                                    const guests = order.numberOfGuests || 0;
+                                                    const coverTotal = coverCharge * guests;
+
                                                     // Fix: Access item.menuItem.price
-                                                    const orderTotal = order.items.reduce((sum, item) => sum + (item.menuItem.price * item.quantity), 0);
+                                                    const itemsTotal = order.items.reduce((sum, item) => sum + (item.menuItem.price * item.quantity), 0);
+                                                    const orderTotal = itemsTotal + coverTotal;
 
                                                     return (
                                                         <div key={order.id} className="bg-white text-slate-900 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 flex flex-col">
@@ -3250,6 +3450,14 @@ export function App() {
                                                             <div className="p-4 flex-1 max-h-[250px] overflow-y-auto">
                                                                 <ul className="space-y-2 text-sm font-mono">
                                                                     <li className="text-center text-xs text-slate-400 mb-2">--- INIZIO SCONTRINO ---</li>
+                                                                    {/* COPERTO LINE */}
+                                                                    {guests > 0 && coverCharge > 0 && (
+                                                                        <li className="flex justify-between items-start border-b border-slate-100 pb-1">
+                                                                            <span className="font-bold w-8">{guests}x</span>
+                                                                            <span className="flex-1 truncate mr-2">COPERTO</span>
+                                                                            <span className="text-slate-600">€ {coverTotal.toFixed(2)}</span>
+                                                                        </li>
+                                                                    )}
                                                                     {order.items.filter(item => !item.isSeparator && !item.menuItem.name.toLowerCase().includes('a seguire')).map((item, idx) => (
                                                                         <li key={idx} className="flex justify-between items-start border-b border-slate-100 pb-1 last:border-0">
                                                                             <span className="font-bold w-8">{item.quantity}x</span>
@@ -3293,10 +3501,17 @@ export function App() {
                                                                                         <p class="info">P.IVA: 12345678901</p>
                                                                                         <br/>
                                                                                         <p class="info">Scontrino Non Fiscale</p>
-                                                                                        <p class="info">Tavolo: ${order.tableNumber.replace('_HISTORY', '')} • ${order.waiterName || 'Sala'}</p>
+                                                                                        <p class="info">Tavolo: ${order.tableNumber.replace('_HISTORY', '')} • ${order.waiterName || 'Sala'} • Ospiti: ${guests}</p>
                                                                                         <p class="info">${new Date(order.timestamp).toLocaleString('it-IT')}</p>
                                                                                     </div>
                                                                                     
+                                                                                    ${guests > 0 && coverCharge > 0 ? `
+                                                                                        <div class="item">
+                                                                                            <span>${guests} x COPERTO</span>
+                                                                                            <span>${coverTotal.toFixed(2)}</span>
+                                                                                        </div>
+                                                                                    ` : ''}
+
                                                                                     ${order.items.filter(item => !item.isSeparator && !item.menuItem.name.toLowerCase().includes('a seguire')).map(item => `
                                                                                         <div class="item">
                                                                                             <span>${item.quantity} x ${item.menuItem.name}</span>
@@ -3820,6 +4035,24 @@ export function App() {
                                         saveAppSettings(newSettings);
                                     }}
                                 />
+                            </div>
+                        )}
+
+                        {adminTab === 'expenses' && (
+                            <div className="max-w-6xl mx-auto animate-fade-in pb-20">
+                                <ExpenseManager showToast={showToast} />
+                            </div>
+                        )}
+
+                        {adminTab === 'inventory' && (
+                            <div className="max-w-7xl mx-auto animate-fade-in pb-20">
+                                <InventoryManager showToast={showToast} />
+                            </div>
+                        )}
+
+                        {adminTab === 'suppliers' && (
+                            <div className="max-w-7xl mx-auto animate-fade-in pb-20">
+                                <SupplierManager showToast={showToast} />
                             </div>
                         )}
                     </div >
