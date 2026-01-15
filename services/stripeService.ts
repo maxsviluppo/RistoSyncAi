@@ -46,7 +46,7 @@ export const redirectToPaymentLink = async (
         // Payment Links are pre-created in Stripe Dashboard
         // MAP YOUR REAL STRIPE PAYMENT LINKS HERE
         const paymentLinks: Record<string, string> = {
-            [STRIPE_CONFIG.prices.basic.monthly]: 'https://buy.stripe.com/14A5kD3yH0ko9sgeRm7IY05', // TEST LINK (TEMP)
+            [STRIPE_CONFIG.prices.basic.monthly]: 'https://buy.stripe.com/14AeVdfhp8QU9sgeRm7IY01', // BASIC MENSILE ACTIVE LINK
             [STRIPE_CONFIG.prices.basic.yearly]: 'https://buy.stripe.com/6oU14ngltffi7k810w7IY02',  // BASIC ANNUALE REAL LINK
             [STRIPE_CONFIG.prices.pro.monthly]: 'https://buy.stripe.com/28E28r2uD7MQ33S10w7IY03',   // PRO MENSILE REAL LINK
             [STRIPE_CONFIG.prices.pro.yearly]: 'https://buy.stripe.com/8x200j0mv4AEcEs24A7IY04',    // PRO ANNUALE REAL LINK
