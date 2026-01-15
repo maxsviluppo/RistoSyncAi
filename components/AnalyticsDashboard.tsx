@@ -369,7 +369,7 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
                         {[
                             { id: 'overview', label: 'Panoramica', icon: BarChart3 },
                             { id: 'departments', label: 'Reparti', icon: PieChart },
-                            { id: 'cash', label: 'Cassa & Spese', icon: Wallet },
+                            { id: 'cash', label: 'Acconti e Rendiconti', icon: Wallet },
                             { id: 'statement', label: 'Estratto Conto', icon: FileText },
                             //{ id: 'staff', label: 'Staff', icon: Users },
                         ].map(tab => (
@@ -601,128 +601,33 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                                    {/* Spese List */}
-                                    <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800">
-                                        <div className="flex justify-between items-center mb-6">
-                                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
-                                                <ArrowDownRight className="text-red-500" />
-                                                Registro Spese
-                                            </h3>
-                                            <button
-                                                onClick={() => setIsAddingExpense(!isAddingExpense)}
-                                                className="bg-slate-800 hover:bg-slate-700 text-white px-3 py-2 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
-                                            >
-                                                <Plus size={16} /> Nuova Spesa
-                                            </button>
-                                        </div>
-
-                                        {isAddingExpense && (
-                                            <div className="bg-slate-950 p-4 rounded-xl border border-slate-700 mb-6 animate-slide-down">
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                                    <input
-                                                        type="text" placeholder="Descrizione"
-                                                        value={newExpense.description || ''}
-                                                        onChange={e => setNewExpense({ ...newExpense, description: e.target.value })}
-                                                        className="bg-slate-900 border border-slate-700 rounded-lg p-2 text-white"
-                                                    />
-                                                    <input
-                                                        type="number" placeholder="Importo €"
-                                                        value={newExpense.amount || ''}
-                                                        onChange={e => setNewExpense({ ...newExpense, amount: Number(e.target.value) })}
-                                                        className="bg-slate-900 border border-slate-700 rounded-lg p-2 text-white"
-                                                    />
-                                                    <select
-                                                        value={newExpense.category}
-                                                        onChange={e => setNewExpense({ ...newExpense, category: e.target.value })}
-                                                        className="bg-slate-900 border border-slate-700 rounded-lg p-2 text-white"
-                                                    >
-                                                        <option value="Fornitori">Fornitori</option>
-                                                        <option value="Personale">Personale</option>
-                                                        <option value="Utenze">Utenze</option>
-                                                        <option value="Altro">Altro</option>
-                                                    </select>
-                                                    <select
-                                                        value={newExpense.deductFrom || 'cassa'}
-                                                        onChange={e => setNewExpense({ ...newExpense, deductFrom: e.target.value as any })}
-                                                        className="bg-slate-900 border border-slate-700 rounded-lg p-2 text-white"
-                                                    >
-                                                        <option value="cassa">Scala da Cassa</option>
-                                                        <option value="acconti">Scala da Acconti</option>
-                                                    </select>
-                                                    <select
-                                                        value={newExpense.paymentMethod}
-                                                        onChange={e => setNewExpense({ ...newExpense, paymentMethod: e.target.value as PaymentMethod })}
-                                                        className="bg-slate-900 border border-slate-700 rounded-lg p-2 text-white"
-                                                    >
-                                                        <option value="cash">Contanti</option>
-                                                        <option value="card">Carta/Bancomat</option>
-                                                        <option value="bank_transfer">Bonifico</option>
-                                                    </select>
-                                                </div>
-                                                <div className="flex justify-end gap-2">
-                                                    <button onClick={() => setIsAddingExpense(false)} className="px-4 py-2 text-slate-400 hover:text-white">Annulla</button>
-                                                    <button onClick={handleSaveExpense} className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg font-bold flex items-center gap-2">
-                                                        <Save size={16} /> Salva Spesa
-                                                    </button>
-                                                </div>
+                                {/* Acconti Ricevuti - Full Width */}
+                                <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800">
+                                    <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                                        <Wallet className="text-green-500" />
+                                        Acconti Ricevuti
+                                    </h3>
+                                    <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                                        {deposits.length === 0 ? (
+                                            <div className="text-slate-500 text-center py-8">
+                                                Nessun acconto da prenotazioni in questo periodo.
+                                                <br />
+                                                <span className="text-xs">Usa "Nuova Prenotazione" per aggiungere acconti.</span>
                                             </div>
-                                        )}
-
-                                        <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                                            {expenses.length === 0 ? (
-                                                <p className="text-slate-500 text-center py-8">Nessuna spesa registrata.</p>
-                                            ) : (
-                                                expenses.map(exp => (
-                                                    <div key={exp.id} className="flex justify-between items-center p-3 bg-slate-950 rounded-xl border border-slate-800 hover:border-slate-700 transition-colors">
-                                                        <div>
-                                                            <p className="font-bold text-white text-sm">{exp.description}</p>
-                                                            <div className="flex items-center gap-2 text-xs text-slate-500">
-                                                                <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-400">{exp.category}</span>
-                                                                <span className={`px-1.5 py-0.5 rounded text-xs font-bold uppercase ${exp.deductFrom === 'acconti' ? 'bg-purple-900/30 text-purple-400' : 'bg-slate-800 text-slate-500'}`}>
-                                                                    {exp.deductFrom === 'acconti' ? 'Da Acconti' : 'Da Cassa'}
-                                                                </span>
-                                                                <span>• {new Date(exp.date).toLocaleDateString()}</span>
-                                                            </div>
-                                                        </div>
-                                                        <div className="flex items-center gap-3">
-                                                            <span className="font-bold text-red-400">- € {exp.amount.toFixed(2)}</span>
-                                                            <button onClick={() => handleDeleteExpense(exp.id)} className="text-slate-600 hover:text-red-500"><Trash2 size={16} /></button>
+                                        ) : (
+                                            deposits.map((dep, idx) => (
+                                                <div key={idx} className="flex justify-between items-center p-3 bg-slate-950 rounded-xl border border-slate-800">
+                                                    <div>
+                                                        <p className="font-bold text-white text-sm">{dep.notes || 'Acconto'}</p>
+                                                        <div className="flex items-center gap-2 text-xs text-slate-500">
+                                                            <span>{new Date(dep.paidAt).toLocaleDateString()}</span>
+                                                            <span>• {dep.paymentMethod}</span>
                                                         </div>
                                                     </div>
-                                                ))
-                                            )}
-                                        </div>
-                                    </div>
-
-                                    {/* Depositi List */}
-                                    <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800">
-                                        <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                                            <Wallet className="text-green-500" />
-                                            Acconti Ricevuti
-                                        </h3>
-                                        <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                                            {deposits.length === 0 ? (
-                                                <div className="text-slate-500 text-center py-8">
-                                                    Nessun acconto da prenotazioni in questo periodo.
-                                                    <br />
-                                                    <span className="text-xs">Usa "Nuova Prenotazione" per aggiungere acconti.</span>
+                                                    <span className="font-bold text-green-400">+ € {dep.amount.toFixed(2)}</span>
                                                 </div>
-                                            ) : (
-                                                deposits.map((dep, idx) => (
-                                                    <div key={idx} className="flex justify-between items-center p-3 bg-slate-950 rounded-xl border border-slate-800">
-                                                        <div>
-                                                            <p className="font-bold text-white text-sm">{dep.notes || 'Acconto'}</p>
-                                                            <div className="flex items-center gap-2 text-xs text-slate-500">
-                                                                <span>{new Date(dep.paidAt).toLocaleDateString()}</span>
-                                                                <span>• {dep.paymentMethod}</span>
-                                                            </div>
-                                                        </div>
-                                                        <span className="font-bold text-green-400">+ € {dep.amount.toFixed(2)}</span>
-                                                    </div>
-                                                ))
-                                            )}
-                                        </div>
+                                            ))
+                                        )}
                                     </div>
                                 </div>
                             </div>
