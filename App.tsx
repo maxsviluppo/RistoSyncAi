@@ -546,8 +546,21 @@ export function App() {
             // Check localStorage
             const pendingPaymentStr = localStorage.getItem('ristosync_pending_payment');
 
-            // IF no success URL AND no pending payment -> Exit
-            if (!isSuccessURL && !pendingPaymentStr) return;
+            // SECURITY FIX: REQUIRE success URL to proceed
+            // Pending payment data ALONE is NOT sufficient to activate
+            // This prevents fake activations by pressing browser back button
+            if (!isSuccessURL) {
+                // User came back without completing payment - do nothing
+                // DO NOT clear pending payment here, let them retry
+                return;
+            }
+
+            // IF success URL but no pending payment data -> can't process
+            if (!pendingPaymentStr) {
+                console.warn("Success URL present but missing local payment data.");
+                window.history.replaceState({}, '', window.location.pathname);
+                return;
+            }
 
             // IF no session -> Wait for login (React will re-run effect when session changes)
             if (!session) {
