@@ -17,6 +17,15 @@ const StripeSuccessHandler: React.FC<StripeSuccessHandlerProps> = ({ onSuccess }
         const subscriptionStatus = urlParams.get('subscription') || urlParams.get('subscription_checkout');
         const planParam = urlParams.get('plan');
 
+        // CRITICAL: Handle cancelled payments - clear pending data to prevent false activations
+        if (subscriptionStatus === 'cancelled') {
+            console.log('[StripeSuccessHandler] Payment CANCELLED - clearing pending payment data');
+            localStorage.removeItem('ristosync_pending_payment');
+            // Clean the URL
+            window.history.replaceState({}, '', window.location.pathname);
+            return;
+        }
+
         if (subscriptionStatus === 'success' && status === 'idle') {
             setStatus('processing');
             setMessage('Pagamento rilevato, aggiornamento in corso...');
