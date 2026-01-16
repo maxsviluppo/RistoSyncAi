@@ -1052,7 +1052,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
                                                         </div>
                                                         <div className="text-sm text-slate-400 flex items-center gap-3">
                                                             <span className="flex items-center gap-1"><Clock size={14} />{res.reservationTime}</span>
-                                                            <span className="flex items-center gap-1"><Users size={14} />{res.numberOfGuests} persone</span>
+                                                            <span className="flex items-center gap-1"><Users size={14} />{res.numberOfGuests} adulti</span>
                                                             <span className="flex items-center gap-1"><Phone size={14} />{res.customerPhone}</span>
                                                         </div>
                                                     </div>
@@ -1368,7 +1368,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
                                         <div>
                                             <label className="text-xs font-bold text-slate-400 uppercase mb-2 flex items-center gap-2">
                                                 <Users size={14} className="text-purple-400" />
-                                                Numero Persone *
+                                                Numero Adulti *
                                             </label>
                                             <select
                                                 value={formData.numberOfGuests}
@@ -1376,7 +1376,7 @@ const ReservationManager: React.FC<ReservationManagerProps> = ({ onClose, showTo
                                                 className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white outline-none focus:border-purple-500 cursor-pointer"
                                             >
                                                 {Array.from({ length: 20 }, (_, i) => i + 1).map(num => (
-                                                    <option key={num} value={num}>{num} {num === 1 ? 'Persona' : 'Persone'}</option>
+                                                    <option key={num} value={num}>{num} {num === 1 ? 'Adulto' : 'Adulti'}</option>
                                                 ))}
                                             </select>
                                         </div>

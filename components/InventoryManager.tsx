@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Package, Plus, Search, Trash2, Edit2, TrendingUp, AlertTriangle, Sparkles, DollarSign, Save, X, Loader, FileText, Upload } from 'lucide-react';
 import { InventoryItem } from '../types';
-import { getInventory, addInventoryItem, updateInventoryItem, deleteInventoryItem, getMenuItems, addExpense, syncInventoryDown } from '../services/storageService';
+import { getInventory, addInventoryItem, updateInventoryItem, deleteInventoryItem, getMenuItems, addExpense, syncInventoryDown, getAppSettings, saveAppSettings } from '../services/storageService';
 import { askChefAI } from '../services/geminiService';
 
 interface InventoryManagerProps {
@@ -21,6 +21,7 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({ showToast }) => {
     const [deliveryItems, setDeliveryItems] = useState<Array<{ itemId: string; quantity: number; newPrice?: number }>>([]);
     const [deliverySupplier, setDeliverySupplier] = useState('');
     const [deliveryInvoiceNumber, setDeliveryInvoiceNumber] = useState('');
+    const [foodCostMarkup, setFoodCostMarkup] = useState(3.5);
 
     // Form State
     const [formData, setFormData] = useState<Partial<InventoryItem>>({
@@ -40,6 +41,11 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({ showToast }) => {
             loadInventory();
         };
         initInventory();
+
+        const settings = getAppSettings();
+        if (settings.foodCostMarkup) {
+            setFoodCostMarkup(settings.foodCostMarkup);
+        }
 
         window.addEventListener('local-inventory-update', loadInventory);
         return () => window.removeEventListener('local-inventory-update', loadInventory);
@@ -270,7 +276,7 @@ Rispondi SOLO con un array JSON valido, senza testo aggiuntivo. Esempio:
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl relative overflow-hidden">
                     <div className="flex items-center gap-3 mb-2 text-slate-400">
                         <Package size={18} />
@@ -295,6 +301,33 @@ Rispondi SOLO con un array JSON valido, senza testo aggiuntivo. Esempio:
                     <p className="text-3xl font-black text-orange-500">
                         {items.filter(i => i.quantity <= (i.minQuantity || 0)).length}
                     </p>
+                </div>
+
+                {/* Markup Setting Card */}
+                <div className="bg-slate-900 border border-slate-800 p-5 rounded-2xl relative overflow-hidden group hover:border-purple-500/50 transition-colors">
+                    <div className="flex items-center gap-3 mb-2 text-slate-400">
+                        <TrendingUp size={18} className="text-purple-400" />
+                        <span className="text-xs font-bold uppercase">Markup Prezzi (x)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="number"
+                            step="0.1"
+                            min="1.0"
+                            max="10.0"
+                            value={foodCostMarkup}
+                            onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                if (!isNaN(val)) {
+                                    setFoodCostMarkup(val);
+                                    const settings = getAppSettings();
+                                    saveAppSettings({ ...settings, foodCostMarkup: val });
+                                }
+                            }}
+                            className="text-3xl font-black text-purple-400 bg-transparent outline-none w-20 border-b-2 border-slate-800 focus:border-purple-500 transition-colors"
+                        />
+                        <span className="text-slate-500 text-xs font-medium mt-2">Moltiplicatore<br />Prezzi</span>
+                    </div>
                 </div>
             </div>
 

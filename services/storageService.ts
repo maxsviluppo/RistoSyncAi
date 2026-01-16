@@ -925,7 +925,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     },
     tableReservations: [],
     sharedTables: {},
-    activeCollaborations: []
+    activeCollaborations: [],
+    foodCostMarkup: 3.5
 };
 
 export const getAppSettings = (): AppSettings => {
@@ -950,7 +951,8 @@ export const getAppSettings = (): AppSettings => {
             },
             tableReservations: parsed.tableReservations || [],
             sharedTables: parsed.sharedTables || {},
-            activeCollaborations: parsed.activeCollaborations || []
+            activeCollaborations: parsed.activeCollaborations || [],
+            foodCostMarkup: parsed.foodCostMarkup || DEFAULT_SETTINGS.foodCostMarkup
         };
     } catch (e) {
         return DEFAULT_SETTINGS;

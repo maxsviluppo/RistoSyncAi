@@ -166,6 +166,9 @@ export interface AppSettings {
   activeCollaborations?: any[]; // For syncing request/accept flows
   // Subscription data
   subscription?: Subscription;
+
+  // Custom Settings
+  foodCostMarkup?: number; // Default 3.5
 }
 
 export interface MenuItem {

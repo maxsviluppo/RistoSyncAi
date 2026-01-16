@@ -2417,20 +2417,20 @@ export function App() {
                                                             }</p>
                                                         </div>
                                                         <div className="text-right">
-                                                            <p className="text-[10px] uppercase font-bold text-slate-500">Consigliato (x3.5)</p>
+                                                            <p className="text-[10px] uppercase font-bold text-slate-500">Consigliato (x{appSettings.foodCostMarkup || 3.5})</p>
                                                             <p className="text-lg font-bold text-green-400">€ {
                                                                 ((editingItem.recipe || []).reduce((sum, ing) => {
                                                                     const item = inventoryItems.find(i => i.id === ing.ingredientId);
                                                                     return sum + (item ? item.costPerUnit * ing.quantity : 0);
-                                                                }, 0) * 3.5).toFixed(2)
+                                                                }, 0) * (appSettings.foodCostMarkup || 3.5)).toFixed(2)
                                                             }</p>
                                                         </div>
                                                     </div>
-                                                </div>
 
-                                                <div className="flex gap-3 pt-3 border-t border-slate-800">
-                                                    <button onClick={() => { setEditingItem({}); setIsEditingItem(false); }} className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm transition-colors">Annulla</button>
-                                                    <button onClick={handleSaveItem} disabled={!editingItem.name || !editingItem.price} className="flex-1 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-green-900/20 transition-all hover:scale-[1.02] active:scale-95"><Save size={18} /> SALVA</button>
+                                                    <div className="flex gap-3 pt-3 border-t border-slate-800">
+                                                        <button onClick={() => { setEditingItem({}); setIsEditingItem(false); }} className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-sm transition-colors">Annulla</button>
+                                                        <button onClick={handleSaveItem} disabled={!editingItem.name || !editingItem.price} className="flex-1 py-2.5 rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-green-900/20 transition-all hover:scale-[1.02] active:scale-95"><Save size={18} /> SALVA</button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
