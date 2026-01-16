@@ -142,9 +142,28 @@ export const ExpenseManager: React.FC<ExpenseManagerProps> = ({ showToast }) => 
                         >
                             <ChevronLeft size={20} />
                         </button>
-                        <div className="flex items-center gap-3 px-2 min-w-[150px] justify-center">
-                            <Calendar className="text-orange-500" size={20} />
-                            <span className="font-bold text-lg capitalize text-white">
+                        <div className="relative flex items-center gap-3 px-2 min-w-[150px] justify-center group cursor-pointer">
+                            <input
+                                type={timeFilter === 'month' ? 'month' : 'date'}
+                                className="absolute inset-0 opacity-0 cursor-pointer z-10 w-full h-full"
+                                value={timeFilter === 'month'
+                                    ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}`
+                                    : `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDate.getDate()).padStart(2, '0')}`
+                                }
+                                onChange={(e) => {
+                                    if (e.target.value) {
+                                        // Parse local date components to avoid UTC shifts
+                                        const parts = e.target.value.split('-');
+                                        const year = parseInt(parts[0]);
+                                        const month = parseInt(parts[1]) - 1;
+                                        const day = parts[2] ? parseInt(parts[2]) : 1;
+                                        const d = new Date(year, month, day);
+                                        setSelectedDate(d);
+                                    }
+                                }}
+                            />
+                            <Calendar className="text-orange-500 group-hover:text-orange-400 transition-colors" size={20} />
+                            <span className="font-bold text-lg capitalize text-white group-hover:text-blue-300 transition-colors">
                                 {timeFilter === 'month'
                                     ? selectedDate.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' })
                                     : selectedDate.toLocaleDateString('it-IT', { weekday: 'short', day: 'numeric', month: 'long' })

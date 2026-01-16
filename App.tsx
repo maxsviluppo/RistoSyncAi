@@ -1643,7 +1643,7 @@ export function App() {
                     <div className="relative z-10 flex justify-between items-center mb-12">
                         <div className="flex items-center gap-4">
                             <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-600 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-600/20 transform rotate-3"><ChefHat size={36} className="text-white drop-shadow-md" /></div>
-                            <div>
+                            <div id="header-info">
                                 <h1 className="text-4xl font-black tracking-tight flex items-center gap-2">Risto<span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-500">Sync</span><span className="text-blue-500 font-black ml-1">AI</span><span className="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded-md border border-slate-700 font-mono tracking-widest uppercase">{planLabel}</span></h1>
                                 <p className="text-slate-400 font-medium text-sm mt-1 flex items-center gap-2">{restaurantName} <span className="w-1 h-1 bg-slate-500 rounded-full"></span> {new Date().toLocaleDateString()}</p>
                                 <p className="text-[10px] text-slate-500 uppercase tracking-widest font-mono mt-0.5">{session?.user?.email}</p>
@@ -1670,7 +1670,7 @@ export function App() {
                         const allowed = appSettings.restaurantProfile?.allowedDepartment;
 
                         return (
-                            <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-7xl mx-auto px-4">
+                            <div id="grid-departments" className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-7xl mx-auto px-4">
                                 <div className="flex flex-col gap-5 md:row-span-2">
                                     <button onClick={() => checkRoleAccess('waiter')} className="group relative flex-1 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-500/50 overflow-hidden min-h-[160px]">
                                         <div className="absolute inset-0 bg-gradient-to-b from-blue-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>

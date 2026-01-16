@@ -7,7 +7,7 @@ import {
     UtensilsCrossed, Pizza, Sandwich, Wine, Info, Trophy, Truck
 } from 'lucide-react';
 import { Order, OrderStatus, Category, Department, Deposit, PaymentMethod, Expense, Reservation, ReservationStatus } from '../types';
-import { getOrders, getExpenses } from '../services/storageService';
+import { getOrders, getExpenses, getAppSettings } from '../services/storageService';
 import { supabase } from '../services/supabase';
 
 interface AnalyticsDashboardProps {
@@ -407,12 +407,44 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
                         </button>
                     </div>
 
-                    {/* Custom Date Inputs */}
+                    {/* Custom Date Inputs - App Style Overlay */}
                     {timeFilter === 'custom' && (
                         <div className="flex items-center gap-2 animate-fade-in bg-slate-950 p-1.5 rounded-xl border border-slate-800">
-                            <input type="date" value={customDateStart} onChange={e => setCustomDateStart(e.target.value)} className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" />
+                            {/* Start Date */}
+                            <div className="relative group cursor-pointer bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 flex items-center gap-2 hover:border-blue-500 transition-colors">
+                                <input
+                                    type="date"
+                                    value={customDateStart}
+                                    onChange={e => setCustomDateStart(e.target.value)}
+                                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                                />
+                                <Calendar size={14} className="text-blue-500" />
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] text-slate-500 font-bold uppercase leading-none">Dal</span>
+                                    <span className="text-xs text-white font-bold leading-none mt-0.5">
+                                        {new Date(customDateStart).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                    </span>
+                                </div>
+                            </div>
+
                             <span className="text-slate-500">-</span>
-                            <input type="date" value={customDateEnd} onChange={e => setCustomDateEnd(e.target.value)} className="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white" />
+
+                            {/* End Date */}
+                            <div className="relative group cursor-pointer bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 flex items-center gap-2 hover:border-blue-500 transition-colors">
+                                <input
+                                    type="date"
+                                    value={customDateEnd}
+                                    onChange={e => setCustomDateEnd(e.target.value)}
+                                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                                />
+                                <Calendar size={14} className="text-blue-500" />
+                                <div className="flex flex-col">
+                                    <span className="text-[10px] text-slate-500 font-bold uppercase leading-none">Al</span>
+                                    <span className="text-xs text-white font-bold leading-none mt-0.5">
+                                        {new Date(customDateEnd).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                    </span>
+                                </div>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -635,120 +667,183 @@ export const AnalyticsDashboard: React.FC<AnalyticsDashboardProps> = ({ onClose,
 
                         {activeTab === 'statement' && (
                             <div className="bg-slate-900 p-6 rounded-3xl border border-slate-800 min-h-[500px]">
-                                <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-                                    <FileText className="text-blue-500" />
-                                    Estratto Conto
-                                </h3>
+                                <div className="flex justify-between items-center mb-6 no-print">
+                                    <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                        <FileText className="text-blue-500" />
+                                        Estratto Conto
+                                    </h3>
+                                    <button
+                                        onClick={() => window.print()}
+                                        className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 rounded-lg text-white font-bold transition-colors shadow-lg shadow-indigo-500/20"
+                                    >
+                                        <Printer size={18} />
+                                        <span>Stampa A4</span>
+                                    </button>
+                                </div>
 
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className="border-b border-slate-700 text-slate-400 text-xs uppercase font-bold">
-                                                <th className="p-3">Data</th>
-                                                <th className="p-3">Descrizione</th>
-                                                <th className="p-3">Categoria</th>
-                                                <th className="p-3 text-right">Entrate</th>
-                                                <th className="p-3 text-right">Uscite</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="text-sm">
-                                            {(() => {
-                                                const allTransactions = [
-                                                    ...orders.map(o => {
-                                                        // Pulisci il numero tavolo da _HISTORY e undefined
-                                                        let cleanTableNumber = (o.tableNumber || '')
-                                                            .replace(/_HISTORY/gi, '')
-                                                            .replace(/undefined/gi, '')
-                                                            .trim();
+                                <div id="printable-statement">
+                                    {/* STILI DI STAMPA SPECIFICI PER ESTRATTO CONTO */}
+                                    <style>{`
+                                        @media print {
+                                            @page { size: A4; margin: 10mm; }
+                                            body * { visibility: hidden; }
+                                            #printable-statement, #printable-statement * { visibility: visible; }
+                                            #printable-statement { 
+                                                position: absolute; left: 0; top: 0; width: 100%; 
+                                                background: white !important; color: black !important; 
+                                                font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                                            }
+                                            .no-print { display: none !important; }
+                                            /* Reset colori per stampa */
+                                            .bg-slate-900, .bg-slate-950, .bg-slate-800, .border-slate-800, .bg-green-900\\/30, .bg-red-900\\/30, .bg-purple-900\\/30 { 
+                                                background: transparent !important; 
+                                                border-color: #ddd !important;
+                                                color: black !important;
+                                            }
+                                            .text-white, .text-slate-300, .text-slate-400 { color: black !important; }
+                                            .text-green-400, .text-red-400, .text-purple-400 { color: black !important; font-weight: bold; }
+                                            
+                                            /* Header Stampa */
+                                            .print-header { display: block !important; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 20px; }
+                                            .print-footer { position: fixed; bottom: 0; width: 100%; text-align: center; font-size: 10px; color: #666; }
+                                            
+                                            /* Tabella */
+                                            table { width: 100%; border-collapse: collapse; font-size: 12px; }
+                                            th { border-bottom: 2px solid #000 !important; text-align: left; padding: 5px; }
+                                            td { border-bottom: 1px solid #ddd !important; padding: 5px; }
+                                            tr { break-inside: avoid; }
+                                        }
+                                        .print-header { display: none; }
+                                    `}</style>
 
-                                                        // Determina il tipo di ordine dal numero tavolo
-                                                        let orderType = 'Ordine Tavolo';
-                                                        const lowerTable = cleanTableNumber.toLowerCase();
-                                                        if (lowerTable.includes('delivery') || lowerTable.includes('consegna')) {
-                                                            orderType = 'Ordine Delivery';
-                                                        } else if (lowerTable.includes('asporto') || lowerTable.includes('takeaway')) {
-                                                            orderType = 'Ordine Asporto';
-                                                        }
+                                    {/* HEADER STAMPA (FRONTESPIZIO) */}
+                                    <div className="print-header">
+                                        {(() => {
+                                            const settings = getAppSettings();
+                                            const profile = settings.restaurantProfile || {};
+                                            return (
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h1 className="text-3xl font-bold uppercase mb-2">{profile.name || 'Ristorante'}</h1>
+                                                        <p className="text-sm">{profile.address || ''}</p>
+                                                        <p className="text-sm">P.IVA: {profile.vatNumber || ''}</p>
+                                                        <p className="text-sm">Tel: {profile.phoneNumber || ''}</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <h2 className="text-xl font-bold">ESTRATTO CONTO</h2>
+                                                        <p className="text-sm mt-1">Data Stampa: {new Date().toLocaleDateString()}</p>
+                                                        <p className="text-sm">
+                                                            Periodo: {timeFilter === 'custom'
+                                                                ? `${new Date(customDateStart).toLocaleDateString()} - ${new Date(customDateEnd).toLocaleDateString()}`
+                                                                : timeFilter === 'today' ? new Date().toLocaleDateString()
+                                                                    : timeFilter === 'yesterday' ? 'Ieri'
+                                                                        : 'Ultimi 30 giorni'
+                                                            }
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()}
+                                    </div>
 
-                                                        // Se il tavolo è vuoto, mostra solo "Ordine"
-                                                        const description = cleanTableNumber
-                                                            ? `${orderType} ${cleanTableNumber}`
-                                                            : 'Ordine';
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-left border-collapse">
+                                            <thead>
+                                                <tr className="border-b border-slate-700 text-slate-400 text-xs uppercase font-bold">
+                                                    <th className="p-3">Data</th>
+                                                    <th className="p-3">Descrizione</th>
+                                                    <th className="p-3">Categoria</th>
+                                                    <th className="p-3 text-right">Entrate</th>
+                                                    <th className="p-3 text-right">Uscite</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="text-sm">
+                                                {(() => {
+                                                    const allTransactions = [
+                                                        ...orders.map(o => {
+                                                            let cleanTableNumber = (o.tableNumber || '')
+                                                                .replace(/_HISTORY/gi, '')
+                                                                .replace(/undefined/gi, '')
+                                                                .trim();
+                                                            let orderType = 'Ordine Tavolo';
+                                                            const lowerTable = cleanTableNumber.toLowerCase();
+                                                            if (lowerTable.includes('delivery') || lowerTable.includes('consegna')) orderType = 'Ordine Delivery';
+                                                            else if (lowerTable.includes('asporto') || lowerTable.includes('takeaway')) orderType = 'Ordine Asporto';
 
-                                                        return {
-                                                            id: o.id,
-                                                            date: o.timestamp,
-                                                            desc: description,
-                                                            category: 'Vendita',
-                                                            in: o.items.reduce((sum, i) => sum + (i.menuItem.price * i.quantity), 0),
-                                                            out: 0,
-                                                            type: 'order'
-                                                        };
-                                                    }),
-                                                    ...deposits.map(d => ({
-                                                        id: d.id,
-                                                        date: d.paidAt || new Date().getTime(),
-                                                        desc: d.notes || 'Acconto',
-                                                        category: 'Acconto',
-                                                        in: d.amount,
-                                                        out: 0,
-                                                        type: 'deposit'
-                                                    })),
-                                                    ...expenses.map(e => ({
-                                                        id: e.id,
-                                                        date: new Date(e.date).getTime(),
-                                                        desc: e.description,
-                                                        category: e.category,
-                                                        in: 0,
-                                                        out: e.amount,
-                                                        type: 'expense'
-                                                    }))
-                                                ].sort((a, b) => b.date - a.date);
+                                                            const description = cleanTableNumber ? `${orderType} ${cleanTableNumber}` : 'Ordine';
 
-                                                if (allTransactions.length === 0) {
-                                                    return (
-                                                        <tr>
-                                                            <td colSpan={5} className="p-8 text-center text-slate-500">
-                                                                Nessun movimento nel periodo selezionato.
+                                                            return {
+                                                                id: o.id, date: o.timestamp, desc: description, category: 'Vendita',
+                                                                in: o.items.reduce((sum, i) => sum + (i.menuItem.price * i.quantity), 0),
+                                                                out: 0, type: 'order'
+                                                            };
+                                                        }),
+                                                        ...deposits.map(d => ({
+                                                            id: d.id, date: d.paidAt || new Date().getTime(), desc: d.notes || 'Acconto',
+                                                            category: 'Acconto', in: d.amount, out: 0, type: 'deposit'
+                                                        })),
+                                                        ...expenses.map(e => ({
+                                                            id: e.id, date: new Date(e.date).getTime(), desc: e.description,
+                                                            category: e.category, in: 0, out: e.amount, type: 'expense'
+                                                        }))
+                                                    ].sort((a, b) => b.date - a.date);
+
+                                                    if (allTransactions.length === 0) {
+                                                        return (
+                                                            <tr>
+                                                                <td colSpan={5} className="p-8 text-center text-slate-500">
+                                                                    Nessun movimento nel periodo selezionato.
+                                                                </td>
+                                                            </tr>
+                                                        );
+                                                    }
+
+                                                    return allTransactions.map(t => (
+                                                        <tr key={t.id} className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors">
+                                                            <td className="p-3 text-slate-300 font-mono text-xs text-black-print">{new Date(t.date).toLocaleDateString()} {new Date(t.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                                                            <td className="p-3 text-white font-bold text-black-print">{t.desc}</td>
+                                                            <td className="p-3">
+                                                                <span className={`px-2 py-1 rounded text-xs font-bold uppercase no-bg-print ${t.type === 'order' ? 'bg-green-900/30 text-green-400' :
+                                                                    t.type === 'deposit' ? 'bg-purple-900/30 text-purple-400' :
+                                                                        'bg-red-900/30 text-red-400'
+                                                                    }`}>
+                                                                    {t.category}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-3 text-right font-mono text-green-400 font-bold text-black-print">
+                                                                {t.in > 0 ? `+ € ${t.in.toFixed(2)}` : '-'}
+                                                            </td>
+                                                            <td className="p-3 text-right font-mono text-red-400 font-bold text-black-print">
+                                                                {t.out > 0 ? `- € ${t.out.toFixed(2)}` : '-'}
                                                             </td>
                                                         </tr>
-                                                    );
-                                                }
+                                                    ));
+                                                })()}
+                                            </tbody>
+                                            <tfoot className="bg-slate-950 border-t border-slate-700 print:bg-white print:border-t-2 print:border-black">
+                                                <tr>
+                                                    <td colSpan={3} className="p-4 text-right font-bold text-white uppercase text-black-print">Totale Periodo</td>
+                                                    <td className="p-4 text-right font-black text-green-500 text-lg text-black-print">
+                                                        € {(stats.totalRevenue + stats.totalDeposits).toFixed(2)}
+                                                    </td>
+                                                    <td className="p-4 text-right font-black text-red-500 text-lg text-black-print">
+                                                        € {stats.totalExpenses.toFixed(2)}
+                                                    </td>
+                                                </tr>
+                                                {/* Summary Row for Net Balance */}
+                                                <tr className="hidden print:table-row">
+                                                    <td colSpan={3} className="p-4 text-right font-bold uppercase pt-6">Saldo Netto</td>
+                                                    <td colSpan={2} className="p-4 text-right font-black text-xl pt-6">
+                                                        € {stats.netCashFlow.toFixed(2)}
+                                                    </td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
 
-                                                return allTransactions.map(t => (
-                                                    <tr key={t.id} className="border-b border-slate-800 hover:bg-slate-800/50 transition-colors">
-                                                        <td className="p-3 text-slate-300 font-mono text-xs">{new Date(t.date).toLocaleDateString()} {new Date(t.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                                                        <td className="p-3 text-white font-bold">{t.desc}</td>
-                                                        <td className="p-3">
-                                                            <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${t.type === 'order' ? 'bg-green-900/30 text-green-400' :
-                                                                t.type === 'deposit' ? 'bg-purple-900/30 text-purple-400' :
-                                                                    'bg-red-900/30 text-red-400'
-                                                                }`}>
-                                                                {t.category}
-                                                            </span>
-                                                        </td>
-                                                        <td className="p-3 text-right font-mono text-green-400 font-bold">
-                                                            {t.in > 0 ? `+ € ${t.in.toFixed(2)}` : '-'}
-                                                        </td>
-                                                        <td className="p-3 text-right font-mono text-red-400 font-bold">
-                                                            {t.out > 0 ? `- € ${t.out.toFixed(2)}` : '-'}
-                                                        </td>
-                                                    </tr>
-                                                ));
-                                            })()}
-                                        </tbody>
-                                        <tfoot className="bg-slate-950 border-t border-slate-700">
-                                            <tr>
-                                                <td colSpan={3} className="p-4 text-right font-bold text-white uppercase">Totale Periodo</td>
-                                                <td className="p-4 text-right font-black text-green-500 text-lg">
-                                                    € {(stats.totalRevenue + stats.totalDeposits).toFixed(2)}
-                                                </td>
-                                                <td className="p-4 text-right font-black text-red-500 text-lg">
-                                                    € {stats.totalExpenses.toFixed(2)}
-                                                </td>
-                                            </tr>
-                                        </tfoot>
-                                    </table>
+                                    <div className="print-footer hidden print:block mt-8 pt-4 border-t border-gray-200">
+                                        <p>Generato automaticamente da RistoSync AI - {new Date().toLocaleString()}</p>
+                                    </div>
                                 </div>
                             </div>
                         )}
