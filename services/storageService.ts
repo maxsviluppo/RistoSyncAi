@@ -1569,8 +1569,82 @@ export const linkReservationToOrder = async (reservationId: string, orderId: str
 };
 
 // ============================================
-// 📦 INVENTORY MANAGEMENT
+// 📦 INVENTORY MANAGEMENT (WITH CLOUD SYNC)
 // ============================================
+
+// Sync single inventory item to cloud
+const syncInventoryToCloud = async (item: InventoryItem, isDelete = false) => {
+    if (!supabase || !currentUserId) return;
+    try {
+        if (isDelete) {
+            await supabase.from('inventory').delete().eq('id', item.id);
+        } else {
+            await supabase.from('inventory').upsert({
+                id: item.id,
+                user_id: currentUserId,
+                name: item.name,
+                category: item.category,
+                quantity: item.quantity,
+                unit: item.unit,
+                cost_per_unit: item.costPerUnit,
+                supplier: item.supplier || null,
+                min_quantity: item.minQuantity || 0,
+                last_restocked: item.lastRestocked ? new Date(item.lastRestocked).toISOString() : null
+            });
+        }
+    } catch (e) {
+        console.warn("Inventory Sync Error", e);
+    }
+};
+
+// Fetch inventory from cloud
+export const getInventoryFromCloud = async (): Promise<InventoryItem[]> => {
+    if (!supabase || !currentUserId) return [];
+
+    try {
+        const { data, error } = await supabase
+            .from('inventory')
+            .select('*')
+            .eq('user_id', currentUserId);
+
+        if (error) {
+            console.error("Error fetching inventory:", error);
+            return [];
+        }
+
+        return (data || []).map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            category: item.category,
+            quantity: item.quantity || 0,
+            unit: item.unit,
+            costPerUnit: item.cost_per_unit || 0,
+            supplier: item.supplier,
+            minQuantity: item.min_quantity || 0,
+            lastRestocked: item.last_restocked ? new Date(item.last_restocked).getTime() : Date.now()
+        }));
+    } catch (e) {
+        console.error("Error in getInventoryFromCloud:", e);
+        return [];
+    }
+};
+
+// Sync inventory from cloud to local (download)
+export const syncInventoryDown = async () => {
+    const cloudData = await getInventoryFromCloud();
+    if (cloudData.length > 0) {
+        // Merge: cloud data takes priority, but keep local items not in cloud
+        const localData = getInventory();
+        const cloudIds = new Set(cloudData.map(item => item.id));
+        const localOnlyItems = localData.filter(item => !cloudIds.has(item.id));
+
+        // Keep all cloud items + local-only items (for offline support)
+        const merged = [...cloudData, ...localOnlyItems];
+        localStorage.setItem(INVENTORY_KEY, JSON.stringify(merged));
+        window.dispatchEvent(new Event('local-inventory-update'));
+        console.log(`✅ Inventory synced: ${cloudData.length} from cloud, ${localOnlyItems.length} local-only`);
+    }
+};
 
 export const getInventory = (): InventoryItem[] => {
     const data = localStorage.getItem(INVENTORY_KEY);
@@ -1582,7 +1656,7 @@ export const saveInventory = (items: InventoryItem[]) => {
     window.dispatchEvent(new Event('local-inventory-update'));
 };
 
-export const addInventoryItem = (item: Omit<InventoryItem, 'id'>) => {
+export const addInventoryItem = async (item: Omit<InventoryItem, 'id'>) => {
     const items = getInventory();
     const newItem: InventoryItem = {
         ...item,
@@ -1590,19 +1664,35 @@ export const addInventoryItem = (item: Omit<InventoryItem, 'id'>) => {
         lastRestocked: Date.now()
     };
     saveInventory([...items, newItem]);
+
+    // Sync to cloud
+    await syncInventoryToCloud(newItem);
+
     return newItem;
 };
 
-export const updateInventoryItem = (id: string, updates: Partial<InventoryItem>) => {
+export const updateInventoryItem = async (id: string, updates: Partial<InventoryItem>) => {
     const items = getInventory();
     const updated = items.map(i => i.id === id ? { ...i, ...updates } : i);
     saveInventory(updated);
+
+    // Sync to cloud
+    const updatedItem = updated.find(i => i.id === id);
+    if (updatedItem) {
+        await syncInventoryToCloud(updatedItem);
+    }
 };
 
-export const deleteInventoryItem = (id: string) => {
+export const deleteInventoryItem = async (id: string) => {
     const items = getInventory();
+    const itemToDelete = items.find(i => i.id === id);
     const filtered = items.filter(i => i.id !== id);
     saveInventory(filtered);
+
+    // Sync deletion to cloud
+    if (itemToDelete) {
+        await syncInventoryToCloud(itemToDelete, true);
+    }
 };
 
 

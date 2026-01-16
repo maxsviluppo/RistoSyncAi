@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Package, Plus, Search, Trash2, Edit2, TrendingUp, AlertTriangle, Sparkles, DollarSign, Save, X, Loader, FileText, Upload } from 'lucide-react';
 import { InventoryItem } from '../types';
-import { getInventory, addInventoryItem, updateInventoryItem, deleteInventoryItem, getMenuItems, addExpense } from '../services/storageService';
+import { getInventory, addInventoryItem, updateInventoryItem, deleteInventoryItem, getMenuItems, addExpense, syncInventoryDown } from '../services/storageService';
 import { askChefAI } from '../services/geminiService';
 
 interface InventoryManagerProps {
@@ -34,7 +34,13 @@ const InventoryManager: React.FC<InventoryManagerProps> = ({ showToast }) => {
     });
 
     useEffect(() => {
-        loadInventory();
+        // First sync from cloud, then load local
+        const initInventory = async () => {
+            await syncInventoryDown();
+            loadInventory();
+        };
+        initInventory();
+
         window.addEventListener('local-inventory-update', loadInventory);
         return () => window.removeEventListener('local-inventory-update', loadInventory);
     }, []);
