@@ -229,7 +229,7 @@ export function App() {
     const isSuperAdmin = session?.user?.email === SUPER_ADMIN_EMAIL;
 
     // Custom Dialog Hook
-    const { dialogState, showConfirm, showDelete, showAlert, showSuccess, closeDialog } = useDialog();
+    const { dialogState, showConfirm, showDelete, showAlert, showSuccess, showPrompt, closeDialog } = useDialog();
 
     // Toast State
     const [toastState, setToastState] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info' }>({
@@ -1803,27 +1803,94 @@ export function App() {
         showToast("✅ Configurazioni salvate con successo!", 'success');
     };
 
-    const handleScanPrinters = () => {
-        showToast("🔍 Scansione rete locale in corso...", "info");
-        setTimeout(() => {
-            const foundPrinters: Printer[] = [
-                { id: 'p_kitchen_1', name: 'Epson TM-T20III (Cucina)', type: 'network', address: '192.168.1.200', status: 'active' },
-                { id: 'p_bar_1', name: 'Star Micronics TSP143 (Bar)', type: 'network', address: '192.168.1.201', status: 'active' },
-                { id: 'p_receipt_1', name: 'Epson TM-m30II (Cassa)', type: 'network', address: '192.168.1.202', status: 'active' }
-            ];
+    const handleScanPrinters = async () => {
+        // 1. WEB BLUETOOTH SCAN (Real Hardware)
+        showToast("🔍 Avvio scansione Hardware...", "info");
 
-            // Merge unique
-            const currentIds = tempPrinters.map(p => p.id);
-            const newPrinters = foundPrinters.filter(p => !currentIds.includes(p.id));
+        try {
+            if (navigator.bluetooth) {
+                // Warning: This requires user gesture (click), which we have.
+                // We search for standard printer services or generic devices
+                try {
+                    const device = await navigator.bluetooth.requestDevice({
+                        filters: [{ services: ['000018f0-0000-1000-8000-00805f9b34fb'] }], // Standard Printer Service UUID
+                        optionalServices: ['battery_service', 'device_information']
+                    });
 
-            if (newPrinters.length > 0) {
-                setTempPrinters([...tempPrinters, ...newPrinters]);
-                setHasUnsavedDestinations(true);
-                showToast(`✅ Trovate ${newPrinters.length} nuove stampanti!`, "success");
-            } else {
-                showToast("Nessuna nuova stampante trovata.", "info");
+                    if (device) {
+                        const newPrinter: Printer = {
+                            id: device.id,
+                            name: device.name || 'Bluetooth Printer',
+                            type: 'bluetooth',
+                            address: device.id, // ID interno BT
+                            status: 'active'
+                        };
+                        setTempPrinters(prev => [...prev, newPrinter]);
+                        showToast(`✅ Printer Bluetooth Trovata: ${device.name}`, "success");
+                        return; // Found one, stop flow
+                    }
+                } catch (btError) {
+                    console.log("Bluetooth scan cancelled or failed:", btError);
+                }
             }
-        }, 1500);
+        } catch (e) { console.error("BT API not supported", e); }
+
+        // 2. NETWORK HELPER (Semi-Real)
+        // Browsers CANNOT scan Wi-Fi/LAN (CORS/Security Block).
+        // We will explain this to the user and offer a "Blind Probe" of common IPs.
+
+        const proceed = await showConfirm(
+            "Scansione Wi-Fi Limitata",
+            "⚠️ ATTENZIONE: I browser web NON possono scansionare la rete Wi-Fi per motivi di sicurezza.\n\nVuoi che provi a contattare gli indirizzi IP standard (192.168.1.xxx) per cercare stampanti Epson/Star note? (Potrebbe richiedere tempo)"
+        );
+
+        if (!proceed) return;
+
+        showToast("⏳ Tentativo contatto IP comuni...", "info");
+
+        const commonIPs = [
+            '192.168.1.87', '192.168.1.168', '192.168.1.200', '192.168.1.201',
+            '192.168.0.87', '192.168.0.200', '192.168.178.1'
+        ];
+
+        let found = 0;
+        for (const ip of commonIPs) {
+            try {
+                // Try simple fetch - optimized timeout would be needed
+                // Note: This will fail CORS if printer is not configured with headers, 
+                // but sometimes we get an opaque response which indicates ALIVENESS.
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 1000); // 1s timeout
+
+                await fetch(`http://${ip}/`, { method: 'HEAD', signal: controller.signal, mode: 'no-cors' });
+                clearTimeout(timeoutId);
+
+                // If no timeout/error, something is there!
+                const newPrinter: Printer = {
+                    id: `net_${ip}`,
+                    name: `Stampante Network (${ip})`,
+                    type: 'network',
+                    address: ip,
+                    status: 'active'
+                };
+
+                // Check duplicate
+                if (!tempPrinters.find(p => p.address === ip)) {
+                    setTempPrinters(prev => [...prev, newPrinter]);
+                    found++;
+                }
+
+            } catch (e) {
+                // Unreachable or timeout
+            }
+        }
+
+        if (found > 0) {
+            showToast(`✅ Trovate ${found} stampanti sulla rete!`, "success");
+            setHasUnsavedDestinations(true);
+        } else {
+            showToast("❌ Nessuna stampante trovata automaticamente. Usa 'Aggiungi IP' per inserirla manualmente.", "error");
+        }
     };
 
     const handleAddManualPrinter = () => {
@@ -2963,8 +3030,13 @@ export function App() {
                                             <button onClick={handleScanPrinters} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors shadow-lg shadow-blue-900/20">
                                                 <Scan size={16} /> Scan Rete
                                             </button>
-                                            <button onClick={() => {
-                                                const ip = prompt("Inserisci indirizzo IP Stampante (es. 192.168.1.200):");
+                                            <button onClick={async () => {
+                                                const ip = await showPrompt(
+                                                    "Aggiungi Stampante IP",
+                                                    "Inserisci l'indirizzo IP della stampante (es. 192.168.1.200):",
+                                                    "",
+                                                    "192.168.1..."
+                                                );
                                                 if (ip) {
                                                     const newPrinter: Printer = {
                                                         id: crypto.randomUUID(),

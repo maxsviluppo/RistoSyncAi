@@ -4,9 +4,11 @@ interface DialogState {
     isOpen: boolean;
     title: string;
     message: string;
-    type: 'confirm' | 'alert' | 'success' | 'delete';
-    onConfirm?: () => void;
+    type: 'confirm' | 'alert' | 'success' | 'delete' | 'prompt';
+    onConfirm?: (inputValue?: string) => void;
     onCancel?: () => void;
+    inputValue?: string;
+    placeholder?: string;
 }
 
 export function useDialog() {
@@ -89,12 +91,34 @@ export function useDialog() {
         setDialogState(prev => ({ ...prev, isOpen: false }));
     };
 
+    const showPrompt = (title: string, message: string, defaultValue: string = '', placeholder: string = ''): Promise<string | null> => {
+        return new Promise((resolve) => {
+            setDialogState({
+                isOpen: true,
+                title,
+                message,
+                type: 'prompt',
+                inputValue: defaultValue,
+                placeholder: placeholder,
+                onConfirm: (val) => {
+                    setDialogState(prev => ({ ...prev, isOpen: false }));
+                    resolve(val || '');
+                },
+                onCancel: () => {
+                    setDialogState(prev => ({ ...prev, isOpen: false }));
+                    resolve(null);
+                }
+            });
+        });
+    };
+
     return {
         dialogState,
         showConfirm,
         showDelete,
         showAlert,
         showSuccess,
+        showPrompt,
         closeDialog
     };
 }
