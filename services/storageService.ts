@@ -1,5 +1,6 @@
 import { Order, OrderStatus, OrderItem, MenuItem, AppSettings, Category, Department, NotificationSettings, Reservation, Customer, ReservationStatus, InventoryItem, Expense } from '../types';
 import { supabase } from './supabase';
+import { printOrderToAllDepartments } from './printerService';
 
 // Generate UUID v4 compatible with PostgreSQL
 export function generateUUID(): string {
@@ -478,6 +479,9 @@ export const addOrder = async (order: Order) => {
 
     saveLocallyAndNotify(newOrders);
     syncOrderToCloud(cleanOrder);
+
+    // AUTO-PRINT TICKETS
+    printOrderToAllDepartments(cleanOrder, settings).catch(e => console.error("Print error:", e));
 };
 
 export const updateOrderStatus = (orderId: string, status: OrderStatus) => {
@@ -566,6 +570,9 @@ export const updateOrderItems = async (orderId: string, newItems: OrderItem[]) =
 
     saveLocallyAndNotify(newOrders);
     syncOrderToCloud(updatedOrder);
+
+    // AUTO-PRINT NEW ITEMS (OR RE-PRINT UPDATED TICKET)
+    printOrderToAllDepartments(updatedOrder, settings).catch(e => console.error("Print error:", e));
 };
 
 export const toggleOrderItemCompletion = (orderId: string, itemIndex: number, subItemId?: string) => {
@@ -920,6 +927,8 @@ const DEFAULT_SETTINGS: AppSettings = {
         'Sala': false,
         'Cassa': false
     },
+    printers: [],
+    printerAssignments: {},
     restaurantProfile: {
         tableCount: 12
     },
@@ -945,6 +954,8 @@ export const getAppSettings = (): AppSettings => {
                 ...DEFAULT_SETTINGS.printEnabled,
                 ...(parsed.printEnabled || {})
             },
+            printers: parsed.printers || [],
+            printerAssignments: parsed.printerAssignments || {},
             restaurantProfile: {
                 ...DEFAULT_SETTINGS.restaurantProfile,
                 ...(parsed.restaurantProfile || {})

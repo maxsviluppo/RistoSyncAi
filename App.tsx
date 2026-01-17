@@ -20,7 +20,7 @@ import ReservationManager from './components/ReservationManager';
 import CustomerManager from './components/CustomerManager';
 import SubscriptionManager from './components/SubscriptionManager';
 import { LandingPage } from './components/LandingPage';
-import { ChefHat, Smartphone, User, Settings, Bell, Utensils, X, Save, Plus, Trash2, Edit2, Wheat, Milk, Egg, Nut, Fish, Bean, Flame, Leaf, Info, LogOut, Bot, Key, Database, ShieldCheck, Lock, AlertTriangle, Mail, RefreshCw, Send, Printer, Mic, MicOff, TrendingUp, BarChart3, Calendar, ChevronLeft, ChevronRight, DollarSign, History, Receipt, UtensilsCrossed, Eye, ArrowRight, QrCode, Share2, Copy, MapPin, Store, Phone, Globe, Star, Pizza, CakeSlice, Wine, Sandwich, MessageCircle, FileText, PhoneCall, Sparkles, Loader, Facebook, Instagram, Youtube, Linkedin, Music, Compass, FileSpreadsheet, Image as ImageIcon, Upload, FileImage, ExternalLink, CreditCard, Banknote, Briefcase, Clock, Check, ListPlus, ArrowRightLeft, Code2, Cookie, Shield, Wrench, Download, CloudUpload, BookOpen, EyeOff, LayoutGrid, ArrowLeft, PlayCircle, ChevronDown, FileJson, Wallet, Crown, Zap, ShieldCheck as ShieldIcon, Trophy, Timer, LifeBuoy, Minus, Hash, Euro, Coins, TrendingDown, Package, Factory, Users, Lightbulb, Headphones, Cloud, BarChart, Camera, CheckCircle, Scan, Megaphone, Bike, Truck } from 'lucide-react';
+import { ChefHat, Smartphone, User, Settings, Bell, Utensils, X, Save, Plus, Trash2, Edit2, Wheat, Milk, Egg, Nut, Fish, Bean, Flame, Leaf, Info, LogOut, Bot, Key, Database, ShieldCheck, Lock, AlertTriangle, Mail, RefreshCw, Send, Printer as PrinterIcon, Mic, MicOff, TrendingUp, BarChart3, Calendar, ChevronLeft, ChevronRight, DollarSign, History, Receipt, UtensilsCrossed, Eye, ArrowRight, QrCode, Share2, Copy, MapPin, Store, Phone, Globe, Star, Pizza, CakeSlice, Wine, Sandwich, MessageCircle, FileText, PhoneCall, Sparkles, Loader, Facebook, Instagram, Youtube, Linkedin, Music, Compass, FileSpreadsheet, Image as ImageIcon, Upload, FileImage, ExternalLink, CreditCard, Banknote, Briefcase, Clock, Check, ListPlus, ArrowRightLeft, Code2, Cookie, Shield, Wrench, Download, CloudUpload, BookOpen, EyeOff, LayoutGrid, ArrowLeft, PlayCircle, ChevronDown, FileJson, Wallet, Crown, Zap, ShieldCheck as ShieldIcon, Trophy, Timer, LifeBuoy, Minus, Hash, Euro, Coins, TrendingDown, Package, Factory, Users, Lightbulb, Headphones, Cloud, BarChart, Camera, CheckCircle, Scan, Megaphone, Bike, Truck } from 'lucide-react';
 import { getWaiterName, saveWaiterName, getMenuItems, addMenuItem, updateMenuItem, deleteMenuItem, getNotificationSettings, saveNotificationSettings, initSupabaseSync, getGoogleApiKey, saveGoogleApiKey, removeGoogleApiKey, getAppSettings, saveAppSettings, getOrders, deleteHistoryByDate, performFactoryReset, deleteAllMenuItems, importDemoMenu, getInventory } from './services/storageService';
 
 import { supabase, signOut, isSupabaseConfigured, SUPER_ADMIN_EMAIL } from './services/supabase';
@@ -28,7 +28,7 @@ import { ToastProvider, useToast } from './components/ToastProvider';
 
 import { askChefAI, generateRestaurantAnalysis, generateDishDescription, generateDishIngredients, generateRestaurantDescription, detectAllergensFromIngredients } from './services/geminiService';
 import { sendPaymentConfirmationEmail, sendAdminPaymentNotification } from './services/emailService';
-import { MenuItem, Category, Department, AppSettings, OrderStatus, Order, RestaurantProfile, OrderItem, NotificationSettings, SocialLinks, DeliveryPlatform, InventoryItem } from './types';
+import { MenuItem, Category, Department, AppSettings, OrderStatus, Order, RestaurantProfile, OrderItem, NotificationSettings, SocialLinks, DeliveryPlatform, InventoryItem, Printer } from './types';
 
 import { useDialog } from './hooks/useDialog';
 import QRCodeGenerator from 'react-qr-code';
@@ -42,6 +42,8 @@ import { InvoiceManager } from './components/InvoiceManager';
 import InventoryManager from './components/InventoryManager'; // Import InventoryManager
 import { ReceiptText } from 'lucide-react';
 import { SupplierManager } from './components/SupplierManager';
+import { TutorialOverlay, TutorialStep } from './components/TutorialOverlay';
+import { HelpCircle } from 'lucide-react';
 
 
 // Promo Timer Component
@@ -153,11 +155,16 @@ export function App() {
 
     // Admin State
     const [showAdmin, setShowAdmin] = useState(false);
-    const [adminTab, setAdminTab] = useState<'profile' | 'subscription' | 'menu' | 'notif' | 'info' | 'ai' | 'analytics' | 'share' | 'receipts' | 'messages' | 'marketing' | 'delivery' | 'customers' | 'whatsapp' | 'expenses' | 'inventory' | 'suppliers'>('menu');
+    const [adminTab, setAdminTab] = useState<'profile' | 'subscription' | 'menu' | 'notif' | 'info' | 'ai' | 'analytics' | 'share' | 'receipts' | 'messages' | 'marketing' | 'delivery' | 'customers' | 'whatsapp' | 'expenses' | 'inventory' | 'suppliers' | 'invoices' | 'administration'>('menu');
 
     const [showWhatsAppManager, setShowWhatsAppManager] = useState(false);
     const [showSubscriptionManager, setShowSubscriptionManager] = useState(false);
     const [showDepartmentSelector, setShowDepartmentSelector] = useState(false);
+
+    // --- TUTORIAL STATE ---
+    const [showTutorial, setShowTutorial] = useState(false);
+    const [tutorialStep, setTutorialStep] = useState(0);
+
     const [showAnalytics, setShowAnalytics] = useState(false);
     const [adminViewMode, setAdminViewMode] = useState<'dashboard' | 'app'>('dashboard');
 
@@ -199,6 +206,9 @@ export function App() {
     const [appSettings, setAppSettingsState] = useState<AppSettings>(getAppSettings());
     const [tempDestinations, setTempDestinations] = useState<Record<Category, Department>>(getAppSettings().categoryDestinations);
     const [tempPrintSettings, setTempPrintSettings] = useState<Record<string, boolean>>(getAppSettings().printEnabled);
+    // PRINTER STATE
+    const [tempPrinters, setTempPrinters] = useState<Printer[]>(getAppSettings().printers || []);
+    const [tempPrinterAssignments, setTempPrinterAssignments] = useState<Record<string, string>>(getAppSettings().printerAssignments || {});
     const [hasUnsavedDestinations, setHasUnsavedDestinations] = useState(false);
 
     // Profile Settings State
@@ -238,6 +248,297 @@ export function App() {
 
     // Welcome Modal State
     const [showWelcomeModal, setShowWelcomeModal] = useState(false);
+
+    // --- TUTORIAL CONFIG & LOGIC ---
+    const tutorialSteps: TutorialStep[] = [
+        {
+            title: "Benvenuto in RistoSync AI",
+            content: (
+                <div className="space-y-2">
+                    <p>Questa è la tua Dashboard di Comando. Da qui hai il controllo totale sul tuo ristorante.</p>
+                    <p>Ti guideremo attraverso le funzionalità principali in pochi semplici passaggi.</p>
+                </div>
+            ),
+        },
+        {
+            targetId: "header-info",
+            title: "Stato del Sistema",
+            content: "Qui in alto trovi sempre le informazioni vitali: versione dell'app, nome del ristorante e lo stato del tuo abbonamento (giorni rimanenti).",
+            position: "bottom"
+        },
+        {
+            targetId: "grid-departments",
+            title: "I Reparti Operativi",
+            content: "Questi pulsanti sono il cuore del tuo ristorante. Clicca su ognuno per accedere alla postazione di lavoro dedicata.",
+            position: "top"
+        },
+        {
+            targetId: "btn-dept-waiter",
+            title: "Sala (Camerieri)",
+            content: "Interfaccia dedicata ai camerieri per prendere le ordinazioni al tavolo tramite tablet o smartphone.",
+            position: "right"
+        },
+        {
+            targetId: "btn-dept-monitor",
+            title: "Monitor (Controllo)",
+            content: "Visione globale della sala in tempo reale. Colori diversi indicano lo stato di ogni tavolo (Libero, Occupato, In attesa).",
+            position: "right"
+        },
+        {
+            targetId: "btn-dept-kitchen",
+            title: "Cucina (Chef)",
+            content: "Display per la cucina. Riceve le comande in tempo reale, divise per portata o priorità.",
+            position: "left"
+        },
+        {
+            targetId: "btn-dept-pizzeria",
+            title: "Pizzeria (Forno)",
+            content: "Postazione specifica per i pizzaioli. Filtra solo le pizze e i calzoni dagli ordini.",
+            position: "left"
+        },
+        {
+            targetId: "btn-dept-pub",
+            title: "Pub / Bar",
+            content: "Gestione delle bevande, cocktail e caffetteria. Le comande arrivano direttamente al bancone.",
+            position: "left"
+        },
+        {
+            targetId: "btn-dept-delivery",
+            title: "Delivery (Asporto)",
+            content: "Gestione completa di asporto e consegne a domicilio, con tracking dell'orario e dati cliente.",
+            position: "left"
+        },
+        {
+            targetId: "btn-reservations",
+            title: "Gestione Prenotazioni",
+            content: "Un calendario completo per gestire tavoli, prenotazioni telefoniche e liste d'attesa. Tutto sincronizzato in tempo reale.",
+            position: "top"
+        },
+        {
+            targetId: "btn-admin",
+            title: "Area Admin (Setup)",
+            content: "🚀 ORA TOCCA A TE!\nPer completare il tutorial, CLICCA su questo pulsante ed entra nell'Area Admin. È qui che configurerai il tuo menu e le stampanti. Il tutorial terminerà automaticamente entrando in questa sezione.",
+            position: "bottom"
+        }
+    ];
+
+    useEffect(() => {
+        const hasSeen = localStorage.getItem('hasSeenTutorial');
+        if (!hasSeen && !showLandingPage && session && !showWelcomeModal) {
+            const timer = setTimeout(() => setShowTutorial(true), 1500);
+            return () => clearTimeout(timer);
+        }
+    }, [session, showLandingPage, showWelcomeModal]);
+
+    const handleTutorialClose = (preventFuture: boolean) => {
+        setShowTutorial(false);
+        setTutorialStep(0);
+        if (preventFuture) {
+            localStorage.setItem('hasSeenTutorial', 'true');
+            showToast("Tutorial disattivato per i prossimi accessi", "info");
+        }
+    };
+
+    // --- ADMIN TUTORIAL STATE ---
+    const [showAdminTutorial, setShowAdminTutorial] = useState(false);
+    const [adminTutorialStep, setAdminTutorialStep] = useState(0);
+
+    const adminTutorialSteps: TutorialStep[] = [
+        {
+            title: "Benvenuto nell'Area Admin",
+            content: "Questa è la sala macchine del tuo ristorante. Da qui puoi controllare ogni singolo aspetto della tua attività.",
+        },
+        {
+            targetId: "admin-nav-dashboard", // We'll add this ID to the sidebar container or logo
+            title: "Menu di Navigazione",
+            content: "Usa questa barra laterale per navigare tra le diverse sezioni gestionali.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-profile",
+            title: "Profilo Ristorante",
+            content: "Qui configuri i dati pubblici del tuo locale, il logo e le informazioni aziendali.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-menu",
+            title: "Gestione Menu",
+            content: "Crea e modifica piatti, categorie, ingredienti e allergeni.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-customers",
+            title: "Clienti e CRM",
+            content: "Il tuo database clienti. Visualizza storico ordini e preferenze.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-share",
+            title: "QR Code e Menu",
+            content: "Scarica e stampa i QR Code per i tavoli o il link per il menu online.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-messages",
+            title: "Messaggi",
+            content: "Centro messaggi e comunicazioni interne.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-notif",
+            title: "Notifiche",
+            content: "Configura le notifiche per i vari reparti.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-subscription",
+            title: "Abbonamento",
+            content: "Gestisci il tuo piano e i pagamenti.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-analytics",
+            title: "Statistiche",
+            content: "Analizza l'andamento del tuo locale in tempo reale.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-administration",
+            title: "Amministrazione",
+            content: "Gestione contabile di base e report.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-expenses",
+            title: "Spese",
+            content: "Registra e categorizza le uscite del locale.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-inventory",
+            title: "Magazzino",
+            content: "Tieni traccia delle scorte e calcola il Food Cost.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-suppliers",
+            title: "Fornitori",
+            content: "Rubrica e gestione dei tuoi fornitori.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-receipts",
+            title: "Scontrini",
+            content: "Archivio digitale degli scontrini emessi.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-invoices",
+            title: "Fatture",
+            content: "Gestione fatturazione elettronica e clienti (SdI).",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-ai",
+            title: "Intelligenza Artificiale",
+            content: "Configura l'assistente AI per il tuo locale.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-marketing",
+            title: "Marketing",
+            content: "Strumenti per promuovere il tuo locale (Campagne, Coupon).",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-whatsapp",
+            title: "WhatsApp",
+            content: "Invia comunicazioni automatiche via WhatsApp.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-delivery",
+            title: "Delivery",
+            content: "Gestisci l'integrazione con le piattaforme di consegna.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-info",
+            title: "Assistenza",
+            content: "Hai bisogno di aiuto? Qui trovi guide e supporto.",
+            position: "right"
+        },
+        {
+            targetId: "admin-nav-profile",
+            title: "Iniziamo!",
+            content: "🚀 Ora clicca su 'Profilo Ristorante' per configurare il tuo locale. Questo è il primo passo!",
+            position: "right"
+        },
+        {
+            targetId: "profile-setup-logo",
+            title: "Il tuo Logo",
+            content: "Clicca qui per caricare il logo del tuo ristorante. Apparirà sul Menu Digitale e sugli scontrini.",
+            position: "bottom"
+        },
+        {
+            targetId: "profile-setup-name",
+            title: "Nome del Locale",
+            content: "Inserisci qui il nome (Insegna) corretto del tuo ristorante.",
+            position: "bottom"
+        },
+        {
+            targetId: "profile-setup-bio",
+            title: "Bio e Descrizione",
+            content: "Scrivi una breve descrizione accattivante. Puoi usare l'AI per generarla automaticamente!",
+            position: "bottom"
+        },
+        {
+            targetId: "profile-setup-website",
+            title: "Sito Web",
+            content: "Inserisci il link al tuo sito web ufficiale, se ne hai uno.",
+            position: "bottom"
+        },
+        {
+            targetId: "profile-setup-socials",
+            title: "Social Network",
+            content: "Collega i tuoi profili social. Saranno visibili nel Menu Digitale per aumentare i tuoi follower.",
+            position: "top"
+        },
+        {
+            targetId: "btn-save-profile",
+            title: "Salva Modifiche",
+            content: "Quando hai finito, ricorda di cliccare qui per salvare il tuo profilo!",
+            position: "top"
+        }
+    ];
+
+    useEffect(() => {
+        if (showAdmin) {
+            const hasSeen = localStorage.getItem('hasSeenAdminTutorial');
+            if (!hasSeen) {
+                // Small delay to ensure rendering
+                const timer = setTimeout(() => setShowAdminTutorial(true), 1000);
+                return () => clearTimeout(timer);
+            }
+        }
+    }, [showAdmin]);
+
+    // Auto-advance tutorial when entering Profile tab
+    useEffect(() => {
+        // Step 21 is: { targetId: "admin-nav-profile", title: "Iniziamo!" ... }
+        // When user clicks it, adminTab becomes 'profile'. We move to step 22 (Logo).
+        if (adminTab === 'profile' && showAdminTutorial && adminTutorialStep === 21) {
+            setAdminTutorialStep(22);
+        }
+    }, [adminTab, showAdminTutorial, adminTutorialStep]);
+
+    const handleAdminTutorialClose = (preventFuture: boolean) => {
+        setShowAdminTutorial(false);
+        setAdminTutorialStep(0);
+        if (preventFuture) {
+            localStorage.setItem('hasSeenAdminTutorial', 'true');
+        }
+    };
 
     // Printable Menu State
     const [showPrintableMenu, setShowPrintableMenu] = useState(false);
@@ -1488,8 +1789,83 @@ export function App() {
     }, [ordersForAnalytics, selectedDate]);
 
     // --- SETTINGS & SHARE ---
-    const saveDestinations = async () => { const newSettings: AppSettings = { ...appSettings, categoryDestinations: tempDestinations, printEnabled: tempPrintSettings }; await saveAppSettings(newSettings); setAppSettingsState(newSettings); setHasUnsavedDestinations(false); showToast("✅ Impostazioni salvate con successo!", 'success'); };
-    const handleSaveAppSettings = async () => { const newSettings: AppSettings = { categoryDestinations: tempDestinations, printEnabled: tempPrintSettings, restaurantProfile: { ...appSettings.restaurantProfile, ...profileForm } }; await saveAppSettings(newSettings); setAppSettingsState(newSettings); setHasUnsavedDestinations(false); await showSuccess("✅ Profilo Salvato", "La configurazione è stata salvata con successo!"); };
+    const saveDestinations = async () => {
+        const newSettings: AppSettings = {
+            ...appSettings,
+            categoryDestinations: tempDestinations,
+            printEnabled: tempPrintSettings,
+            printers: tempPrinters,
+            printerAssignments: tempPrinterAssignments
+        };
+        await saveAppSettings(newSettings);
+        setAppSettingsState(newSettings);
+        setHasUnsavedDestinations(false);
+        showToast("✅ Configurazioni salvate con successo!", 'success');
+    };
+
+    const handleScanPrinters = () => {
+        showToast("🔍 Scansione rete locale in corso...", "info");
+        setTimeout(() => {
+            const foundPrinters: Printer[] = [
+                { id: 'p_kitchen_1', name: 'Epson TM-T20III (Cucina)', type: 'network', address: '192.168.1.200', status: 'active' },
+                { id: 'p_bar_1', name: 'Star Micronics TSP143 (Bar)', type: 'network', address: '192.168.1.201', status: 'active' },
+                { id: 'p_receipt_1', name: 'Epson TM-m30II (Cassa)', type: 'network', address: '192.168.1.202', status: 'active' }
+            ];
+
+            // Merge unique
+            const currentIds = tempPrinters.map(p => p.id);
+            const newPrinters = foundPrinters.filter(p => !currentIds.includes(p.id));
+
+            if (newPrinters.length > 0) {
+                setTempPrinters([...tempPrinters, ...newPrinters]);
+                setHasUnsavedDestinations(true);
+                showToast(`✅ Trovate ${newPrinters.length} nuove stampanti!`, "success");
+            } else {
+                showToast("Nessuna nuova stampante trovata.", "info");
+            }
+        }, 1500);
+    };
+
+    const handleAddManualPrinter = () => {
+        const name = prompt("Nome Stampante (es. CASSA 2):");
+        if (!name) return;
+        const ip = prompt("Indirizzo IP (es. 192.168.1.50) o Lascia vuoto per USB:");
+        const newPrinter: Printer = {
+            id: `manual_${Date.now()}`,
+            name: name,
+            type: ip ? 'network' : 'usb',
+            address: ip || undefined,
+            status: 'unknown'
+        };
+        setTempPrinters([...tempPrinters, newPrinter]);
+        setHasUnsavedDestinations(true);
+        showToast("Stampante aggiunta manualmente.", "success");
+    };
+
+    const handleDeletePrinter = (id: string) => {
+        setTempPrinters(tempPrinters.filter(p => p.id !== id));
+        // Remove assignment if exists
+        const newAssignments = { ...tempPrinterAssignments };
+        Object.keys(newAssignments).forEach(key => {
+            if (newAssignments[key] === id) delete newAssignments[key];
+        });
+        setTempPrinterAssignments(newAssignments);
+        setHasUnsavedDestinations(true);
+    };
+    const handleSaveAppSettings = async () => {
+        const newSettings: AppSettings = {
+            ...appSettings,
+            categoryDestinations: tempDestinations,
+            printEnabled: tempPrintSettings,
+            printers: tempPrinters,
+            printerAssignments: tempPrinterAssignments,
+            restaurantProfile: { ...appSettings.restaurantProfile, ...profileForm }
+        };
+        await saveAppSettings(newSettings);
+        setAppSettingsState(newSettings);
+        setHasUnsavedDestinations(false);
+        await showSuccess("✅ Profilo Salvato", "La configurazione è stata salvata con successo!");
+    };
     const handleSaveApiKey = async () => { await saveGoogleApiKey(apiKeyInput); setHasApiKey(true); showToast("API Key salvata con successo!", 'success'); };
     const handleRemoveApiKey = async () => {
         if (await showConfirm("Eliminare API Key?", "Vuoi davvero rimuovere la chiave API? Le funzionalità AI smetteranno di funzionare.")) {
@@ -1658,7 +2034,16 @@ export function App() {
                                 </button>
                             )}
 
-                            <button onClick={handleAdminAuth} className="group bg-slate-800 hover:bg-slate-700 p-4 rounded-2xl transition-all duration-300 border border-slate-700 hover:border-slate-500 flex flex-col items-center gap-1 shadow-lg active:scale-95" title="Impostazioni Admin"><Settings className="text-slate-400 group-hover:text-white group-hover:rotate-45 transition-transform" size={24} /><span className="text-[10px] uppercase font-bold text-slate-500 group-hover:text-slate-300">Admin</span></button><button onClick={signOut} className="group bg-slate-800 hover:bg-red-900/20 p-4 rounded-2xl transition-all duration-300 border border-slate-700 hover:border-red-500/50 flex flex-col items-center gap-1 shadow-lg active:scale-95" title="Esci"><LogOut className="text-slate-400 group-hover:text-red-400" size={24} /><span className="text-[10px] uppercase font-bold text-slate-500 group-hover:text-red-400">Esci</span></button></div>
+                            <button
+                                onClick={() => setShowTutorial(true)}
+                                className="group bg-blue-900/30 hover:bg-blue-600 p-4 rounded-2xl transition-all duration-300 border border-blue-500/30 hover:border-blue-400 flex flex-col items-center gap-1 shadow-lg active:scale-95"
+                                title="Tutorial e Guida"
+                            >
+                                <BookOpen className="text-blue-400 group-hover:text-white" size={24} />
+                                <span className="text-[10px] uppercase font-bold text-blue-400 group-hover:text-white">Tutorial</span>
+                            </button>
+
+                            <button id="btn-admin" onClick={handleAdminAuth} className="group bg-slate-800 hover:bg-slate-700 p-4 rounded-2xl transition-all duration-300 border border-slate-700 hover:border-slate-500 flex flex-col items-center gap-1 shadow-lg active:scale-95" title="Impostazioni Admin"><Settings className="text-slate-400 group-hover:text-white group-hover:rotate-45 transition-transform" size={24} /><span className="text-[10px] uppercase font-bold text-slate-500 group-hover:text-slate-300">Admin</span></button><button id="btn-logout" onClick={signOut} className="group bg-slate-800 hover:bg-red-900/20 p-4 rounded-2xl transition-all duration-300 border border-slate-700 hover:border-red-500/50 flex flex-col items-center gap-1 shadow-lg active:scale-95" title="Esci"><LogOut className="text-slate-400 group-hover:text-red-400" size={24} /><span className="text-[10px] uppercase font-bold text-slate-500 group-hover:text-red-400">Esci</span></button></div>
                     </div>
                     {subscriptionExpired && (<div className="relative z-10 mb-8 bg-red-600/10 border border-red-500/30 p-4 rounded-2xl flex items-center justify-between animate-pulse"><div className="flex items-center gap-3 text-red-400 font-bold"><AlertTriangle size={24} /><span>Abbonamento Scaduto! Rinnova per continuare a usare tutte le funzioni.</span></div><button onClick={() => setShowSubscriptionManager(true)} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-red-500">Rinnova</button></div>)}
                     {daysRemaining !== null && daysRemaining <= 5 && !subscriptionExpired && (<div className="relative z-10 mb-8 bg-orange-600/10 border border-orange-500/30 p-4 rounded-2xl flex items-center justify-between"><div className="flex items-center gap-3 text-orange-400 font-bold"><Clock size={24} /><span>Abbonamento in scadenza tra {daysRemaining} giorni.</span></div><button onClick={() => setShowSubscriptionManager(true)} className="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-orange-500">Gestisci</button></div>)}
@@ -1672,7 +2057,7 @@ export function App() {
                         return (
                             <div id="grid-departments" className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-5 w-full max-w-7xl mx-auto px-4">
                                 <div className="flex flex-col gap-5 md:row-span-2">
-                                    <button onClick={() => checkRoleAccess('waiter')} className="group relative flex-1 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-500/50 overflow-hidden min-h-[160px]">
+                                    <button id="btn-dept-waiter" onClick={() => checkRoleAccess('waiter')} className="group relative flex-1 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-2 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-blue-500/10 hover:border-blue-500/50 overflow-hidden min-h-[160px]">
                                         <div className="absolute inset-0 bg-gradient-to-b from-blue-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                                         <div className="w-16 h-16 bg-slate-900 rounded-full flex items-center justify-center border-4 border-slate-700 group-hover:border-blue-500 group-hover:scale-105 transition-all shadow-inner">
                                             <Smartphone size={28} className="text-slate-400 group-hover:text-blue-500 transition-colors" />
@@ -1683,7 +2068,7 @@ export function App() {
                                         </div>
                                     </button>
 
-                                    <button onClick={() => {
+                                    <button id="btn-dept-monitor" onClick={() => {
                                         setShowMonitor(true);
                                         setRole(null); // Ensure no role is active
                                         window.history.pushState({}, '', '?monitor=true');
@@ -1701,6 +2086,7 @@ export function App() {
 
                                 {/* CUCINA */}
                                 <button
+                                    id="btn-dept-kitchen"
                                     onClick={() => checkRoleAccess('kitchen')}
                                     className={`group relative h-48 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-orange-500/10 hover:border-orange-500/50 overflow-hidden ${isBasicPlan && allowed && allowed !== 'kitchen' ? 'opacity-40 grayscale' : ''}`}
                                 >
@@ -1717,6 +2103,7 @@ export function App() {
 
                                 {/* PIZZERIA */}
                                 <button
+                                    id="btn-dept-pizzeria"
                                     onClick={() => checkRoleAccess('pizzeria')}
                                     className={`group relative h-48 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-red-500/10 hover:border-red-500/50 overflow-hidden ${isBasicPlan && allowed && allowed !== 'pizzeria' ? 'opacity-40 grayscale' : ''}`}
                                 >
@@ -1733,6 +2120,7 @@ export function App() {
 
                                 {/* PUB/BAR */}
                                 <button
+                                    id="btn-dept-pub"
                                     onClick={() => checkRoleAccess('pub')}
                                     className={`group relative h-48 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-amber-500/10 hover:border-amber-500/50 overflow-hidden ${isBasicPlan && allowed && allowed !== 'pub' ? 'opacity-40 grayscale' : ''}`}
                                 >
@@ -1749,6 +2137,7 @@ export function App() {
 
                                 {/* DELIVERY */}
                                 <button
+                                    id="btn-dept-delivery"
                                     onClick={() => checkRoleAccess('delivery')}
                                     className="group relative h-48 bg-slate-800 rounded-2xl border border-slate-700 p-4 flex flex-col items-center justify-center gap-3 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-green-500/10 hover:border-green-500/50 overflow-hidden"
                                 >
@@ -1766,9 +2155,9 @@ export function App() {
                         );
                     })()}
 
-                    {/* PULSANTE PRENOTAZIONI - Rettangolare Allungato */}
-                    <div className="relative z-10 w-full max-w-7xl mx-auto px-4 mt-5">
+                    <div id="btn-reservations" className="relative z-10 w-full max-w-7xl mx-auto px-4 mt-5">
                         <button
+                            id="btn-reservations"
                             onClick={() => setShowReservations(true)}
                             className="group w-full bg-gradient-to-r from-orange-600 via-red-600 to-orange-600 hover:from-orange-500 hover:via-red-500 hover:to-orange-500 text-white font-black py-6 rounded-2xl flex items-center justify-center gap-4 transition-all duration-300 shadow-2xl hover:shadow-orange-500/50 transform hover:scale-[1.02] active:scale-[0.98] border-2 border-orange-400/30 hover:border-orange-300 overflow-hidden relative"
                         >
@@ -1789,6 +2178,25 @@ export function App() {
                         onClose={() => setShowSubscriptionManager(false)}
                         showToast={showToast}
                         mode="modal"
+                    />
+                )}
+
+                {/* TUTORIAL OVERLAY */}
+                {showTutorial && (
+                    <TutorialOverlay
+                        steps={tutorialSteps}
+                        currentStep={tutorialStep}
+                        onNext={() => {
+                            if (tutorialStep < tutorialSteps.length - 1) {
+                                setTutorialStep(prev => prev + 1);
+                            } else {
+                                handleTutorialClose(false);
+                            }
+                        }}
+                        onPrev={() => {
+                            if (tutorialStep > 0) setTutorialStep(prev => prev - 1);
+                        }}
+                        onClose={handleTutorialClose}
                     />
                 )}
             </>
@@ -1813,6 +2221,24 @@ export function App() {
                     />
                 )}
 
+                {showAdminTutorial && (
+                    <TutorialOverlay
+                        steps={adminTutorialSteps}
+                        currentStep={adminTutorialStep}
+                        onNext={() => {
+                            if (adminTutorialStep < adminTutorialSteps.length - 1) {
+                                setAdminTutorialStep(prev => prev + 1);
+                            } else {
+                                handleAdminTutorialClose(false);
+                            }
+                        }}
+                        onPrev={() => {
+                            if (adminTutorialStep > 0) setAdminTutorialStep(prev => prev - 1);
+                        }}
+                        onClose={handleAdminTutorialClose}
+                    />
+                )}
+
                 {showPrintableMenu && (
                     <PrintableMenu
                         menuItems={menuItems}
@@ -1823,27 +2249,28 @@ export function App() {
                 )}
                 <div className="min-h-screen bg-slate-950 text-white font-sans flex flex-col md:flex-row">
                     <div className="w-full md:w-72 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 h-screen sticky top-0">
-                        <div className="p-6 border-b border-slate-800 flex items-center gap-3"><div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center shadow-lg"><ChefHat size={20} className="text-white" /></div><h1 className="font-black text-xl tracking-tight">Risto<span className="text-orange-500">Sync</span><span className="text-blue-500 font-black ml-1">AI</span></h1></div>
+                        <div id="admin-nav-dashboard" className="p-6 border-b border-slate-800 flex items-center gap-3"><div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg flex items-center justify-center shadow-lg"><ChefHat size={20} className="text-white" /></div><h1 className="font-black text-xl tracking-tight">Risto<span className="text-orange-500">Sync</span><span className="text-blue-500 font-black ml-1">AI</span></h1></div>
                         <nav className="flex-1 overflow-y-auto p-4 space-y-2">
-                            <button onClick={() => setAdminTab('profile')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'profile' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Store size={18} /> Profilo Ristorante</button>
-                            <button onClick={() => setAdminTab('menu')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'menu' ? 'bg-orange-600 text-white shadow-lg shadow-orange-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Utensils size={18} /> Gestione Menu</button>
-                            <button onClick={() => setAdminTab('customers')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'customers' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Users size={18} /> Gestione Clienti</button>
-                            <button onClick={() => setAdminTab('share')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'share' ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><QrCode size={18} /> Menu Digitale/Cartaceo</button>
-                            <button onClick={() => setAdminTab('messages')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all relative ${adminTab === 'messages' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                            <button id="admin-nav-profile" onClick={() => setAdminTab('profile')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'profile' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Store size={18} /> Profilo Ristorante</button>
+                            <button id="admin-nav-menu" onClick={() => setAdminTab('menu')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'menu' ? 'bg-orange-600 text-white shadow-lg shadow-orange-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Utensils size={18} /> Gestione Menu</button>
+                            <button id="admin-nav-customers" onClick={() => setAdminTab('customers')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'customers' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Users size={18} /> Gestione Clienti</button>
+                            <button id="admin-nav-share" onClick={() => setAdminTab('share')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'share' ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><QrCode size={18} /> Menu Digitale/Cartaceo</button>
+                            <button id="admin-nav-messages" onClick={() => setAdminTab('messages')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all relative ${adminTab === 'messages' ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
                                 <Mail size={18} /> Messaggi / News
                                 {unreadMessagesCount > 0 && <span className="absolute right-4 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{unreadMessagesCount}</span>}
                             </button>
-                            <button onClick={() => setAdminTab('notif')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'notif' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Bell size={18} /> Notifiche & Reparti</button>
-                            <button onClick={() => setShowSubscriptionManager(true)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all text-slate-400 hover:bg-slate-800 hover:text-white bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-500/30`}><CreditCard size={18} className="text-purple-400" /> Abbonamento</button>
-                            <button onClick={() => setAdminTab('analytics')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'analytics' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><BarChart3 size={18} /> Statistiche Tavoli</button>
-                            <button onClick={() => setAdminTab('administration')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'administration' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Wallet size={18} /> Amministrazione</button>
-                            <button onClick={() => setAdminTab('expenses')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'expenses' ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><CreditCard size={18} /> Gestione Spese</button>
-                            <button onClick={() => setAdminTab('inventory')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'inventory' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Package size={18} /> Magazzino & Food Cost</button>
-                            <button onClick={() => setAdminTab('suppliers')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'suppliers' ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Truck size={18} /> Anagrafica Fornitori</button>
+                            <button id="admin-nav-notif" onClick={() => setAdminTab('notif')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'notif' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Bell size={18} /> Notifiche & Reparti</button>
+                            <button id="admin-nav-subscription" onClick={() => setShowSubscriptionManager(true)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all text-slate-400 hover:bg-slate-800 hover:text-white bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-500/30`}><CreditCard size={18} className="text-purple-400" /> Abbonamento</button>
+                            <button id="admin-nav-analytics" onClick={() => setAdminTab('analytics')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'analytics' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><BarChart3 size={18} /> Statistiche Tavoli</button>
+                            <button id="admin-nav-administration" onClick={() => setAdminTab('administration')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'administration' ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Wallet size={18} /> Amministrazione</button>
+                            <button id="admin-nav-expenses" onClick={() => setAdminTab('expenses')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'expenses' ? 'bg-red-600 text-white shadow-lg shadow-red-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><CreditCard size={18} /> Gestione Spese</button>
+                            <button id="admin-nav-inventory" onClick={() => setAdminTab('inventory')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'inventory' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Package size={18} /> Magazzino & Food Cost</button>
+                            <button id="admin-nav-suppliers" onClick={() => setAdminTab('suppliers')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'suppliers' ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Truck size={18} /> Anagrafica Fornitori</button>
 
-                            <button onClick={() => setAdminTab('receipts')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'receipts' ? 'bg-yellow-600 text-white shadow-lg shadow-yellow-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Receipt size={18} /> Scontrini Cassa</button>
-                            <button onClick={() => setAdminTab('invoices')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'invoices' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><ReceiptText size={18} /> Fattura Clienti</button>
+                            <button id="admin-nav-receipts" onClick={() => setAdminTab('receipts')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'receipts' ? 'bg-yellow-600 text-white shadow-lg shadow-yellow-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Receipt size={18} /> Scontrini Cassa</button>
+                            <button id="admin-nav-invoices" onClick={() => setAdminTab('invoices')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'invoices' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><ReceiptText size={18} /> Fattura Clienti</button>
                             <button
+                                id="admin-nav-ai"
                                 onClick={() => setAdminTab('ai')}
                                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'ai' ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}
                             >
@@ -1851,6 +2278,7 @@ export function App() {
                             </button>
 
                             <button
+                                id="admin-nav-marketing"
                                 onClick={() => {
                                     const plan = (profileForm?.planType || '').toLowerCase();
                                     if (plan.includes('basic')) {
@@ -1866,6 +2294,7 @@ export function App() {
                             </button>
 
                             <button
+                                id="admin-nav-whatsapp"
                                 onClick={() => {
                                     const plan = (profileForm?.planType || '').toLowerCase();
                                     if (plan.includes('basic')) {
@@ -1879,8 +2308,8 @@ export function App() {
                                 <MessageCircle size={18} /> WhatsApp Marketing
                                 {(profileForm?.planType || '').toLowerCase().includes('basic') && <Lock size={14} className="ml-auto" />}
                             </button>
-                            <button onClick={() => setAdminTab('delivery')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'delivery' ? 'bg-green-600 text-white shadow-lg shadow-green-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Bike size={18} /> Piattaforme Delivery</button>
-                            <button onClick={() => setAdminTab('info')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'info' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Info size={18} /> Info & Supporto</button>
+                            <button id="admin-nav-delivery" onClick={() => setAdminTab('delivery')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'delivery' ? 'bg-green-600 text-white shadow-lg shadow-green-900/20' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Bike size={18} /> Piattaforme Delivery</button>
+                            <button id="admin-nav-info" onClick={() => setAdminTab('info')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all ${adminTab === 'info' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}><Info size={18} /> Info & Supporto</button>
                         </nav>
                         <div className="p-4 border-t border-slate-800"><button onClick={() => setShowAdmin(false)} className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 py-3 rounded-xl font-bold transition-colors"><ArrowLeft size={18} /> Torna alla Home</button></div>
                     </div>
@@ -1924,6 +2353,7 @@ export function App() {
                                             <div className="shrink-0">
                                                 <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Logo (Opzionale)</label>
                                                 <div
+                                                    id="profile-setup-logo"
                                                     onClick={() => logoInputRef.current?.click()}
                                                     className="relative w-24 h-24 bg-slate-950 border-2 border-dashed border-slate-700 rounded-2xl flex items-center justify-center cursor-pointer hover:border-orange-500 transition-all group overflow-hidden"
                                                 >
@@ -1953,7 +2383,7 @@ export function App() {
                                             {/* Name Input */}
                                             <div className="flex-1">
                                                 <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Insegna (Nome Ristorante)</label>
-                                                <input type="text" value={profileForm.name || ''} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white font-bold focus:border-blue-500 outline-none" />
+                                                <input id="profile-setup-name" type="text" value={profileForm.name || ''} onChange={(e) => setProfileForm({ ...profileForm, name: e.target.value })} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white font-bold focus:border-blue-500 outline-none" />
                                                 <p className="text-[10px] text-slate-600 mt-1">Il nome e il logo appariranno nel Menu Digitale</p>
                                             </div>
                                         </div>
@@ -1965,19 +2395,19 @@ export function App() {
                                                     <button onClick={handleMicBio} disabled={isListeningBio} className={`text-[10px] px-2 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors ${isListeningBio ? 'bg-red-600 text-white animate-pulse' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>{isListeningBio ? <MicOff size={10} /> : <Mic size={10} />} REC</button>
                                                 </div>
                                             </div>
-                                            <textarea value={profileForm.description || ''} onChange={(e) => setProfileForm({ ...profileForm, description: e.target.value })} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 outline-none h-24 resize-none" placeholder="Breve descrizione del locale..." />
+                                            <textarea id="profile-setup-bio" value={profileForm.description || ''} onChange={(e) => setProfileForm({ ...profileForm, description: e.target.value })} className="w-full bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-white text-sm focus:border-blue-500 outline-none h-24 resize-none" placeholder="Breve descrizione del locale..." />
                                         </div>
                                         <div>
                                             <label className="text-[10px] text-slate-500 uppercase font-bold block mb-1">Sito Web (Url)</label>
                                             <div className="flex items-center gap-2 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 focus-within:border-blue-500">
                                                 <Globe size={16} className="text-slate-500" />
-                                                <input type="text" value={profileForm.website || ''} onChange={(e) => setProfileForm({ ...profileForm, website: e.target.value })} className="w-full bg-transparent text-white text-sm outline-none" placeholder="www.ristorante.com" />
+                                                <input id="profile-setup-website" type="text" value={profileForm.website || ''} onChange={(e) => setProfileForm({ ...profileForm, website: e.target.value })} className="w-full bg-transparent text-white text-sm outline-none" placeholder="www.ristorante.com" />
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
+                                <div id="profile-setup-socials" className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
                                     <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Share2 className="text-pink-500" /> Social & Presenza Online</h3>
                                     <p className="text-slate-400 text-sm mb-6">Inserisci i link ai tuoi profili social per mostrarli nel menu digitale.</p>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2066,7 +2496,7 @@ export function App() {
                                     </div>
                                 </div>
 
-                                <div className="flex justify-end"><button onClick={handleSaveAppSettings} className="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg transition-all flex items-center gap-2"><Save size={18} /> Salva Profilo</button></div>
+                                <div className="flex justify-end"><button id="btn-save-profile" onClick={handleSaveAppSettings} className="px-8 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg transition-all flex items-center gap-2"><Save size={18} /> Salva Profilo</button></div>
                             </div>
                         )}
                         {adminTab === 'menu' && (
@@ -2482,10 +2912,191 @@ export function App() {
                             </div>
                         )}
                         {adminTab === 'notif' && (
-                            <div className="max-w-2xl mx-auto space-y-8 animate-fade-in pb-20">
-                                <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800"><h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><ArrowRightLeft className="text-purple-500" /> Smistamento Reparti</h3><p className="text-slate-400 text-sm mb-6">Decidi in quale monitor inviare gli ordini per ogni categoria.</p><div className="space-y-4">{ADMIN_CATEGORY_ORDER.map(cat => (<div key={cat} className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800"><span className="font-bold text-sm text-slate-300">{cat}</span><div className="relative"><select value={tempDestinations[cat] || 'Cucina'} onChange={(e) => { const newDest = { ...tempDestinations, [cat]: e.target.value as Department }; setTempDestinations(newDest); setHasUnsavedDestinations(true); }} className="appearance-none bg-slate-800 text-white text-xs font-bold py-2 pl-3 pr-8 rounded-lg border border-slate-700 outline-none focus:border-purple-500"><option value="Cucina">Cucina</option><option value="Pizzeria">Pizzeria</option><option value="Pub">Pub / Bar</option><option value="Sala">Sala (Auto)</option></select><ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={12} /></div></div>))}</div></div>
-                                <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800"><h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Printer className="text-blue-500" /> Stampa Scontrini (Beta)</h3><div className="space-y-3">{Object.keys(tempPrintSettings).map(key => (<div key={key} className="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800"><span className="font-bold text-sm text-slate-300">Stampa in {key}</span><button onClick={() => { const newSettings = { ...tempPrintSettings, [key]: !tempPrintSettings[key] }; setTempPrintSettings(newSettings); setHasUnsavedDestinations(true); }} className={`w-12 h-6 rounded-full p-1 transition-colors ${tempPrintSettings[key] ? 'bg-green-600' : 'bg-slate-700'}`}><div className={`w-4 h-4 rounded-full bg-white transition-transform ${tempPrintSettings[key] ? 'translate-x-6' : ''}`}></div></button></div>))}</div></div>
-                                {hasUnsavedDestinations && (<div className="sticky bottom-6"><button onClick={saveDestinations} className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold py-4 rounded-xl shadow-lg animate-bounce flex items-center justify-center gap-2"><Save size={20} /> SALVA MODIFICHE</button></div>)}
+                            <div className="max-w-4xl mx-auto space-y-8 animate-fade-in pb-20">
+                                {/* SEZIONE 1: SMISTAMENTO ORDINI (LOGICO) */}
+                                <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
+                                    <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                                        <ArrowRightLeft className="text-purple-500" /> Smistamento Reparti
+                                    </h3>
+                                    <p className="text-slate-400 text-sm mb-6">
+                                        Decidi in quale monitor/reparto inviare gli ordini per ogni categoria del menu.
+                                    </p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {ADMIN_CATEGORY_ORDER.map(cat => (
+                                            <div key={cat} className="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-slate-800 hover:border-purple-500/30 transition-colors">
+                                                <span className="font-bold text-sm text-slate-300">{cat}</span>
+                                                <div className="relative">
+                                                    <select
+                                                        value={tempDestinations[cat] || 'Cucina'}
+                                                        onChange={(e) => {
+                                                            const newDest = { ...tempDestinations, [cat]: e.target.value as Department };
+                                                            setTempDestinations(newDest);
+                                                            setHasUnsavedDestinations(true);
+                                                        }}
+                                                        className="appearance-none bg-slate-800 text-white text-xs font-bold py-2.5 pl-4 pr-10 rounded-lg border border-slate-700 outline-none focus:border-purple-500 cursor-pointer"
+                                                    >
+                                                        <option value="Cucina">Cucina</option>
+                                                        <option value="Pizzeria">Pizzeria</option>
+                                                        <option value="Pub">Pub / Bar</option>
+                                                        <option value="Sala">Sala (Auto)</option>
+                                                        <option value="Delivery">Delivery</option>
+                                                    </select>
+                                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* SEZIONE 2: GESTIONE STAMPANTI */}
+                                <div className="bg-slate-900 p-6 rounded-2xl border border-slate-800 shadow-xl">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <div>
+                                            <h3 className="text-xl font-bold text-white flex items-center gap-2">
+                                                <PrinterIcon className="text-blue-500" /> Gestione Stampanti
+                                            </h3>
+                                            <p className="text-slate-400 text-sm mt-1">
+                                                Collega e gestisci le stampanti termiche (LAN/USB).
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <button onClick={handleScanPrinters} className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors shadow-lg shadow-blue-900/20">
+                                                <Scan size={16} /> Scan Rete
+                                            </button>
+                                            <button onClick={() => {
+                                                const ip = prompt("Inserisci indirizzo IP Stampante (es. 192.168.1.200):");
+                                                if (ip) {
+                                                    const newPrinter: Printer = {
+                                                        id: crypto.randomUUID(),
+                                                        name: `Stampante ${tempPrinters.length + 1}`,
+                                                        type: 'network',
+                                                        address: ip,
+                                                        status: 'active'
+                                                    };
+                                                    setTempPrinters([...tempPrinters, newPrinter]);
+                                                    showToast(`Stampante aggiunta: ${ip}`, 'success');
+                                                    setHasUnsavedDestinations(true);
+                                                }
+                                            }} className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors border border-slate-700">
+                                                <Plus size={16} /> Aggiungi IP
+                                            </button>
+                                            <button onClick={() => {
+                                                const newPrinter: Printer = {
+                                                    id: crypto.randomUUID(),
+                                                    name: `Simulatore Stampante`,
+                                                    type: 'manual', // Special type that triggers browser print
+                                                    address: 'browser-print',
+                                                    status: 'active'
+                                                };
+                                                setTempPrinters([...tempPrinters, newPrinter]);
+                                                showToast(`Simulatore Aggiunto`, 'success');
+                                                showAlert("Modalità Simulazione Attiva", "Gli scontrini verranno mostrati a video (PDF/Browser) - Nessuna stampa fisica");
+                                            }} className="bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors shadow-lg shadow-purple-900/20">
+                                                <PrinterIcon size={16} /> Usa Simulatore
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* LISTA STAMPANTI */}
+                                    <div className="space-y-3 mb-8">
+                                        {tempPrinters.length === 0 ? (
+                                            <div className="text-center py-10 bg-slate-950 rounded-xl border border-dashed border-slate-800">
+                                                <PrinterIcon size={48} className="mx-auto text-slate-700 mb-3" />
+                                                <p className="text-slate-500 font-bold">Nessuna stampante configurata</p>
+                                                <p className="text-xs text-slate-600">Clicca su "Scan Rete" o "Manuale" per aggiungere.</p>
+                                            </div>
+                                        ) : (
+                                            tempPrinters.map(printer => (
+                                                <div key={printer.id} className="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-slate-800">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`p-3 rounded-xl ${printer.status === 'active' ? 'bg-green-500/10 text-green-500' : 'bg-slate-800 text-slate-500'}`}>
+                                                            <PrinterIcon size={20} />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-white font-bold text-sm">{printer.name}</p>
+                                                            <p className="text-xs text-slate-500 font-mono">
+                                                                {printer.type.toUpperCase()} • {printer.address || 'USB/Locale'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`text-[10px] font-bold px-2 py-1 rounded-full uppercase ${printer.status === 'active' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                                                            {printer.status === 'active' ? 'Online' : 'Offline'}
+                                                        </div>
+                                                        <button onClick={() => handleDeletePrinter(printer.id)} className="p-2 hover:bg-red-600/20 text-slate-500 hover:text-red-500 rounded-lg transition-colors">
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+
+                                    {/* ASSEGNAZIONE REPARTI */}
+                                    {tempPrinters.length > 0 && (
+                                        <div className="border-t border-slate-800 pt-6 animate-fade-in">
+                                            <h4 className="text-white font-bold mb-4 flex items-center gap-2">
+                                                <Share2 size={16} className="text-orange-500" /> Assegnazione Reparti
+                                            </h4>
+                                            <p className="text-slate-400 text-xs mb-4">Scegli quale stampante usare per ogni reparto fisico.</p>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                {['Cucina', 'Pizzeria', 'Pub', 'Sala', 'Cassa'].map(dept => {
+                                                    const isEnabled = tempPrintSettings[dept] !== false; // Default true if undefined? No, default false in settings.
+                                                    // Actually, let's use check box to enable/disable
+
+                                                    return (
+                                                        <div key={dept} className={`p-4 rounded-xl border transition-all ${isEnabled ? 'bg-slate-950 border-slate-700' : 'bg-slate-900/50 border-slate-800 opacity-70'}`}>
+                                                            <div className="flex justify-between items-center mb-3">
+                                                                <span className="font-bold text-white text-sm">{dept}</span>
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setTempPrintSettings({ ...tempPrintSettings, [dept]: !isEnabled });
+                                                                        setHasUnsavedDestinations(true);
+                                                                    }}
+                                                                    className={`w-10 h-5 rounded-full p-0.5 transition-colors ${isEnabled ? 'bg-green-600' : 'bg-slate-700'}`}
+                                                                >
+                                                                    <div className={`w-4 h-4 rounded-full bg-white shadow transition-transform ${isEnabled ? 'translate-x-5' : ''}`}></div>
+                                                                </button>
+                                                            </div>
+
+                                                            {isEnabled && (
+                                                                <div className="relative">
+                                                                    <select
+                                                                        value={tempPrinterAssignments[dept] || ''}
+                                                                        onChange={(e) => {
+                                                                            setTempPrinterAssignments({ ...tempPrinterAssignments, [dept]: e.target.value });
+                                                                            setHasUnsavedDestinations(true);
+                                                                        }}
+                                                                        className="w-full appearance-none bg-slate-900 text-white text-xs font-bold py-2.5 pl-3 pr-8 rounded-lg border border-slate-700 outline-none focus:border-blue-500"
+                                                                    >
+                                                                        <option value="">-- Seleziona Stampante --</option>
+                                                                        {tempPrinters.map(p => (
+                                                                            <option key={p.id} value={p.id}>{p.name} ({p.address || 'USB'})</option>
+                                                                        ))}
+                                                                    </select>
+                                                                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={12} />
+                                                                </div>
+                                                            )}
+                                                            {!isEnabled && <p className="text-[10px] text-slate-500 italic mt-2">Stampa disabilitata</p>}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {hasUnsavedDestinations && (
+                                    <div className="sticky bottom-6 z-30 flex justify-center">
+                                        <button
+                                            onClick={saveDestinations}
+                                            className="px-8 py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-lg rounded-2xl shadow-xl shadow-purple-900/30 animate-bounce hover:animate-none transform hover:scale-105 transition-all flex items-center gap-3"
+                                        >
+                                            <Save size={24} /> SALVA CONFIGURAZIONE
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         )}
                         {adminTab === 'marketing' && <MarketingPanel />}
@@ -2872,7 +3483,7 @@ export function App() {
                                                         onClick={handlePrintQR}
                                                         className="py-2 px-3 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg"
                                                     >
-                                                        <Printer size={14} /> Stampa
+                                                        <PrinterIcon size={14} /> Stampa
                                                     </button>
                                                 </div>
 
@@ -2969,7 +3580,7 @@ export function App() {
                                                     onClick={() => setShowPrintableMenu(true)}
                                                     className="px-8 py-3 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700 text-white font-black rounded-xl shadow-lg shadow-orange-500/20 transform active:scale-95 transition-all flex items-center gap-2 text-lg"
                                                 >
-                                                    <Printer size={20} />
+                                                    <PrinterIcon size={20} />
                                                     GENERATORE DI MENU
                                                 </button>
                                             </div>
@@ -3381,7 +3992,7 @@ export function App() {
                                                     <div className="bg-slate-900/80 backdrop-blur border border-slate-800 p-5 rounded-2xl flex items-center gap-4 relative overflow-hidden">
                                                         <div className="absolute right-0 top-0 p-4 opacity-5"><Receipt size={80} /></div>
                                                         <div className="bg-blue-500/10 p-3 rounded-xl text-blue-400">
-                                                            <Printer size={32} />
+                                                            <PrinterIcon size={32} />
                                                         </div>
                                                         <div>
                                                             <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">Scontrini Emessi</p>
@@ -3552,7 +4163,7 @@ export function App() {
                                                                     }}
                                                                     className="w-full py-3 bg-slate-900 hover:bg-black text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg"
                                                                 >
-                                                                    <Printer size={18} /> Stampa Scontrino
+                                                                    <PrinterIcon size={18} /> Stampa Scontrino
                                                                 </button>
                                                             </div>
                                                         </div>
@@ -3717,7 +4328,7 @@ export function App() {
                                             { icon: <Receipt size={20} />, label: "Scontrini Digitali" },
                                             { icon: <Users size={20} />, label: "Multi-Postazione" },
                                             { icon: <Cloud size={20} />, label: "Sync Cloud" },
-                                            { icon: <Printer size={20} />, label: "Stampa Ordini" },
+                                            { icon: <PrinterIcon size={20} />, label: "Stampa Ordini" },
                                         ].map((f, i) => (
                                             <div key={i} className="flex items-center gap-2 bg-slate-800/50 px-3 py-2 rounded-lg text-sm">
                                                 <span className="text-orange-500">{f.icon}</span>
