@@ -116,7 +116,7 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({
 
     // Handle Spotlight Overlay
     return (
-        <div className="fixed inset-0 z-[10000] overflow-hidden">
+        <div className="fixed inset-0 z-[10000] overflow-hidden pointer-events-none">
             {/* SVG Mask for the hole */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none">
                 <defs>
@@ -158,11 +158,45 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({
             <div
                 className="absolute w-80 bg-slate-900 text-white p-6 rounded-2xl shadow-2xl border border-slate-700 animate-fade-in transition-all duration-300 z-50 pointer-events-auto"
                 style={{
-                    // Simple positioning logic: try to put it below, if not enough space, above.
-                    top: step.position === 'top'
-                        ? targetRect.top - 10 - 200 // approximation
-                        : targetRect.bottom + 20,
-                    left: Math.max(10, Math.min(window.innerWidth - 330, targetRect.left + (targetRect.width / 2) - 160)),
+                    // Smart Positioning Logic
+                    ...(() => {
+                        const pos = step.position || 'bottom';
+                        const gap = 16;
+                        const isBottomHalf = targetRect.top > window.innerHeight / 2;
+
+                        if (pos === 'right') {
+                            return {
+                                left: targetRect.right + gap,
+                                // If weak vertical space, align bottom with target bottom, else align top
+                                ...(isBottomHalf
+                                    ? { bottom: window.innerHeight - targetRect.bottom, top: 'auto' }
+                                    : { top: targetRect.top, bottom: 'auto' }
+                                )
+                            };
+                        }
+                        if (pos === 'left') {
+                            return {
+                                left: targetRect.left - 320 - gap, // 320 = w-80
+                                ...(isBottomHalf
+                                    ? { bottom: window.innerHeight - targetRect.bottom, top: 'auto' }
+                                    : { top: targetRect.top, bottom: 'auto' }
+                                )
+                            };
+                        }
+                        if (pos === 'top') {
+                            return {
+                                top: 'auto',
+                                bottom: window.innerHeight - targetRect.top + gap,
+                                left: Math.max(10, Math.min(window.innerWidth - 330, targetRect.left + (targetRect.width / 2) - 160))
+                            };
+                        }
+                        // Default Bottom
+                        return {
+                            top: targetRect.bottom + gap,
+                            bottom: 'auto',
+                            left: Math.max(10, Math.min(window.innerWidth - 330, targetRect.left + (targetRect.width / 2) - 160))
+                        };
+                    })()
                 }}
             >
                 <button
@@ -209,15 +243,17 @@ export const TutorialOverlay: React.FC<TutorialOverlayProps> = ({
                     </button>
                 </div>
 
-                {/* Arrow pointing to target */}
-                {/* Simplified arrow, could be improved with dynamic positioning */}
+                {/* Arrow pointing to target - Only show for top/bottom as side positioning arrow is harder to place generically */}
                 <div
                     className="absolute w-4 h-4 bg-slate-900 border-t border-l border-slate-700 transform rotate-45"
                     style={{
-                        top: -8,
+                        display: (step.position === 'left' || step.position === 'right') ? 'none' : 'block',
+                        ...(step.position === 'top'
+                            ? { bottom: -8, top: 'auto', borderTop: 'none', borderLeft: 'none', borderBottom: '1px solid #334155', borderRight: '1px solid #334155' }
+                            : { top: -8, bottom: 'auto' }
+                        ),
                         left: '50%',
                         marginLeft: -8,
-                        display: step.position === 'top' ? 'none' : 'block'
                     }}
                 ></div>
             </div>
